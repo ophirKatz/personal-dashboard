@@ -1,6 +1,6 @@
 # Personal Dashboard — Setup & Manual Steps
 
-This document covers every manual configuration step required to get the dashboard fully running. Code and infrastructure (Supabase schema, Vercel deployment) are handled via MCPs, but the steps below require browser-based configuration.
+This document covers every manual configuration step required to get the dashboard fully running. Code and infrastructure (Supabase schema, storage) were handled via MCPs; the steps below require browser-based configuration that MCPs cannot perform.
 
 ---
 
@@ -9,7 +9,28 @@ This document covers every manual configuration step required to get the dashboa
 - **Supabase project** created: `personal-dashboard` (ID: `tjjvrqamitwtoslinrxy`, region: eu-central-1)
 - **Database schema** applied: all 10 tables with RLS policies
 - **Storage bucket** created: `user-files` (private, 50MB limit per file, with RLS)
-- **Vercel project** linked and deployed (see Vercel section below)
+- **Code** written, committed, and pushed to branch `claude/life-dashboard-plan-fsz8sq`
+
+## What still requires manual action
+
+- **Vercel project creation** — there is no MCP tool to create a new Vercel project from a GitHub import; this must be done once via the Vercel dashboard (step 0 below)
+- **Google OAuth credentials** — must be created in Google Cloud Console (step 1 below)
+- **Environment variables** — must be set in the Vercel dashboard after the project is created (step 2 below)
+
+---
+
+## 0. Vercel — Import the Project
+
+1. Go to [Vercel Dashboard → New Project](https://vercel.com/new)
+2. Select **Import Git Repository** and choose `ophirKatz/personal-dashboard`
+3. Set **Production Branch** to `claude/life-dashboard-plan-fsz8sq` (or merge this branch into `main` first and use `main`)
+4. Framework Preset: Vercel should auto-detect **Vite**. If not, set manually:
+   - Build Command: `npm run build`
+   - Output Directory: `dist`
+5. Before clicking Deploy, add the environment variables from step 2 below (or add them after and redeploy)
+6. Click **Deploy**
+
+Once this one-time import is done, every future `git push` to the connected branch triggers an automatic deployment — no manual redeploy needed.
 
 ---
 
@@ -59,7 +80,7 @@ This **cannot** be done via MCP and requires manual steps in the Supabase and Go
 
 ## 2. Vercel — Environment Variables
 
-After deploying to Vercel (see section 4), set these environment variables in the Vercel dashboard:
+As part of the import in step 0 (or right after), set these environment variables in the Vercel dashboard:
 
 1. Go to [Vercel Dashboard](https://vercel.com/dashboard) → your project → **Settings → Environment Variables**
 2. Add the following (for all environments: Production, Preview, Development):
@@ -99,20 +120,13 @@ npm run preview
 
 ---
 
-## 4. Vercel Deployment
+## 4. Redeploying Later
 
-Deployment is triggered via the Vercel MCP. To redeploy manually:
+Once the Vercel project is imported (step 0), every `git push` to the connected branch triggers an automatic deployment. No CLI or manual redeploy is needed:
 
 ```bash
-# Using Vercel CLI (if installed)
-npm install -g vercel
-vercel --prod
-
-# Or push to the connected GitHub branch — Vercel auto-deploys on push
 git push origin claude/life-dashboard-plan-fsz8sq
 ```
-
-Vercel auto-detects Vite. Build command: `npm run build`. Output dir: `dist`.
 
 The `vercel.json` in this repo configures SPA routing (all paths → `index.html`).
 
