@@ -5,6 +5,7 @@ import type { ClimbingAttempt } from '../../supabase'
 import { Button } from '../../components/ui/button'
 import { Input } from '../../components/ui/input'
 import { today } from '../../utils'
+import { haptic } from '../../lib/haptics'
 import QuickAttempt from './QuickAttempt'
 
 type LocalAttempt = Omit<ClimbingAttempt, 'id' | 'session_id' | 'user_id' | 'created_at'>
@@ -24,6 +25,7 @@ export default function SessionForm({ userId, onSaved }: Props) {
   }
 
   function removeAttempt(index: number) {
+    haptic('light')
     setAttempts(prev => prev.filter((_, i) => i !== index))
   }
 
@@ -43,6 +45,7 @@ export default function SessionForm({ userId, onSaved }: Props) {
       attempts.map(a => ({ ...a, session_id: session.id, user_id: userId }))
     )
 
+    haptic('success')
     setAttempts([])
     setSessionDate(today())
     setSaving(false)

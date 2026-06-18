@@ -8,6 +8,7 @@ import { Textarea } from '../../components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogBody, DialogFooter } from '../../components/ui/dialog'
 import { today } from '../../utils'
+import { haptic } from '../../lib/haptics'
 
 type Props = {
   open: boolean
@@ -42,6 +43,7 @@ export default function TodoForm({ open, onClose, onSave, todo, userId }: Props)
     } else {
       await supabase.from('todos').insert(payload)
     }
+    haptic('success')
     setSaving(false)
     onSave()
     onClose()

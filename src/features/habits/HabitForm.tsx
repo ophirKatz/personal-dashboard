@@ -5,6 +5,7 @@ import { Button } from '../../components/ui/button'
 import { Input } from '../../components/ui/input'
 import { Label } from '../../components/ui/label'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogBody, DialogFooter } from '../../components/ui/dialog'
+import { haptic } from '../../lib/haptics'
 
 const COLORS = [
   '#3b82f6', '#10b981', '#f59e0b', '#ef4444',
@@ -46,6 +47,7 @@ export default function HabitForm({ open, onClose, onSave, habit, userId }: Prop
     } else {
       await supabase.from('habits').insert(payload)
     }
+    haptic('success')
     setSaving(false)
     onSave()
     onClose()
@@ -75,7 +77,7 @@ export default function HabitForm({ open, onClose, onSave, habit, userId }: Prop
                   <button
                     key={e}
                     type="button"
-                    onClick={() => setEmoji(e)}
+                    onClick={() => { haptic('selection'); setEmoji(e) }}
                     className={`text-xl p-2 rounded-lg border-2 transition-colors ${emoji === e ? 'border-primary bg-primary/10' : 'border-transparent hover:bg-accent'}`}
                   >
                     {e}
@@ -90,7 +92,7 @@ export default function HabitForm({ open, onClose, onSave, habit, userId }: Prop
                   <button
                     key={c}
                     type="button"
-                    onClick={() => setColor(c)}
+                    onClick={() => { haptic('selection'); setColor(c) }}
                     className={`w-8 h-8 rounded-full border-2 transition-transform ${color === c ? 'border-foreground scale-110' : 'border-transparent'}`}
                     style={{ backgroundColor: c }}
                   />
@@ -102,14 +104,14 @@ export default function HabitForm({ open, onClose, onSave, habit, userId }: Prop
               <div className="flex gap-2">
                 <button
                   type="button"
-                  onClick={() => setFrequency('daily')}
+                  onClick={() => { haptic('selection'); setFrequency('daily') }}
                   className={`flex-1 py-2 rounded-lg border text-sm font-medium transition-colors ${frequency === 'daily' ? 'bg-primary text-primary-foreground border-primary' : 'border-input hover:bg-accent'}`}
                 >
                   Daily
                 </button>
                 <button
                   type="button"
-                  onClick={() => setFrequency('weekly')}
+                  onClick={() => { haptic('selection'); setFrequency('weekly') }}
                   className={`flex-1 py-2 rounded-lg border text-sm font-medium transition-colors ${frequency === 'weekly' ? 'bg-primary text-primary-foreground border-primary' : 'border-input hover:bg-accent'}`}
                 >
                   Weekly

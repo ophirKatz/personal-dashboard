@@ -3,6 +3,7 @@ import { Flame, Trash2, Pencil } from 'lucide-react'
 import { supabase } from '../../supabase'
 import type { Habit, HabitLog } from '../../supabase'
 import { today } from '../../utils'
+import { haptic } from '../../lib/haptics'
 import HabitHeatmap from './HabitHeatmap'
 
 type Props = {
@@ -43,6 +44,7 @@ export default function HabitCard({ habit, logs, onEdit, onDelete, onLogChange }
   const logDates = logs.map(l => l.logged_date)
 
   async function toggleToday() {
+    haptic(todayLogged ? 'light' : 'success')
     if (todayLogged) {
       await supabase
         .from('habit_logs')
@@ -58,6 +60,11 @@ export default function HabitCard({ habit, logs, onEdit, onDelete, onLogChange }
       })
     }
     onLogChange()
+  }
+
+  function handleDelete() {
+    haptic('warning')
+    onDelete()
   }
 
   return (
@@ -86,7 +93,7 @@ export default function HabitCard({ habit, logs, onEdit, onDelete, onLogChange }
           <button onClick={onEdit} className="p-2 rounded-lg hover:bg-accent text-muted-foreground">
             <Pencil className="h-4 w-4" />
           </button>
-          <button onClick={onDelete} className="p-2 rounded-lg hover:bg-accent text-muted-foreground hover:text-destructive">
+          <button onClick={handleDelete} className="p-2 rounded-lg hover:bg-accent text-muted-foreground hover:text-destructive">
             <Trash2 className="h-4 w-4" />
           </button>
         </div>
