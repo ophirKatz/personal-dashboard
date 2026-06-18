@@ -7,6 +7,7 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
+      injectRegister: false,
       manifest: {
         name: 'Personal Dashboard',
         short_name: 'Dashboard',
