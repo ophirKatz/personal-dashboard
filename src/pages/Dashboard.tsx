@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react'
-import { CheckCircle2, Flame, Bell, CalendarDays, Plus } from 'lucide-react'
+import { CheckCircle2, Flame, Bell, CalendarDays, Plus, ShoppingCart, Folder } from 'lucide-react'
+import { Link } from 'react-router-dom'
 import { supabase } from '../supabase'
 import type { Habit, HabitLog, Todo, Reminder, CalendarEvent } from '../supabase'
 import type { User } from '@supabase/supabase-js'
-import { today, formatDateTime, PRIORITY_CONFIG } from '../utils'
+import { today, formatDateTime, formatTime, PRIORITY_CONFIG } from '../utils'
 import { isBefore, addDays, parseISO, format } from 'date-fns'
 import TodoForm from '../features/todos/TodoForm'
 
@@ -94,6 +95,28 @@ export default function Dashboard() {
         <p className="text-muted-foreground text-sm">{format(new Date(), 'EEEE, MMMM d')}</p>
       </div>
 
+      {/* Quick links */}
+      <div className="grid grid-cols-2 gap-3">
+        <Link
+          to="/shopping"
+          className="flex items-center gap-3 p-3.5 bg-card border border-border rounded-xl active:scale-[0.98] transition-transform"
+        >
+          <div className="w-9 h-9 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0">
+            <ShoppingCart className="h-4 w-4" />
+          </div>
+          <span className="text-sm font-medium">Shopping List</span>
+        </Link>
+        <Link
+          to="/files"
+          className="flex items-center gap-3 p-3.5 bg-card border border-border rounded-xl active:scale-[0.98] transition-transform"
+        >
+          <div className="w-9 h-9 rounded-lg bg-blue-100 text-blue-700 flex items-center justify-center shrink-0">
+            <Folder className="h-4 w-4" />
+          </div>
+          <span className="text-sm font-medium">Files</span>
+        </Link>
+      </div>
+
       {/* Habits */}
       {habits.length > 0 && (
         <Section title="Today's Habits" badge={`${doneCount}/${habits.length}`}>
@@ -150,8 +173,11 @@ export default function Dashboard() {
                   onClick={() => completeTodo(todo.id)}
                   className="w-5 h-5 rounded-md border-2 border-primary flex items-center justify-center shrink-0 hover:bg-primary/10"
                 />
-                <span className="flex-1 text-sm font-medium">{todo.title}</span>
-                <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${PRIORITY_CONFIG[todo.priority].className}`}>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium truncate">{todo.title}</p>
+                  {todo.due_time && <p className="text-xs text-muted-foreground mt-0.5">{formatTime(todo.due_time)}</p>}
+                </div>
+                <span className={`text-xs font-medium px-2 py-0.5 rounded-full shrink-0 ${PRIORITY_CONFIG[todo.priority].className}`}>
                   {PRIORITY_CONFIG[todo.priority].label}
                 </span>
               </div>

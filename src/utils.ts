@@ -24,6 +24,10 @@ export function formatDate(dateStr: string): string {
   return format(date, 'MMM d')
 }
 
+export function formatTime(timeStr: string): string {
+  return format(new Date(`2000-01-01T${timeStr}`), 'h:mm a')
+}
+
 export function formatDateTime(dateStr: string): string {
   const date = new Date(dateStr)
   if (isToday(date)) return `Today at ${format(date, 'h:mm a')}`

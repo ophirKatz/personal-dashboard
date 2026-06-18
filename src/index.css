@@ -41,3 +41,13 @@
 .pb-safe {
   padding-bottom: env(safe-area-inset-bottom);
 }
+
+/* iOS Safari auto-zooms the page on focus when a form field's font-size is
+   below 16px. Force 16px on mobile so focusing inputs never triggers it. */
+@media (max-width: 767px) {
+  input,
+  textarea,
+  select {
+    font-size: 16px !important;
+  }
+}
