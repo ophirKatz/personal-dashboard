@@ -51,14 +51,14 @@ function EventForm({ open, onClose, onSave, event, userId }: {
               <Label>Title</Label>
               <Input value={title} onChange={e => setTitle(e.target.value)} placeholder="Event name" autoFocus />
             </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-2">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2 min-w-0">
                 <Label>Date</Label>
-                <Input type="date" value={eventDate} onChange={e => setEventDate(e.target.value)} />
+                <Input type="date" value={eventDate} onChange={e => setEventDate(e.target.value)} className="min-w-0" />
               </div>
-              <div className="space-y-2">
+              <div className="space-y-2 min-w-0">
                 <Label>Time (optional)</Label>
-                <Input type="time" value={eventTime} onChange={e => setEventTime(e.target.value)} />
+                <Input type="time" value={eventTime} onChange={e => setEventTime(e.target.value)} className="min-w-0" />
               </div>
             </div>
             <div className="space-y-2">
