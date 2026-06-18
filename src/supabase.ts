@@ -30,6 +30,7 @@ export type Todo = {
   title: string
   notes: string | null
   due_date: string | null
+  due_time: string | null
   priority: 'low' | 'medium' | 'high'
   completed: boolean
   completed_at: string | null

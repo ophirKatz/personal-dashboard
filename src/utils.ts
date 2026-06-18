@@ -13,6 +13,10 @@ export const CLIMBING_GRADES = [
 
 export type ClimbingGrade = typeof CLIMBING_GRADES[number]
 
+export const QUICK_LOG_GRADES = [
+  'v2-3', 'v3-4', 'v4-5', 'v5-6', 'v6-7', 'v7-8',
+] as const
+
 export function today(): string {
   return format(new Date(), 'yyyy-MM-dd')
 }
@@ -22,6 +26,10 @@ export function formatDate(dateStr: string): string {
   if (isToday(date)) return 'Today'
   if (isTomorrow(date)) return 'Tomorrow'
   return format(date, 'MMM d')
+}
+
+export function formatTime(timeStr: string): string {
+  return format(new Date(`2000-01-01T${timeStr}`), 'h:mm a')
 }
 
 export function formatDateTime(dateStr: string): string {

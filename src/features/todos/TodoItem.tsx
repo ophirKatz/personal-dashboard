@@ -1,7 +1,7 @@
 import { Pencil, Trash2, CalendarDays } from 'lucide-react'
 import { supabase } from '../../supabase'
 import type { Todo } from '../../supabase'
-import { cn, PRIORITY_CONFIG, formatDate } from '../../utils'
+import { cn, PRIORITY_CONFIG, formatDate, formatTime } from '../../utils'
 import { Checkbox } from '../../components/ui/checkbox'
 
 type Props = {
@@ -38,7 +38,7 @@ export default function TodoItem({ todo, onEdit, onDelete, onChange }: Props) {
           {todo.due_date && (
             <span className="flex items-center gap-1 text-xs text-muted-foreground">
               <CalendarDays className="h-3 w-3" />
-              {formatDate(todo.due_date)}
+              {formatDate(todo.due_date)}{todo.due_time && ` · ${formatTime(todo.due_time)}`}
             </span>
           )}
         </div>

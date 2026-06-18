@@ -20,7 +20,8 @@ type Props = {
 export default function TodoForm({ open, onClose, onSave, todo, userId }: Props) {
   const [title, setTitle] = useState(todo?.title ?? '')
   const [notes, setNotes] = useState(todo?.notes ?? '')
-  const [dueDate, setDueDate] = useState(todo?.due_date ?? '')
+  const [dueDate, setDueDate] = useState(todo?.due_date ?? today())
+  const [dueTime, setDueTime] = useState(todo?.due_time ?? '')
   const [priority, setPriority] = useState<'low' | 'medium' | 'high'>(todo?.priority ?? 'medium')
   const [saving, setSaving] = useState(false)
 
@@ -32,6 +33,7 @@ export default function TodoForm({ open, onClose, onSave, todo, userId }: Props)
       title: title.trim(),
       notes: notes.trim() || null,
       due_date: dueDate || null,
+      due_time: dueDate ? dueTime || null : null,
       priority,
       user_id: userId,
     }
@@ -63,16 +65,20 @@ export default function TodoForm({ open, onClose, onSave, todo, userId }: Props)
                 <Input type="date" value={dueDate} min={today()} onChange={e => setDueDate(e.target.value)} />
               </div>
               <div className="space-y-2">
-                <Label>Priority</Label>
-                <Select value={priority} onValueChange={(v: 'low' | 'medium' | 'high') => setPriority(v)}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="low">Low</SelectItem>
-                    <SelectItem value="medium">Medium</SelectItem>
-                    <SelectItem value="high">High</SelectItem>
-                  </SelectContent>
-                </Select>
+                <Label>Time</Label>
+                <Input type="time" value={dueTime} disabled={!dueDate} onChange={e => setDueTime(e.target.value)} />
               </div>
+            </div>
+            <div className="space-y-2">
+              <Label>Priority</Label>
+              <Select value={priority} onValueChange={(v: 'low' | 'medium' | 'high') => setPriority(v)}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="low">Low</SelectItem>
+                  <SelectItem value="medium">Medium</SelectItem>
+                  <SelectItem value="high">High</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
             <div className="space-y-2">
               <Label>Notes</Label>
