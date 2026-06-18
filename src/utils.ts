@@ -13,6 +13,10 @@ export const CLIMBING_GRADES = [
 
 export type ClimbingGrade = typeof CLIMBING_GRADES[number]
 
+export const QUICK_LOG_GRADES = [
+  'v2-3', 'v3-4', 'v4-5', 'v5-6', 'v6-7', 'v7-8',
+] as const
+
 export function today(): string {
   return format(new Date(), 'yyyy-MM-dd')
 }
