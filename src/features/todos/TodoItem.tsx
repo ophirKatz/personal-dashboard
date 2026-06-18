@@ -3,6 +3,7 @@ import { supabase } from '../../supabase'
 import type { Todo } from '../../supabase'
 import { cn, PRIORITY_CONFIG, formatDate, formatTime } from '../../utils'
 import { Checkbox } from '../../components/ui/checkbox'
+import { haptic } from '../../lib/haptics'
 
 type Props = {
   todo: Todo
@@ -13,11 +14,17 @@ type Props = {
 
 export default function TodoItem({ todo, onEdit, onDelete, onChange }: Props) {
   async function toggleComplete() {
+    haptic(todo.completed ? 'light' : 'success')
     await supabase.from('todos').update({
       completed: !todo.completed,
       completed_at: todo.completed ? null : new Date().toISOString(),
     }).eq('id', todo.id)
     onChange()
+  }
+
+  function handleDelete() {
+    haptic('warning')
+    onDelete()
   }
 
   const priority = PRIORITY_CONFIG[todo.priority]
@@ -48,7 +55,7 @@ export default function TodoItem({ todo, onEdit, onDelete, onChange }: Props) {
         <button onClick={onEdit} className="p-1.5 rounded-lg hover:bg-accent text-muted-foreground">
           <Pencil className="h-4 w-4" />
         </button>
-        <button onClick={onDelete} className="p-1.5 rounded-lg hover:bg-accent text-muted-foreground hover:text-destructive">
+        <button onClick={handleDelete} className="p-1.5 rounded-lg hover:bg-accent text-muted-foreground hover:text-destructive">
           <Trash2 className="h-4 w-4" />
         </button>
       </div>

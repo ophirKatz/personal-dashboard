@@ -7,6 +7,7 @@ import { Label } from '../../components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogBody, DialogFooter } from '../../components/ui/dialog'
 import { format } from 'date-fns'
+import { haptic } from '../../lib/haptics'
 
 type Props = {
   open: boolean
@@ -38,6 +39,7 @@ export default function ReminderForm({ open, onClose, onSave, reminder, userId }
     } else {
       await supabase.from('reminders').insert(payload)
     }
+    haptic('success')
     setSaving(false)
     onSave()
     onClose()
