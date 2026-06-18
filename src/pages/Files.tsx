@@ -1,10 +1,11 @@
 import { useEffect, useState, useRef } from 'react'
-import { Plus, Download, Trash2, Folder as FolderIcon, File, Upload, X } from 'lucide-react'
+import { Plus, Download, Trash2, Folder as FolderIcon, File, Upload, X, FolderInput } from 'lucide-react'
 import { supabase } from '../supabase'
 import type { FileRecord } from '../supabase'
 import type { User } from '@supabase/supabase-js'
 import { Button } from '../components/ui/button'
 import { Input } from '../components/ui/input'
+import { ImportDriveDialog } from '../components/ImportDriveDialog'
 import { formatFileSize, fileIcon, today } from '../utils'
 import { format } from 'date-fns'
 
@@ -16,6 +17,7 @@ export default function Files() {
   const [uploading, setUploading] = useState(false)
   const [uploadProgress, setUploadProgress] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
+  const [importOpen, setImportOpen] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -150,7 +152,13 @@ export default function Files() {
 
   return (
     <div className="p-4 max-w-2xl mx-auto">
-      <h1 className="text-2xl font-bold mb-6">Files</h1>
+      <div className="flex items-center justify-between mb-6">
+        <h1 className="text-2xl font-bold">Files</h1>
+        <Button variant="outline" size="sm" onClick={() => setImportOpen(true)} className="gap-1.5">
+          <FolderInput className="h-4 w-4" />
+          Import from Drive
+        </Button>
+      </div>
 
       <form onSubmit={createFolder} className="flex gap-2 mb-5">
         <Input
@@ -163,6 +171,8 @@ export default function Files() {
           <Plus className="h-4 w-4" />
         </Button>
       </form>
+
+      <ImportDriveDialog open={importOpen} onOpenChange={setImportOpen} user={user} onImported={load} />
 
       {loading ? (
         <div className="flex justify-center py-12"><div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" /></div>

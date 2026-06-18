@@ -89,11 +89,36 @@ As part of the import in step 0 (or right after), set these environment variable
 |---|---|
 | `VITE_SUPABASE_URL` | `https://tjjvrqamitwtoslinrxy.supabase.co` |
 | `VITE_SUPABASE_ANON_KEY` | `eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRqanZycWFtaXR3dG9zbGlucnh5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE2Mzg1OTYsImV4cCI6MjA5NzIxNDU5Nn0.jl6QgjKL4amur6X0WzjeebBHnUBr09fB92eHs5f77oo` |
+| `VITE_GOOGLE_DRIVE_CLIENT_ID` | *(see section 1d below — only needed for the Drive import feature)* |
 
 3. After saving, **redeploy** the project for env vars to take effect:
    - Go to **Deployments** tab → latest deployment → **⋯ → Redeploy**
 
 > **Note:** The `.env.local` file in the repo already has these values for local development. It is gitignored and will NOT be committed.
+
+---
+
+## 1d. Google Drive Import — OAuth Client Setup
+
+The **Files** page has an "Import from Drive" button that lets a logged-in user paste a Google Drive folder link and import its files (including subfolders, flattened) straight into Supabase Storage. The transfer happens entirely in the browser — Drive bytes go directly from Google to Supabase via the user's already-authenticated `fetch` calls, never through a server or this assistant.
+
+This requires its own OAuth Client ID (separate from the app's login OAuth client in step 1a — that one is for Supabase Auth login; this one is for Drive API access and uses Google Identity Services' browser token flow, no client secret needed).
+
+1. Go to [Google Cloud Console](https://console.cloud.google.com/) → the same project used in step 1a (or a new one)
+2. Navigate to **APIs & Services → Library**, search for **Google Drive API**, and click **Enable**
+3. Navigate to **APIs & Services → Credentials → + Create Credentials → OAuth client ID**
+4. Application type: **Web application**
+5. Name: `personal-dashboard-drive-import` (or anything)
+6. **Authorized JavaScript origins** — add:
+   - `http://localhost:5173`
+   - `https://<your-vercel-app>.vercel.app`
+7. Leave **Authorized redirect URIs** empty (not used by the token flow)
+8. Click **Create** and copy the **Client ID** (the secret is not used and can be ignored)
+9. Set it as `VITE_GOOGLE_DRIVE_CLIENT_ID` in `.env.local` (for local dev) and in Vercel env vars (for production), then redeploy
+
+> If this Client ID is unset, the Import from Drive button will show a clear error instead of failing silently.
+
+**Using it:** open a folder, click **Import from Drive**, paste the folder's share link (e.g. `https://drive.google.com/drive/folders/<id>`), name the destination folder, and click **Connect & Import**. The first time, Google will show a consent screen scoped to read-only Drive access — approve it, and the import begins. Files in subfolders are flattened into the destination folder with the subfolder path prefixed to the filename.
 
 ---
 
