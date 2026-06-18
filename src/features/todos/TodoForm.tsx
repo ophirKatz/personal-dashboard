@@ -61,14 +61,14 @@ export default function TodoForm({ open, onClose, onSave, todo, userId }: Props)
               <Label>Title</Label>
               <Input value={title} onChange={e => setTitle(e.target.value)} placeholder="What needs doing?" autoFocus />
             </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-2">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2 min-w-0">
                 <Label>Due date</Label>
-                <Input type="date" value={dueDate} min={today()} onChange={e => setDueDate(e.target.value)} />
+                <Input type="date" value={dueDate} min={today()} onChange={e => setDueDate(e.target.value)} className="min-w-0" />
               </div>
-              <div className="space-y-2">
+              <div className="space-y-2 min-w-0">
                 <Label>Time</Label>
-                <Input type="time" value={dueTime} disabled={!dueDate} onChange={e => setDueTime(e.target.value)} />
+                <Input type="time" value={dueTime} disabled={!dueDate} onChange={e => setDueTime(e.target.value)} className="min-w-0" />
               </div>
             </div>
             <div className="space-y-2">
