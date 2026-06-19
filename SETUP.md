@@ -89,6 +89,7 @@ As part of the import in step 0 (or right after), set these environment variable
 |---|---|
 | `VITE_SUPABASE_URL` | `https://tjjvrqamitwtoslinrxy.supabase.co` |
 | `VITE_SUPABASE_ANON_KEY` | `eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRqanZycWFtaXR3dG9zbGlucnh5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE2Mzg1OTYsImV4cCI6MjA5NzIxNDU5Nn0.jl6QgjKL4amur6X0WzjeebBHnUBr09fB92eHs5f77oo` |
+| `VITE_FINNHUB_API_KEY` | Free key from [finnhub.io/register](https://finnhub.io/register) — powers the TENB stock quote on the Finance page |
 
 3. After saving, **redeploy** the project for env vars to take effect:
    - Go to **Deployments** tab → latest deployment → **⋯ → Redeploy**
@@ -186,6 +187,7 @@ Storage objects are scoped to `(storage.foldername(name))[1] = auth.uid()::text`
 | Shopping | `/shopping` | Multiple named lists |
 | Calendar | `/calendar` | Upcoming events only (past hidden) |
 | Files | `/files` | Folder-based file storage |
+| Finance | `/finance` | USD/EUR/NIS converter (free, no-key [currency-api](https://github.com/fawazahmed0/currency-api)) + TENB stock quote (Finnhub, needs `VITE_FINNHUB_API_KEY`) |
 
 ---
 

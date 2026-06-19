@@ -12,6 +12,7 @@ import Climbing from './pages/Climbing'
 import Shopping from './pages/Shopping'
 import Calendar from './pages/Calendar'
 import Files from './pages/Files'
+import Finance from './pages/Finance'
 
 export default function App() {
   const [user, setUser] = useState<User | null | undefined>(undefined)
@@ -47,6 +48,7 @@ export default function App() {
         <Route path="shopping" element={<Shopping />} />
         <Route path="calendar" element={<Calendar />} />
         <Route path="files" element={<Files />} />
+        <Route path="finance" element={<Finance />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
     </Routes>
