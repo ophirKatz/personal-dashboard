@@ -150,8 +150,7 @@ The `vercel.json` in this repo configures SPA routing (all paths → `index.html
 | `reminders` | Time-based reminders with optional repeat |
 | `climbing_sessions` | Bouldering session records |
 | `climbing_attempts` | Individual attempts within a session |
-| `shopping_lists` | Named shopping lists |
-| `shopping_items` | Items within a list |
+| `shopping_items` | Flat shopping list items (single list per user) |
 | `events` | Calendar events |
 | `files` | File metadata (actual files in Storage) |
 
@@ -184,7 +183,7 @@ Storage objects are scoped to `(storage.foldername(name))[1] = auth.uid()::text`
 | Todos | `/todos` | Filters: Today / Upcoming / All / Done |
 | Reminders | `/reminders` | Overdue highlighted, dismiss advances repeat |
 | Climbing | `/climbing` | Log / History / Stats tabs |
-| Shopping | `/shopping` | Multiple named lists |
+| Shopping | `/shopping` | Single flat list |
 | Calendar | `/calendar` | Upcoming events only (past hidden) |
 | Files | `/files` | Folder-based file storage |
 | Finance | `/finance` | USD/EUR/NIS converter (free, no-key [currency-api](https://github.com/fawazahmed0/currency-api)) + TENB stock quote, proxied server-side through `/api/stock-quote` (Finnhub, needs `FINNHUB_API_KEY`) so the key never reaches the browser |

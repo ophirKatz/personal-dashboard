@@ -6,6 +6,7 @@ import type { User } from '@supabase/supabase-js'
 import TodoItem from '../features/todos/TodoItem'
 import TodoForm from '../features/todos/TodoForm'
 import { Button } from '../components/ui/button'
+import { Input } from '../components/ui/input'
 import { today } from '../utils'
 
 type Filter = 'today' | 'upcoming' | 'all' | 'completed'
@@ -24,6 +25,7 @@ export default function Todos() {
   const [showForm, setShowForm] = useState(false)
   const [editingTodo, setEditingTodo] = useState<Todo | undefined>()
   const [loading, setLoading] = useState(true)
+  const [newTitle, setNewTitle] = useState('')
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => setUser(user))
@@ -40,6 +42,15 @@ export default function Todos() {
   async function deleteTodo(id: string) {
     await supabase.from('todos').delete().eq('id', id)
     load()
+  }
+
+  async function addTodo(e: React.FormEvent) {
+    e.preventDefault()
+    if (!newTitle.trim() || !user) return
+    const { data } = await supabase.from('todos').insert({
+      title: newTitle.trim(), user_id: user.id,
+    }).select().single()
+    if (data) { setTodos(prev => [data, ...prev]); setNewTitle('') }
   }
 
   const t = today()
@@ -62,12 +73,14 @@ export default function Todos() {
 
   return (
     <div className="p-4 max-w-2xl mx-auto">
-      <div className="flex items-center justify-between mb-5">
-        <h1 className="text-2xl font-bold">Tasks</h1>
-        <Button onClick={() => { setEditingTodo(undefined); setShowForm(true) }} size="icon" className="rounded-xl h-11 w-11">
-          <Plus className="h-5 w-5" />
+      <h1 className="text-2xl font-bold mb-6">Tasks</h1>
+
+      <form onSubmit={addTodo} className="flex gap-2 mb-5">
+        <Input value={newTitle} onChange={e => setNewTitle(e.target.value)} placeholder="Add task…" className="flex-1" />
+        <Button type="submit" size="icon" disabled={!newTitle.trim()}>
+          <Plus className="h-4 w-4" />
         </Button>
-      </div>
+      </form>
 
       {/* Filter tabs */}
       <div className="flex gap-1 bg-muted p-1 rounded-xl mb-5 overflow-x-auto">
