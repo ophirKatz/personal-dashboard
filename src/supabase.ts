@@ -100,3 +100,22 @@ export type FileRecord = {
   mime_type: string
   created_at: string
 }
+
+export type StockAlert = {
+  id: string
+  user_id: string
+  symbol: string
+  target_price: number
+  triggered_at: string | null
+  created_at: string
+}
+
+export type Notification = {
+  id: string
+  user_id: string
+  type: string
+  title: string
+  message: string
+  read: boolean
+  created_at: string
+}

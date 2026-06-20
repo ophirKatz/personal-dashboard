@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react'
-import { CheckCircle2, Flame, Bell, CalendarDays, Plus, ShoppingCart, Folder } from 'lucide-react'
+import { CheckCircle2, Flame, Bell, CalendarDays, Plus, ShoppingCart, Folder, X } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { supabase } from '../supabase'
-import type { Habit, HabitLog, Todo, Reminder, CalendarEvent } from '../supabase'
+import type { Habit, HabitLog, Todo, Reminder, CalendarEvent, Notification } from '../supabase'
 import type { User } from '@supabase/supabase-js'
 import { today, formatDateTime, formatTime, PRIORITY_CONFIG } from '../utils'
 import { isBefore, addDays, parseISO, format } from 'date-fns'
@@ -15,6 +15,7 @@ export default function Dashboard() {
   const [todos, setTodos] = useState<Todo[]>([])
   const [reminders, setReminders] = useState<Reminder[]>([])
   const [events, setEvents] = useState<CalendarEvent[]>([])
+  const [notifications, setNotifications] = useState<Notification[]>([])
   const [showAddTodo, setShowAddTodo] = useState(false)
   const [loading, setLoading] = useState(true)
   const [quickTitle, setQuickTitle] = useState('')
@@ -27,12 +28,13 @@ export default function Dashboard() {
     const t = today()
     const in7 = format(addDays(new Date(), 7), 'yyyy-MM-dd')
 
-    const [habitsRes, logsRes, todosRes, remindersRes, eventsRes] = await Promise.all([
+    const [habitsRes, logsRes, todosRes, remindersRes, eventsRes, notificationsRes] = await Promise.all([
       supabase.from('habits').select('*').order('created_at'),
       supabase.from('habit_logs').select('*').eq('logged_date', t),
       supabase.from('todos').select('*').eq('completed', false).or(`due_date.eq.${t},due_date.is.null`).order('created_at'),
       supabase.from('reminders').select('*').lte('remind_at', new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()).order('remind_at'),
       supabase.from('events').select('*').gte('event_date', t).lte('event_date', in7).order('event_date').order('event_time'),
+      supabase.from('notifications').select('*').eq('read', false).order('created_at', { ascending: false }),
     ])
 
     setHabits(habitsRes.data ?? [])
@@ -40,6 +42,7 @@ export default function Dashboard() {
     setTodos(todosRes.data ?? [])
     setReminders(remindersRes.data ?? [])
     setEvents(eventsRes.data ?? [])
+    setNotifications(notificationsRes.data ?? [])
     setLoading(false)
   }
 
@@ -55,6 +58,11 @@ export default function Dashboard() {
     }
     const { data } = await supabase.from('habit_logs').select('*').eq('logged_date', today())
     setTodayLogs(data ?? [])
+  }
+
+  async function dismissNotification(id: string) {
+    await supabase.from('notifications').update({ read: true }).eq('id', id)
+    setNotifications(prev => prev.filter(n => n.id !== id))
   }
 
   async function completeTodo(id: string) {
@@ -94,6 +102,24 @@ export default function Dashboard() {
         <h1 className="text-2xl font-bold">{greetingTime()}</h1>
         <p className="text-muted-foreground text-sm">{format(new Date(), 'EEEE, MMMM d')}</p>
       </div>
+
+      {/* Notifications */}
+      {notifications.length > 0 && (
+        <div className="space-y-2">
+          {notifications.map(n => (
+            <div key={n.id} className="flex items-start gap-3 p-3.5 rounded-xl border bg-primary/5 border-primary/30">
+              <Bell className="h-4 w-4 text-primary shrink-0 mt-0.5" />
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium">{n.title}</p>
+                <p className="text-xs text-muted-foreground mt-0.5">{n.message}</p>
+              </div>
+              <button onClick={() => dismissNotification(n.id)} className="p-1 rounded-lg hover:bg-accent text-muted-foreground shrink-0" title="Dismiss">
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* Quick links */}
       <div className="grid grid-cols-2 gap-3">
