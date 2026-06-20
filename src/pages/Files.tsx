@@ -1,10 +1,11 @@
 import { useEffect, useState, useRef } from 'react'
-import { Plus, Download, Trash2, Folder as FolderIcon, File, Upload, X } from 'lucide-react'
+import { Plus, Download, Trash2, Folder as FolderIcon, File, Upload, X, Eye } from 'lucide-react'
 import { supabase } from '../supabase'
 import type { FileRecord } from '../supabase'
 import type { User } from '@supabase/supabase-js'
 import { Button } from '../components/ui/button'
 import { Input } from '../components/ui/input'
+import { FileViewer, isViewable } from '../components/FileViewer'
 import { formatFileSize, fileIcon, today } from '../utils'
 import { format } from 'date-fns'
 
@@ -16,6 +17,7 @@ export default function Files() {
   const [uploading, setUploading] = useState(false)
   const [uploadProgress, setUploadProgress] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
+  const [viewingFile, setViewingFile] = useState<FileRecord | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -133,6 +135,11 @@ export default function Files() {
                   </p>
                 </div>
                 <div className="flex items-center gap-1">
+                  {isViewable(file.mime_type) && (
+                    <button onClick={() => setViewingFile(file)} className="p-2 rounded-lg hover:bg-accent text-muted-foreground">
+                      <Eye className="h-4 w-4" />
+                    </button>
+                  )}
                   <button onClick={() => downloadFile(file)} className="p-2 rounded-lg hover:bg-accent text-muted-foreground">
                     <Download className="h-4 w-4" />
                   </button>
@@ -144,6 +151,8 @@ export default function Files() {
             ))}
           </div>
         )}
+
+        <FileViewer file={viewingFile} onClose={() => setViewingFile(null)} />
       </div>
     )
   }
