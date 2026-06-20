@@ -102,25 +102,29 @@ export default function StockCard() {
             <Stat label="Low" value={quote.low} />
           </div>
 
-          <form onSubmit={saveAlert} className="flex items-center gap-2 pt-2 border-t border-border">
-            <Bell className={`h-4 w-4 shrink-0 ${alert?.triggered_at ? 'text-primary' : 'text-muted-foreground'}`} />
-            <label htmlFor="stock-alert-target" className="text-sm text-muted-foreground shrink-0">Notify above $</label>
-            <input
-              id="stock-alert-target"
-              type="number"
-              step="0.01"
-              min="0"
-              value={targetInput}
-              onChange={e => setTargetInput(e.target.value)}
-              className="flex-1 h-9 px-2.5 rounded-lg border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-            />
-            <button
-              type="submit"
-              disabled={savingAlert || !alert}
-              className="h-9 px-3 rounded-lg bg-primary text-primary-foreground text-sm font-medium disabled:opacity-40"
-            >
-              Save
-            </button>
+          <form onSubmit={saveAlert} className="space-y-2 pt-2 border-t border-border">
+            <label htmlFor="stock-alert-target" className="flex items-center gap-1.5 text-sm text-muted-foreground">
+              <Bell className={`h-4 w-4 shrink-0 ${alert?.triggered_at ? 'text-primary' : 'text-muted-foreground'}`} />
+              Notify above $
+            </label>
+            <div className="flex items-center gap-2">
+              <input
+                id="stock-alert-target"
+                type="number"
+                step="0.01"
+                min="0"
+                value={targetInput}
+                onChange={e => setTargetInput(e.target.value)}
+                className="flex-1 min-w-0 h-9 px-2.5 rounded-lg border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+              />
+              <button
+                type="submit"
+                disabled={savingAlert || !alert}
+                className="h-9 px-3 rounded-lg bg-primary text-primary-foreground text-sm font-medium disabled:opacity-40 shrink-0"
+              >
+                Save
+              </button>
+            </div>
           </form>
         </>
       )}
