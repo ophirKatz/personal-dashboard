@@ -7,6 +7,12 @@ import type { User } from '@supabase/supabase-js'
 import { today, formatDateTime, formatTime, PRIORITY_CONFIG } from '../utils'
 import { isBefore, addDays, parseISO, format } from 'date-fns'
 import TodoForm from '../features/todos/TodoForm'
+import { fetchGoogleCalendarEvents } from '../features/calendar/googleCalendar'
+import type { GoogleCalendarEvent } from '../features/calendar/googleCalendar'
+
+type DashboardEvent =
+  | { source: 'local'; event: CalendarEvent }
+  | { source: 'google'; event: GoogleCalendarEvent }
 
 export default function Dashboard() {
   const [user, setUser] = useState<User | null>(null)
@@ -15,6 +21,7 @@ export default function Dashboard() {
   const [todos, setTodos] = useState<Todo[]>([])
   const [reminders, setReminders] = useState<Reminder[]>([])
   const [events, setEvents] = useState<CalendarEvent[]>([])
+  const [googleEvents, setGoogleEvents] = useState<GoogleCalendarEvent[]>([])
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [showAddTodo, setShowAddTodo] = useState(false)
   const [loading, setLoading] = useState(true)
@@ -28,13 +35,14 @@ export default function Dashboard() {
     const t = today()
     const in7 = format(addDays(new Date(), 7), 'yyyy-MM-dd')
 
-    const [habitsRes, logsRes, todosRes, remindersRes, eventsRes, notificationsRes] = await Promise.all([
+    const [habitsRes, logsRes, todosRes, remindersRes, eventsRes, notificationsRes, googleRes] = await Promise.all([
       supabase.from('habits').select('*').order('created_at'),
       supabase.from('habit_logs').select('*').eq('logged_date', t),
       supabase.from('todos').select('*').eq('completed', false).or(`due_date.eq.${t},due_date.is.null`).order('created_at'),
       supabase.from('reminders').select('*').lte('remind_at', new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()).order('remind_at'),
       supabase.from('events').select('*').gte('event_date', t).lte('event_date', in7).order('event_date').order('event_time'),
       supabase.from('notifications').select('*').eq('read', false).order('created_at', { ascending: false }),
+      fetchGoogleCalendarEvents(7),
     ])
 
     setHabits(habitsRes.data ?? [])
@@ -43,6 +51,7 @@ export default function Dashboard() {
     setReminders(remindersRes.data ?? [])
     setEvents(eventsRes.data ?? [])
     setNotifications(notificationsRes.data ?? [])
+    setGoogleEvents(googleRes.events)
     setLoading(false)
   }
 
@@ -87,6 +96,15 @@ export default function Dashboard() {
   const overdueReminders = reminders.filter(r => isBefore(new Date(r.remind_at), now))
   const upcomingReminders = reminders.filter(r => !isBefore(new Date(r.remind_at), now)).slice(0, 5)
   const doneCount = habits.filter(h => todayLogs.some(l => l.habit_id === h.id)).length
+
+  const mergedEvents: DashboardEvent[] = [
+    ...events.map(event => ({ source: 'local' as const, event })),
+    ...googleEvents.map(event => ({ source: 'google' as const, event })),
+  ].sort((a, b) => {
+    const dateCompare = a.event.event_date.localeCompare(b.event.event_date)
+    if (dateCompare !== 0) return dateCompare
+    return (a.event.event_time ?? '99:99:99').localeCompare(b.event.event_time ?? '99:99:99')
+  })
 
   if (loading) {
     return (
@@ -236,14 +254,19 @@ export default function Dashboard() {
       )}
 
       {/* Events */}
-      {events.length > 0 && (
+      {mergedEvents.length > 0 && (
         <Section title="Upcoming Events">
           <div className="space-y-2">
-            {events.slice(0, 5).map(event => (
-              <div key={event.id} className="flex items-center gap-3 p-3.5 bg-card border border-border rounded-xl">
+            {mergedEvents.slice(0, 5).map(({ source, event }) => (
+              <div key={`${source}-${event.id}`} className="flex items-center gap-3 p-3.5 bg-card border border-border rounded-xl">
                 <CalendarDays className="h-4 w-4 text-muted-foreground shrink-0" />
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium truncate">{event.title}</p>
+                  <div className="flex items-center gap-1.5">
+                    <p className="text-sm font-medium truncate">{event.title}</p>
+                    {source === 'google' && (
+                      <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-blue-100 text-blue-700 shrink-0">Google</span>
+                    )}
+                  </div>
                   <p className="text-xs text-muted-foreground">
                     {format(parseISO(event.event_date), 'MMM d')}
                     {event.event_time && ` · ${format(new Date(`2000-01-01T${event.event_time}`), 'h:mm a')}`}
@@ -255,7 +278,7 @@ export default function Dashboard() {
         </Section>
       )}
 
-      {habits.length === 0 && todos.length === 0 && reminders.length === 0 && events.length === 0 && (
+      {habits.length === 0 && todos.length === 0 && reminders.length === 0 && mergedEvents.length === 0 && (
         <div className="text-center py-16 text-muted-foreground">
           <div className="text-5xl mb-4">🌅</div>
           <p className="font-semibold text-lg text-foreground">Welcome!</p>

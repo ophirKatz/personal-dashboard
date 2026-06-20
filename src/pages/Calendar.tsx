@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Plus, Pencil, Trash2 } from 'lucide-react'
+import { Plus, Pencil, Trash2, ExternalLink, Link2 } from 'lucide-react'
 import { supabase } from '../supabase'
 import type { CalendarEvent } from '../supabase'
 import type { User } from '@supabase/supabase-js'
@@ -10,6 +10,12 @@ import { Textarea } from '../components/ui/textarea'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogBody, DialogFooter } from '../components/ui/dialog'
 import { today, formatDate } from '../utils'
 import { format, parseISO, isToday, isTomorrow } from 'date-fns'
+import { fetchGoogleCalendarEvents, connectGoogleCalendar } from '../features/calendar/googleCalendar'
+import type { GoogleCalendarEvent } from '../features/calendar/googleCalendar'
+
+type MergedEvent =
+  | { source: 'local'; event: CalendarEvent }
+  | { source: 'google'; event: GoogleCalendarEvent }
 
 function EventForm({ open, onClose, onSave, event, userId }: {
   open: boolean; onClose: () => void; onSave: () => void; event?: CalendarEvent; userId: string
@@ -79,6 +85,8 @@ function EventForm({ open, onClose, onSave, event, userId }: {
 export default function Calendar() {
   const [user, setUser] = useState<User | null>(null)
   const [events, setEvents] = useState<CalendarEvent[]>([])
+  const [googleEvents, setGoogleEvents] = useState<GoogleCalendarEvent[]>([])
+  const [googleConnected, setGoogleConnected] = useState(true)
   const [showForm, setShowForm] = useState(false)
   const [editing, setEditing] = useState<CalendarEvent | undefined>()
   const [loading, setLoading] = useState(true)
@@ -88,8 +96,13 @@ export default function Calendar() {
   }, [])
 
   async function load() {
-    const { data } = await supabase.from('events').select('*').gte('event_date', today()).order('event_date').order('event_time')
-    setEvents(data ?? [])
+    const [localRes, googleRes] = await Promise.all([
+      supabase.from('events').select('*').gte('event_date', today()).order('event_date').order('event_time'),
+      fetchGoogleCalendarEvents(30),
+    ])
+    setEvents(localRes.data ?? [])
+    setGoogleEvents(googleRes.events)
+    setGoogleConnected(googleRes.connected)
     setLoading(false)
   }
 
@@ -100,11 +113,17 @@ export default function Calendar() {
     load()
   }
 
-  function groupByDate(events: CalendarEvent[]) {
-    const groups: Record<string, CalendarEvent[]> = {}
-    events.forEach(e => {
-      groups[e.event_date] = [...(groups[e.event_date] ?? []), e]
+  function groupByDate(localEvents: CalendarEvent[], googleEvents: GoogleCalendarEvent[]) {
+    const groups: Record<string, MergedEvent[]> = {}
+    localEvents.forEach(e => {
+      groups[e.event_date] = [...(groups[e.event_date] ?? []), { source: 'local', event: e }]
     })
+    googleEvents.forEach(e => {
+      groups[e.event_date] = [...(groups[e.event_date] ?? []), { source: 'google', event: e }]
+    })
+    Object.values(groups).forEach(items =>
+      items.sort((a, b) => (a.event.event_time ?? '99:99:99').localeCompare(b.event.event_time ?? '99:99:99'))
+    )
     return Object.entries(groups).sort(([a], [b]) => a.localeCompare(b))
   }
 
@@ -124,9 +143,19 @@ export default function Calendar() {
         </Button>
       </div>
 
+      {!loading && !googleConnected && (
+        <button
+          onClick={connectGoogleCalendar}
+          className="w-full flex items-center justify-center gap-2 mb-6 p-3 rounded-xl border border-dashed border-border text-sm font-medium text-muted-foreground hover:bg-accent transition-colors"
+        >
+          <Link2 className="h-4 w-4" />
+          Connect Google Calendar
+        </button>
+      )}
+
       {loading ? (
         <div className="flex justify-center py-12"><div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" /></div>
-      ) : events.length === 0 ? (
+      ) : events.length === 0 && googleEvents.length === 0 ? (
         <div className="text-center py-16 text-muted-foreground">
           <div className="text-4xl mb-3">📅</div>
           <p className="font-medium">No upcoming events</p>
@@ -134,30 +163,43 @@ export default function Calendar() {
         </div>
       ) : (
         <div className="space-y-6">
-          {groupByDate(events).map(([date, dateEvents]) => (
+          {groupByDate(events, googleEvents).map(([date, dateEvents]) => (
             <div key={date}>
               <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-2 px-1">
                 {dateLabel(date)}
               </h2>
               <div className="space-y-2">
-                {dateEvents.map(event => (
-                  <div key={event.id} className="flex items-start gap-3 p-4 bg-card border border-border rounded-xl">
+                {dateEvents.map(({ source, event }) => (
+                  <div key={`${source}-${event.id}`} className="flex items-start gap-3 p-4 bg-card border border-border rounded-xl">
                     {event.event_time && (
                       <div className="text-xs font-medium text-muted-foreground pt-0.5 w-12 shrink-0">
                         {format(new Date(`2000-01-01T${event.event_time}`), 'h:mm a')}
                       </div>
                     )}
                     <div className="flex-1 min-w-0">
-                      <p className="font-medium">{event.title}</p>
+                      <div className="flex items-center gap-1.5">
+                        <p className="font-medium truncate">{event.title}</p>
+                        {source === 'google' && (
+                          <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-blue-100 text-blue-700 shrink-0">Google</span>
+                        )}
+                      </div>
                       {event.notes && <p className="text-sm text-muted-foreground mt-0.5 truncate">{event.notes}</p>}
                     </div>
                     <div className="flex items-center gap-1">
-                      <button onClick={() => { setEditing(event); setShowForm(true) }} className="p-1.5 rounded-lg hover:bg-accent text-muted-foreground">
-                        <Pencil className="h-4 w-4" />
-                      </button>
-                      <button onClick={() => deleteEvent(event.id)} className="p-1.5 rounded-lg hover:bg-accent text-muted-foreground hover:text-destructive">
-                        <Trash2 className="h-4 w-4" />
-                      </button>
+                      {source === 'local' ? (
+                        <>
+                          <button onClick={() => { setEditing(event); setShowForm(true) }} className="p-1.5 rounded-lg hover:bg-accent text-muted-foreground">
+                            <Pencil className="h-4 w-4" />
+                          </button>
+                          <button onClick={() => deleteEvent(event.id)} className="p-1.5 rounded-lg hover:bg-accent text-muted-foreground hover:text-destructive">
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </>
+                      ) : (
+                        <a href={event.htmlLink} target="_blank" rel="noreferrer" className="p-1.5 rounded-lg hover:bg-accent text-muted-foreground">
+                          <ExternalLink className="h-4 w-4" />
+                        </a>
+                      )}
                     </div>
                   </div>
                 ))}

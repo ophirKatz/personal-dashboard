@@ -1,12 +1,9 @@
-import { supabase } from '../supabase'
 import { Mountain } from 'lucide-react'
+import { connectGoogleCalendar } from '../features/calendar/googleCalendar'
 
 export default function Login() {
   async function handleLogin() {
-    await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: { redirectTo: window.location.origin },
-    })
+    await connectGoogleCalendar()
   }
 
   return (
