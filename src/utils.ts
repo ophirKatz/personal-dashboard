@@ -58,6 +58,10 @@ export function formatFileSize(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
 }
 
+export function isViewable(mimeType: string): boolean {
+  return mimeType.startsWith('image/') || mimeType === 'application/pdf'
+}
+
 export function fileIcon(mimeType: string): string {
   if (mimeType.startsWith('image/')) return '🖼️'
   if (mimeType === 'application/pdf') return '📄'

@@ -1,13 +1,14 @@
-import { useEffect, useState, useRef } from 'react'
-import { Plus, Download, Trash2, Folder as FolderIcon, File, Upload, X, Eye } from 'lucide-react'
+import { useEffect, useState, useRef, lazy, Suspense } from 'react'
+import { Plus, Download, Trash2, Folder as FolderIcon, Upload, X, Eye, Pencil, Search } from 'lucide-react'
 import { supabase } from '../supabase'
 import type { FileRecord } from '../supabase'
 import type { User } from '@supabase/supabase-js'
 import { Button } from '../components/ui/button'
 import { Input } from '../components/ui/input'
-import { FileViewer, isViewable } from '../components/FileViewer'
-import { formatFileSize, fileIcon, today } from '../utils'
+import { formatFileSize, fileIcon, isViewable } from '../utils'
 import { format } from 'date-fns'
+
+const FileViewer = lazy(() => import('../components/FileViewer').then(m => ({ default: m.FileViewer })))
 
 export default function Files() {
   const [user, setUser] = useState<User | null>(null)
@@ -18,6 +19,7 @@ export default function Files() {
   const [uploadProgress, setUploadProgress] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [viewingFile, setViewingFile] = useState<FileRecord | null>(null)
+  const [search, setSearch] = useState('')
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -33,6 +35,8 @@ export default function Files() {
   useEffect(() => { load() }, [])
 
   const folders = [...new Set(files.map(f => f.folder))].sort()
+  const query = search.trim().toLowerCase()
+  const searchResults = query ? files.filter(f => f.name.toLowerCase().includes(query)) : []
 
   async function handleUpload(e: React.ChangeEvent<HTMLInputElement>) {
     if (!e.target.files || !user || !selectedFolder) return
@@ -80,11 +84,49 @@ export default function Files() {
     load()
   }
 
+  async function renameFile(file: FileRecord) {
+    const name = prompt('Rename file', file.name)?.trim()
+    if (!name || name === file.name) return
+    await supabase.from('files').update({ name }).eq('id', file.id)
+    load()
+  }
+
   async function createFolder(e: React.FormEvent) {
     e.preventDefault()
     if (!newFolder.trim()) return
     setSelectedFolder(newFolder.trim())
     setNewFolder('')
+  }
+
+  function FileRow({ file, showFolder }: { file: FileRecord; showFolder?: boolean }) {
+    return (
+      <div className="flex items-center gap-3 p-4 bg-card border border-border rounded-xl">
+        <span className="text-2xl">{fileIcon(file.mime_type)}</span>
+        <div className="flex-1 min-w-0">
+          <p className="font-medium truncate">{file.name}</p>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            {showFolder && <>{file.folder} · </>}
+            {formatFileSize(file.size_bytes)} · {format(new Date(file.created_at), 'MMM d, yyyy')}
+          </p>
+        </div>
+        <div className="flex items-center gap-1">
+          {isViewable(file.mime_type) && (
+            <button onClick={() => setViewingFile(file)} className="p-2 rounded-lg hover:bg-accent text-muted-foreground">
+              <Eye className="h-4 w-4" />
+            </button>
+          )}
+          <button onClick={() => renameFile(file)} className="p-2 rounded-lg hover:bg-accent text-muted-foreground">
+            <Pencil className="h-4 w-4" />
+          </button>
+          <button onClick={() => downloadFile(file)} className="p-2 rounded-lg hover:bg-accent text-muted-foreground">
+            <Download className="h-4 w-4" />
+          </button>
+          <button onClick={() => deleteFile(file)} className="p-2 rounded-lg hover:bg-accent text-muted-foreground hover:text-destructive">
+            <Trash2 className="h-4 w-4" />
+          </button>
+        </div>
+      </div>
+    )
   }
 
   const currentFiles = selectedFolder ? files.filter(f => f.folder === selectedFolder) : []
@@ -125,34 +167,15 @@ export default function Files() {
           </div>
         ) : (
           <div className="space-y-2">
-            {currentFiles.map(file => (
-              <div key={file.id} className="flex items-center gap-3 p-4 bg-card border border-border rounded-xl">
-                <span className="text-2xl">{fileIcon(file.mime_type)}</span>
-                <div className="flex-1 min-w-0">
-                  <p className="font-medium truncate">{file.name}</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">
-                    {formatFileSize(file.size_bytes)} · {format(new Date(file.created_at), 'MMM d, yyyy')}
-                  </p>
-                </div>
-                <div className="flex items-center gap-1">
-                  {isViewable(file.mime_type) && (
-                    <button onClick={() => setViewingFile(file)} className="p-2 rounded-lg hover:bg-accent text-muted-foreground">
-                      <Eye className="h-4 w-4" />
-                    </button>
-                  )}
-                  <button onClick={() => downloadFile(file)} className="p-2 rounded-lg hover:bg-accent text-muted-foreground">
-                    <Download className="h-4 w-4" />
-                  </button>
-                  <button onClick={() => deleteFile(file)} className="p-2 rounded-lg hover:bg-accent text-muted-foreground hover:text-destructive">
-                    <Trash2 className="h-4 w-4" />
-                  </button>
-                </div>
-              </div>
-            ))}
+            {currentFiles.map(file => <FileRow key={file.id} file={file} />)}
           </div>
         )}
 
-        <FileViewer file={viewingFile} onClose={() => setViewingFile(null)} />
+        {viewingFile && (
+          <Suspense fallback={null}>
+            <FileViewer file={viewingFile} onClose={() => setViewingFile(null)} />
+          </Suspense>
+        )}
       </div>
     )
   }
@@ -161,45 +184,77 @@ export default function Files() {
     <div className="p-4 max-w-2xl mx-auto">
       <h1 className="text-2xl font-bold mb-6">Files</h1>
 
-      <form onSubmit={createFolder} className="flex gap-2 mb-5">
+      <div className="relative mb-5">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
         <Input
-          value={newFolder}
-          onChange={e => setNewFolder(e.target.value)}
-          placeholder="New folder name…"
-          className="flex-1"
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          placeholder="Search files by name…"
+          className="pl-9"
         />
-        <Button type="submit" size="icon" disabled={!newFolder.trim()}>
-          <Plus className="h-4 w-4" />
-        </Button>
-      </form>
+      </div>
 
-      {loading ? (
-        <div className="flex justify-center py-12"><div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" /></div>
-      ) : folders.length === 0 ? (
-        <div className="text-center py-16 text-muted-foreground">
-          <div className="text-4xl mb-3">📁</div>
-          <p className="font-medium">No folders yet</p>
-          <p className="text-sm mt-1">Create a folder to get started</p>
+      {query ? (
+        <div className="space-y-2">
+          {searchResults.length === 0 ? (
+            <div className="text-center py-16 text-muted-foreground">
+              <div className="text-4xl mb-3">🔍</div>
+              <p className="font-medium">No files found</p>
+              <p className="text-sm mt-1">Try a different search term</p>
+            </div>
+          ) : (
+            searchResults.map(file => <FileRow key={file.id} file={file} showFolder />)
+          )}
         </div>
       ) : (
-        <div className="grid grid-cols-2 gap-3">
-          {folders.map(folder => {
-            const count = files.filter(f => f.folder === folder).length
-            return (
-              <button
-                key={folder}
-                onClick={() => setSelectedFolder(folder)}
-                className="flex flex-col items-start gap-2 p-4 bg-card border border-border rounded-xl hover:bg-accent transition-colors text-left"
-              >
-                <FolderIcon className="h-8 w-8 text-amber-400" />
-                <div>
-                  <p className="font-medium text-sm truncate max-w-full">{folder}</p>
-                  <p className="text-xs text-muted-foreground">{count} file{count !== 1 ? 's' : ''}</p>
-                </div>
-              </button>
-            )
-          })}
-        </div>
+        <>
+          <form onSubmit={createFolder} className="flex gap-2 mb-5">
+            <Input
+              value={newFolder}
+              onChange={e => setNewFolder(e.target.value)}
+              placeholder="New folder name…"
+              className="flex-1"
+            />
+            <Button type="submit" size="icon" disabled={!newFolder.trim()}>
+              <Plus className="h-4 w-4" />
+            </Button>
+          </form>
+
+          {loading ? (
+            <div className="flex justify-center py-12"><div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" /></div>
+          ) : folders.length === 0 ? (
+            <div className="text-center py-16 text-muted-foreground">
+              <div className="text-4xl mb-3">📁</div>
+              <p className="font-medium">No folders yet</p>
+              <p className="text-sm mt-1">Create a folder to get started</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 gap-3">
+              {folders.map(folder => {
+                const count = files.filter(f => f.folder === folder).length
+                return (
+                  <button
+                    key={folder}
+                    onClick={() => setSelectedFolder(folder)}
+                    className="flex flex-col items-start gap-2 p-4 bg-card border border-border rounded-xl hover:bg-accent transition-colors text-left"
+                  >
+                    <FolderIcon className="h-8 w-8 text-amber-400" />
+                    <div>
+                      <p className="font-medium text-sm truncate max-w-full">{folder}</p>
+                      <p className="text-xs text-muted-foreground">{count} file{count !== 1 ? 's' : ''}</p>
+                    </div>
+                  </button>
+                )
+              })}
+            </div>
+          )}
+        </>
+      )}
+
+      {viewingFile && (
+        <Suspense fallback={null}>
+          <FileViewer file={viewingFile} onClose={() => setViewingFile(null)} />
+        </Suspense>
       )}
     </div>
   )
