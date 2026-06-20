@@ -13,6 +13,7 @@ import Shopping from './pages/Shopping'
 import Calendar from './pages/Calendar'
 import Files from './pages/Files'
 import Finance from './pages/Finance'
+import { checkStockAlerts } from './features/notifications/notifications'
 
 export default function App() {
   const [user, setUser] = useState<User | null | undefined>(undefined)
@@ -26,6 +27,10 @@ export default function App() {
     })
     return () => subscription.unsubscribe()
   }, [])
+
+  useEffect(() => {
+    if (user) checkStockAlerts(user.id)
+  }, [user])
 
   if (user === undefined) {
     return (
