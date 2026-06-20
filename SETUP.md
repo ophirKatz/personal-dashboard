@@ -78,6 +78,34 @@ This **cannot** be done via MCP and requires manual steps in the Supabase and Go
 
 ---
 
+## 1d. Google Calendar — Enable the integration
+
+The Calendar page and Dashboard can show your real Google Calendar events. This reuses
+the same Google OAuth client from step 1a, but needs two extra things:
+
+1. **Enable the Calendar API** — in [Google Cloud Console](https://console.cloud.google.com/),
+   go to **APIs & Services → Library**, search for **Google Calendar API**, and click **Enable**.
+2. **Add the Calendar scope to the OAuth consent screen** — go to **APIs & Services → OAuth
+   consent screen → Data Access → Add or Remove Scopes**, and add:
+   ```
+   https://www.googleapis.com/auth/calendar.readonly
+   ```
+   This is a "sensitive" scope. If your OAuth consent screen is in **Testing** mode, make sure
+   your own Google account is listed under **Test users** (Audience tab) — otherwise Google will
+   block the login with an "access blocked" error. Testing mode is fine for personal use; full
+   verification is only required if you want random users to be able to sign in.
+3. **Copy the Client ID and Client Secret** from the same OAuth client created in step 1a — you'll
+   add them to Vercel in step 2 below (`GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET`). These are
+   needed server-side because Supabase only hands the app a Google access/refresh token once, at
+   login — refreshing it later requires the client secret, which must never reach the browser.
+
+> **Why a re-login is needed:** the app requests Calendar access (and offline/refresh access)
+> as part of the Google sign-in flow. If you already signed in before this feature existed, log
+> out and back in once (or use the "Connect Google Calendar" button that appears on the Calendar
+> page) so Google issues a new token with the calendar scope.
+
+---
+
 ## 2. Vercel — Environment Variables
 
 As part of the import in step 0 (or right after), set these environment variables in the Vercel dashboard:
@@ -90,6 +118,8 @@ As part of the import in step 0 (or right after), set these environment variable
 | `VITE_SUPABASE_URL` | `https://tjjvrqamitwtoslinrxy.supabase.co` |
 | `VITE_SUPABASE_ANON_KEY` | `eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRqanZycWFtaXR3dG9zbGlucnh5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE2Mzg1OTYsImV4cCI6MjA5NzIxNDU5Nn0.jl6QgjKL4amur6X0WzjeebBHnUBr09fB92eHs5f77oo` |
 | `FINNHUB_API_KEY` | Free key from [finnhub.io/register](https://finnhub.io/register) — powers the TENB stock quote on the Finance page. **No `VITE_` prefix** — this one stays server-side, read only by the `/api/stock-quote` serverless function, never shipped to the browser bundle |
+| `GOOGLE_CLIENT_ID` | The same OAuth **Client ID** from step 1a / 1d. **No `VITE_` prefix.** |
+| `GOOGLE_CLIENT_SECRET` | The same OAuth **Client Secret** from step 1a / 1d. **No `VITE_` prefix** — used only by the `/api/calendar-events` serverless function to refresh the Google access token, never shipped to the browser bundle |
 
 3. After saving, **redeploy** the project for env vars to take effect:
    - Go to **Deployments** tab → latest deployment → **⋯ → Redeploy**
@@ -151,8 +181,9 @@ The `vercel.json` in this repo configures SPA routing (all paths → `index.html
 | `climbing_sessions` | Bouldering session records |
 | `climbing_attempts` | Individual attempts within a session |
 | `shopping_items` | Flat shopping list items (single list per user) |
-| `events` | Calendar events |
+| `events` | Calendar events (manually created, local to the app) |
 | `files` | File metadata (actual files in Storage) |
+| `google_calendar_tokens` | One row per user: Google OAuth refresh/access token used to read their Google Calendar |
 
 ### Storage
 
@@ -169,6 +200,8 @@ All tables use the same policy pattern:
 FOR ALL USING (auth.uid() = user_id)
 WITH CHECK (auth.uid() = user_id)
 ```
+(`google_calendar_tokens` uses `user_id` as its primary key instead of a separate `id` column,
+but the same ownership policy.)
 
 Storage objects are scoped to `(storage.foldername(name))[1] = auth.uid()::text`.
 
@@ -184,7 +217,7 @@ Storage objects are scoped to `(storage.foldername(name))[1] = auth.uid()::text`
 | Reminders | `/reminders` | Overdue highlighted, dismiss advances repeat |
 | Climbing | `/climbing` | Log / History / Stats tabs |
 | Shopping | `/shopping` | Single flat list |
-| Calendar | `/calendar` | Upcoming events only (past hidden) |
+| Calendar | `/calendar` | Upcoming events only (past hidden). Merges local events with real Google Calendar events (badged "Google"), proxied server-side through `/api/calendar-events` so tokens never reach the browser |
 | Files | `/files` | Folder-based file storage |
 | Finance | `/finance` | USD/EUR/NIS converter (free, no-key [currency-api](https://github.com/fawazahmed0/currency-api)) + TENB stock quote, proxied server-side through `/api/stock-quote` (Finnhub, needs `FINNHUB_API_KEY`) so the key never reaches the browser |
 
@@ -215,6 +248,18 @@ Common causes: unused imports (the tsconfig is set to `noUnusedLocals: false` to
 **Vite env vars not picked up:**
 - Env var names must start with `VITE_`
 - Restart the dev server after changing `.env.local`
+
+**Google Calendar shows "Connect Google Calendar" / events never appear:**
+- You logged in before this feature existed, or denied the calendar permission — click
+  **Connect Google Calendar** on the Calendar page (or log out and back in) and accept the consent screen
+- Confirm the Calendar API is enabled in Google Cloud Console (step 1d)
+- Confirm `https://www.googleapis.com/auth/calendar.readonly` is listed under OAuth consent screen scopes
+- If your OAuth consent screen is in Testing mode, confirm your account is listed as a test user
+- Check that `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` are set in Vercel (no `VITE_` prefix) and redeploy
+
+**`/api/calendar-events` 404s in local dev:**
+- Same cause as the stock quote endpoint: `npm run dev` doesn't run serverless functions.
+  Use `vercel dev` locally with `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET` set in `.env.local` to test it.
 
 **Stock quote returns 404 in local dev:**
 - `npm run dev` runs plain Vite, which doesn't execute serverless functions — `/api/stock-quote` will 404

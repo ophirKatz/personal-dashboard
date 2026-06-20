@@ -22,8 +22,19 @@ export default function App() {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null)
     })
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       setUser(session?.user ?? null)
+      // provider_refresh_token is only present right after the OAuth redirect,
+      // never on later session reads, so it must be persisted here.
+      if (event === 'SIGNED_IN' && session?.provider_refresh_token && session.user) {
+        supabase.from('google_calendar_tokens').upsert({
+          user_id: session.user.id,
+          refresh_token: session.provider_refresh_token,
+          access_token: session.provider_token ?? null,
+          access_token_expires_at: new Date(Date.now() + 3500 * 1000).toISOString(),
+          updated_at: new Date().toISOString(),
+        }).then()
+      }
     })
     return () => subscription.unsubscribe()
   }, [])
