@@ -102,6 +102,14 @@ export type StockAlert = {
   created_at: string
 }
 
+export type GoogleDriveFolder = {
+  id: string
+  user_id: string
+  folder_id: string
+  folder_name: string
+  created_at: string
+}
+
 export type Notification = {
   id: string
   user_id: string

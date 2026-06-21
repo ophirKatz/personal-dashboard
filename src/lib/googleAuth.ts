@@ -1,6 +1,6 @@
 import { supabase } from '../supabase'
 
-export const GOOGLE_SCOPES = 'https://www.googleapis.com/auth/calendar.readonly https://www.googleapis.com/auth/tasks'
+export const GOOGLE_SCOPES = 'https://www.googleapis.com/auth/calendar.readonly https://www.googleapis.com/auth/tasks https://www.googleapis.com/auth/drive.readonly'
 
 export async function connectGoogle() {
   await supabase.auth.signInWithOAuth({

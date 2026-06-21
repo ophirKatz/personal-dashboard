@@ -2,7 +2,7 @@ import { Outlet, NavLink, useNavigate } from 'react-router-dom'
 import { useState } from 'react'
 import {
   Home, CheckSquare, TrendingUp, Mountain, MoreHorizontal,
-  X, ShoppingCart, Bell, Calendar, Folder, LogOut, DollarSign,
+  X, ShoppingCart, Bell, Calendar, Folder, HardDrive, LogOut, DollarSign,
 } from 'lucide-react'
 import { supabase } from '../supabase'
 import { cn } from '../utils'
@@ -19,6 +19,7 @@ const moreNav = [
   { to: '/climbing', icon: Mountain, label: 'Climbing' },
   { to: '/reminders', icon: Bell, label: 'Reminders' },
   { to: '/shopping', icon: ShoppingCart, label: 'Shopping' },
+  { to: '/drive', icon: HardDrive, label: 'Drive' },
   { to: '/finance', icon: DollarSign, label: 'Finance' },
 ]
 
