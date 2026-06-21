@@ -182,6 +182,70 @@ limit (see step 5 below) still applies; oversized files are skipped and retried 
 
 ---
 
+## 1g. Push Notifications — Enable the integration
+
+Habits (with a reminder time set) and Reminders can send a real push notification to your
+iPhone's lock screen / notification center — not just an in-app banner. This works because the
+app is a PWA with a custom service worker (`src/sw.ts`) that listens for `push` events.
+
+**How it works end-to-end:**
+- The browser/PWA subscribes to push via the Web Push API and stores the subscription
+  (endpoint + keys) in the new `push_subscriptions` table (Settings page → "Enable notifications")
+- A Postgres cron job (`pg_cron` + `pg_net`, both already enabled on the Supabase project) runs
+  every minute and calls a new `/api/send-notifications` serverless function over HTTP
+- That function checks for due reminders (`remind_at <= now()` and not yet notified) and habits
+  with a matching `reminder_time` that haven't been logged today, then sends a push via the
+  `web-push` library to every stored subscription for that user
+
+**This was already set up for you (via MCPs), no action needed:**
+- `pg_cron` and `pg_net` extensions enabled on the Supabase project
+- A `cron_secret` stored in Supabase Vault, and a `send-due-notifications` cron job scheduled to
+  call `https://personal-dashboard-azure-omega.vercel.app/api/send-notifications` every minute
+- The `push_subscriptions` table (RLS-protected, one row per device) and new columns:
+  `habits.reminder_enabled`, `habits.reminder_time`, `habits.last_notified_date`,
+  `reminders.notified_at`
+
+**What still requires manual action — add these to Vercel (step 2 below), there's no MCP tool
+that can write Vercel environment variables:**
+
+| Name | Value |
+|---|---|
+| `VAPID_PUBLIC_KEY` | `BCPyVmqKJ3SIxbQt9JYkCPV8FkTF6pFytctsl1DTVBSusLRMKgcLxjtttX-MA7HARDqNo7zUr37vGntNZEn5tLQ` |
+| `VAPID_PRIVATE_KEY` | `-lSYIueFwVAgIs_RFzfBDvvIR5ctM33zABnf_tATcIs` |
+| `VAPID_SUBJECT` | `mailto:ophirk8396@gmail.com` (or any contact address — required by the Web Push spec) |
+| `CRON_SECRET` | `fa6e9b50a5ce3a434177549e919a2dc9e53f3600e1420b2ee13e2e72361249db` — must match exactly what's stored in Supabase Vault; only change this if you also update the Vault secret and the cron job |
+| `SUPABASE_SERVICE_ROLE_KEY` | From [Supabase Dashboard](https://supabase.com/dashboard/project/tjjvrqamitwtoslinrxy/settings/api) → **Project Settings → API → service_role secret**. This bypasses RLS so the cron function can read every user's subscriptions/habits/reminders — never expose it to the browser (no `VITE_` prefix) |
+| `VITE_VAPID_PUBLIC_KEY` | Same value as `VAPID_PUBLIC_KEY` above — this one **does** get the `VITE_` prefix since the browser needs it to call `pushManager.subscribe()` |
+
+**Enabling notifications on iPhone:**
+1. Open the deployed app in Safari and tap **Share → Add to Home Screen** (push notifications
+   only work for installed PWAs on iOS — Safari tabs can't receive them, per Apple's WebKit
+   restriction since iOS 16.4)
+2. Open the app from the Home Screen icon (not from Safari)
+3. Go to **Settings** in the app's nav and tap **Enable notifications**, then accept the
+   permission prompt
+4. Set a reminder time on a habit (Habits → edit a habit → toggle **Reminder**), or create a
+   Reminder for a few minutes out, and wait — it should arrive as a real lock-screen notification
+
+**If the cron job's target URL changes** (e.g. a different production domain), update it with:
+```sql
+select cron.alter_job(
+  (select jobid from cron.job where jobname = 'send-due-notifications'),
+  command := $$
+  select net.http_post(
+    url := 'https://<new-domain>/api/send-notifications',
+    headers := jsonb_build_object(
+      'Content-Type', 'application/json',
+      'Authorization', 'Bearer ' || (select decrypted_secret from vault.decrypted_secrets where name = 'cron_secret')
+    ),
+    body := '{}'::jsonb
+  );
+  $$
+);
+```
+
+---
+
 ## 2. Vercel — Environment Variables
 
 As part of the import in step 0 (or right after), set these environment variables in the Vercel dashboard:
@@ -196,6 +260,7 @@ As part of the import in step 0 (or right after), set these environment variable
 | `FINNHUB_API_KEY` | Free key from [finnhub.io/register](https://finnhub.io/register) — powers the TENB stock quote on the Finance page. **No `VITE_` prefix** — this one stays server-side, read only by the `/api/stock-quote` serverless function, never shipped to the browser bundle |
 | `GOOGLE_CLIENT_ID` | The same OAuth **Client ID** from step 1a / 1d. **No `VITE_` prefix.** |
 | `GOOGLE_CLIENT_SECRET` | The same OAuth **Client Secret** from step 1a / 1d. **No `VITE_` prefix** — used only by the `/api/calendar-events` serverless function to refresh the Google access token, never shipped to the browser bundle |
+| `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT`, `CRON_SECRET`, `SUPABASE_SERVICE_ROLE_KEY`, `VITE_VAPID_PUBLIC_KEY` | See step 1g above for exact values and what each one does |
 
 3. After saving, **redeploy** the project for env vars to take effect:
    - Go to **Deployments** tab → latest deployment → **⋯ → Redeploy**
@@ -250,10 +315,10 @@ The `vercel.json` in this repo configures SPA routing (all paths → `index.html
 
 | Table | Description |
 |---|---|
-| `habits` | Habit definitions (name, emoji, color, frequency) |
+| `habits` | Habit definitions (name, emoji, color, frequency, optional `reminder_time`/`reminder_enabled` for push reminders) |
 | `habit_logs` | Daily check-offs per habit |
 | `todos` | Tasks with priority, due date, notes |
-| `reminders` | Time-based reminders with optional repeat |
+| `reminders` | Time-based reminders with optional repeat; `notified_at` tracks whether a push was already sent for the current `remind_at` |
 | `climbing_sessions` | Bouldering session records |
 | `climbing_attempts` | Individual attempts within a session |
 | `shopping_items` | Flat shopping list items (single list per user) |
@@ -261,6 +326,9 @@ The `vercel.json` in this repo configures SPA routing (all paths → `index.html
 | `files` | File metadata (actual files in Storage). `source` distinguishes local uploads from recursively-synced Google Drive files; Drive rows also carry `root_folder_id`, `drive_file_id`, `relative_path` (subfolder path within the synced root), and `drive_modified_time` (used to skip re-downloading unchanged files) |
 | `google_oauth_tokens` | One row per user: Google OAuth refresh/access token used to read their Google Calendar, Google Tasks, and Google Drive |
 | `google_drive_folders` | The Drive root folders a user has chosen to sync (Drive folder ID + name), plus `sync_status` / `sync_error` / `last_synced_at` for the recursive sync job. Deleting a row cascades to delete its synced `files` rows |
+| `stock_alerts` | Price thresholds per stock symbol |
+| `notifications` | In-app notification banners (e.g. triggered stock alerts) |
+| `push_subscriptions` | One row per subscribed browser/device (Web Push endpoint + keys), used by `/api/send-notifications` to deliver habit/reminder pushes |
 
 ### Storage
 
@@ -289,14 +357,15 @@ Storage objects are scoped to `(storage.foldername(name))[1] = auth.uid()::text`
 | Module | Route | Notes |
 |---|---|---|
 | Dashboard | `/` | Today's habits, tasks, reminders, events |
-| Habits | `/habits` | Create/edit/delete, heatmap, streak |
+| Habits | `/habits` | Create/edit/delete, heatmap, streak, optional daily push reminder at a chosen time |
 | Todos | `/todos` | Filters: Today / Upcoming / All / Done. Merges local tasks with your Google Tasks "My Tasks" list (badged "Google"). Checking the box syncs completion back to Google, proxied server-side through `/api/google-tasks` so tokens never reach the browser. Create/edit/delete stays local-only |
-| Reminders | `/reminders` | Overdue highlighted, dismiss advances repeat |
+| Reminders | `/reminders` | Overdue highlighted, dismiss advances repeat, sends a push notification when due |
 | Climbing | `/climbing` | Log / History / Stats tabs |
 | Shopping | `/shopping` | Single flat list |
 | Calendar | `/calendar` | Upcoming events only (past hidden). Merges local events with real Google Calendar events (badged "Google"), proxied server-side through `/api/calendar-events` so tokens never reach the browser |
 | Files | `/files` | Folder-based file storage. Also lets you recursively sync Google Drive folders (and all their subfolders/files) via a folder-tree picker — synced folders appear alongside local ones (badged "Google"); files are downloaded and stored in Supabase Storage, so they're viewable/downloadable exactly like local files, not links to Drive. Proxied server-side through `/api/google-drive-browse`, `/api/google-drive-folders`, and `/api/google-drive-sync` so tokens never reach the browser |
 | Finance | `/finance` | USD/EUR/NIS converter (free, no-key [currency-api](https://github.com/fawazahmed0/currency-api)) + TENB stock quote, proxied server-side through `/api/stock-quote` (Finnhub, needs `FINNHUB_API_KEY`) so the key never reaches the browser |
+| Settings | `/settings` | Enable/disable push notifications for habits and reminders (see step 1g) |
 
 ---
 
@@ -368,3 +437,21 @@ Common causes: unused imports (the tsconfig is set to `noUnusedLocals: false` to
 - `npm run dev` runs plain Vite, which doesn't execute serverless functions — `/api/stock-quote` will 404
 - To test it locally, install the Vercel CLI (`npm i -g vercel`) and run `vercel dev` instead, with `FINNHUB_API_KEY` set in `.env.local`
 - It works normally once deployed to Vercel, no extra steps needed there
+
+**"Enable notifications" button does nothing / shows "Could not enable push notifications":**
+- Confirm `VITE_VAPID_PUBLIC_KEY` is set in Vercel and you've redeployed since adding it
+- On iPhone, the app must be opened from the Home Screen icon (added via Share → Add to Home
+  Screen), not from a regular Safari tab — iOS only allows push for installed PWAs
+- Check the browser's notification permission for the site hasn't been previously denied
+
+**Notifications never arrive even though "Enable notifications" succeeded:**
+- Confirm `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT`, `CRON_SECRET`, and
+  `SUPABASE_SERVICE_ROLE_KEY` are all set in Vercel and you've redeployed
+- Confirm the `send-due-notifications` cron job exists and is active:
+  `select * from cron.job where jobname = 'send-due-notifications';` in the Supabase SQL editor
+- Check recent runs: `select * from cron.job_run_details order by start_time desc limit 5;`
+- A habit's `reminder_time` is stored in UTC (converted from your local time at save time) — if
+  your habit reminder never fires, double check the time you picked actually matches an upcoming
+  UTC minute, e.g. via the Habits page reminder display
+- If a reminder/habit was already due *before* you enabled notifications, it won't retroactively
+  send — only checks done after the subscription exists will fire

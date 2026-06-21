@@ -27,11 +27,14 @@
     "react-pdf": "^10.4.1",
     "react-router-dom": "^6.28.2",
     "recharts": "^2.15.3",
-    "tailwind-merge": "^2.6.0"
+    "tailwind-merge": "^2.6.0",
+    "web-push": "^3.6.7",
+    "workbox-precaching": "^7.4.1"
   },
   "devDependencies": {
     "@types/react": "^18.3.23",
     "@types/react-dom": "^18.3.7",
+    "@types/web-push": "^3.6.4",
     "@vercel/node": "^3.2.24",
     "@vitejs/plugin-react": "^4.3.4",
     "autoprefixer": "^10.4.21",

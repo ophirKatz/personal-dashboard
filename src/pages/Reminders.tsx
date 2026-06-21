@@ -30,7 +30,7 @@ export default function Reminders() {
   async function dismiss(reminder: Reminder) {
     if (reminder.repeat) {
       const nextAt = advanceRepeat(reminder.remind_at, reminder.repeat)
-      await supabase.from('reminders').update({ remind_at: nextAt }).eq('id', reminder.id)
+      await supabase.from('reminders').update({ remind_at: nextAt, notified_at: null }).eq('id', reminder.id)
     } else {
       await supabase.from('reminders').delete().eq('id', reminder.id)
     }

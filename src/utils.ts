@@ -46,6 +46,23 @@ export function advanceRepeat(dateStr: string, repeat: 'daily' | 'weekly' | 'mon
   return dfnsAddMonths(date, 1).toISOString()
 }
 
+// Habit reminder times are stored as UTC time-of-day (no date), so they survive
+// across days regardless of which day they're checked against. Convert at the
+// UI boundary so the picker always shows/accepts the browser's local time.
+export function localTimeToUtcTime(localTime: string): string {
+  const [h, m] = localTime.split(':').map(Number)
+  const d = new Date()
+  d.setHours(h, m, 0, 0)
+  return d.toISOString().slice(11, 16)
+}
+
+export function utcTimeToLocalTime(utcTime: string): string {
+  const [h, m] = utcTime.split(':').map(Number)
+  const d = new Date()
+  d.setUTCHours(h, m, 0, 0)
+  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
+}
+
 export const PRIORITY_CONFIG = {
   low: { label: 'Low', className: 'bg-blue-100 text-blue-700' },
   medium: { label: 'Medium', className: 'bg-amber-100 text-amber-700' },

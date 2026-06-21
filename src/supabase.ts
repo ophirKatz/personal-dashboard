@@ -13,6 +13,9 @@ export type Habit = {
   color: string
   frequency: 'daily' | 'weekly'
   times_per_week: number | null
+  reminder_enabled: boolean
+  reminder_time: string | null
+  last_notified_date: string | null
   created_at: string
 }
 
@@ -43,6 +46,7 @@ export type Reminder = {
   title: string
   remind_at: string
   repeat: 'daily' | 'weekly' | 'monthly' | null
+  notified_at: string | null
   created_at: string
 }
 

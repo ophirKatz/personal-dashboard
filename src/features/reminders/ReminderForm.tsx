@@ -35,7 +35,7 @@ export default function ReminderForm({ open, onClose, onSave, reminder, userId }
       user_id: userId,
     }
     if (reminder) {
-      await supabase.from('reminders').update(payload).eq('id', reminder.id)
+      await supabase.from('reminders').update({ ...payload, notified_at: null }).eq('id', reminder.id)
     } else {
       await supabase.from('reminders').insert(payload)
     }
