@@ -9,16 +9,16 @@ import { cn } from '../utils'
 
 const primaryNav = [
   { to: '/', icon: Home, label: 'Home' },
-  { to: '/habits', icon: TrendingUp, label: 'Habits' },
-  { to: '/todos', icon: CheckSquare, label: 'Todos' },
-  { to: '/climbing', icon: Mountain, label: 'Climbing' },
+  { to: '/todos', icon: CheckSquare, label: 'Tasks' },
+  { to: '/calendar', icon: Calendar, label: 'Calendar' },
+  { to: '/files', icon: Folder, label: 'Files' },
 ]
 
 const moreNav = [
+  { to: '/habits', icon: TrendingUp, label: 'Habits' },
+  { to: '/climbing', icon: Mountain, label: 'Climbing' },
   { to: '/reminders', icon: Bell, label: 'Reminders' },
   { to: '/shopping', icon: ShoppingCart, label: 'Shopping' },
-  { to: '/calendar', icon: Calendar, label: 'Calendar' },
-  { to: '/files', icon: Folder, label: 'Files' },
   { to: '/finance', icon: DollarSign, label: 'Finance' },
 ]
 
