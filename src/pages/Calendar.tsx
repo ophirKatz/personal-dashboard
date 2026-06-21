@@ -10,8 +10,9 @@ import { Textarea } from '../components/ui/textarea'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogBody, DialogFooter } from '../components/ui/dialog'
 import { today, formatDate } from '../utils'
 import { format, parseISO, isToday, isTomorrow } from 'date-fns'
-import { fetchGoogleCalendarEvents, connectGoogleCalendar } from '../features/calendar/googleCalendar'
+import { fetchGoogleCalendarEvents } from '../features/calendar/googleCalendar'
 import type { GoogleCalendarEvent } from '../features/calendar/googleCalendar'
+import { connectGoogle } from '../lib/googleAuth'
 
 type MergedEvent =
   | { source: 'local'; event: CalendarEvent }
@@ -145,7 +146,7 @@ export default function Calendar() {
 
       {!loading && !googleConnected && (
         <button
-          onClick={connectGoogleCalendar}
+          onClick={connectGoogle}
           className="w-full flex items-center justify-center gap-2 mb-6 p-3 rounded-xl border border-dashed border-border text-sm font-medium text-muted-foreground hover:bg-accent transition-colors"
         >
           <Link2 className="h-4 w-4" />

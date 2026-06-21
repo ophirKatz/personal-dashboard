@@ -27,7 +27,7 @@ export default function App() {
       // provider_refresh_token is only present right after the OAuth redirect,
       // never on later session reads, so it must be persisted here.
       if (event === 'SIGNED_IN' && session?.provider_refresh_token && session.user) {
-        supabase.from('google_calendar_tokens').upsert({
+        supabase.from('google_oauth_tokens').upsert({
           user_id: session.user.id,
           refresh_token: session.provider_refresh_token,
           access_token: session.provider_token ?? null,
