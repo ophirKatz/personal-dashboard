@@ -8,11 +8,13 @@ import { Input } from '../components/ui/input'
 import { Label } from '../components/ui/label'
 import { Textarea } from '../components/ui/textarea'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogBody, DialogFooter } from '../components/ui/dialog'
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '../components/ui/tabs'
 import { today, formatDate } from '../utils'
 import { format, parseISO, isToday, isTomorrow } from 'date-fns'
 import { fetchGoogleCalendarEvents } from '../features/calendar/googleCalendar'
 import type { GoogleCalendarEvent } from '../features/calendar/googleCalendar'
 import { connectGoogle } from '../lib/googleAuth'
+import MonthCalendar from '../features/calendar/MonthCalendar'
 
 type MergedEvent =
   | { source: 'local'; event: CalendarEvent }
@@ -154,61 +156,74 @@ export default function Calendar() {
         </button>
       )}
 
-      {loading ? (
-        <div className="flex justify-center py-12"><div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" /></div>
-      ) : events.length === 0 && googleEvents.length === 0 ? (
-        <div className="text-center py-16 text-muted-foreground">
-          <div className="text-4xl mb-3">📅</div>
-          <p className="font-medium">No upcoming events</p>
-          <p className="text-sm mt-1">Tap + to add one</p>
-        </div>
-      ) : (
-        <div className="space-y-6">
-          {groupByDate(events, googleEvents).map(([date, dateEvents]) => (
-            <div key={date}>
-              <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-2 px-1">
-                {dateLabel(date)}
-              </h2>
-              <div className="space-y-2">
-                {dateEvents.map(({ source, event }) => (
-                  <div key={`${source}-${event.id}`} className="flex items-start gap-3 p-4 bg-card border border-border rounded-xl">
-                    {event.event_time && (
-                      <div className="text-xs font-medium text-muted-foreground pt-0.5 w-12 shrink-0">
-                        {format(new Date(`2000-01-01T${event.event_time}`), 'h:mm a')}
-                      </div>
-                    )}
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-1.5">
-                        <p className="font-medium truncate">{event.title}</p>
-                        {source === 'google' && (
-                          <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-blue-100 text-blue-700 shrink-0">Google</span>
-                        )}
-                      </div>
-                      {event.notes && <p className="text-sm text-muted-foreground mt-0.5 truncate">{event.notes}</p>}
-                    </div>
-                    <div className="flex items-center gap-1">
-                      {source === 'local' ? (
-                        <>
-                          <button onClick={() => { setEditing(event); setShowForm(true) }} className="p-1.5 rounded-lg hover:bg-accent text-muted-foreground">
-                            <Pencil className="h-4 w-4" />
-                          </button>
-                          <button onClick={() => deleteEvent(event.id)} className="p-1.5 rounded-lg hover:bg-accent text-muted-foreground hover:text-destructive">
-                            <Trash2 className="h-4 w-4" />
-                          </button>
-                        </>
-                      ) : (
-                        <a href={event.htmlLink} target="_blank" rel="noreferrer" className="p-1.5 rounded-lg hover:bg-accent text-muted-foreground">
-                          <ExternalLink className="h-4 w-4" />
-                        </a>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
+      <Tabs defaultValue="list">
+        <TabsList className="mb-6">
+          <TabsTrigger value="list">List</TabsTrigger>
+          <TabsTrigger value="month">Month</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="list">
+          {loading ? (
+            <div className="flex justify-center py-12"><div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" /></div>
+          ) : events.length === 0 && googleEvents.length === 0 ? (
+            <div className="text-center py-16 text-muted-foreground">
+              <div className="text-4xl mb-3">📅</div>
+              <p className="font-medium">No upcoming events</p>
+              <p className="text-sm mt-1">Tap + to add one</p>
             </div>
-          ))}
-        </div>
-      )}
+          ) : (
+            <div className="space-y-6">
+              {groupByDate(events, googleEvents).map(([date, dateEvents]) => (
+                <div key={date}>
+                  <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-2 px-1">
+                    {dateLabel(date)}
+                  </h2>
+                  <div className="space-y-2">
+                    {dateEvents.map(({ source, event }) => (
+                      <div key={`${source}-${event.id}`} className="flex items-start gap-3 p-4 bg-card border border-border rounded-xl">
+                        {event.event_time && (
+                          <div className="text-xs font-medium text-muted-foreground pt-0.5 w-12 shrink-0">
+                            {format(new Date(`2000-01-01T${event.event_time}`), 'h:mm a')}
+                          </div>
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-1.5">
+                            <p className="font-medium truncate">{event.title}</p>
+                            {source === 'google' && (
+                              <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-blue-100 text-blue-700 shrink-0">Google</span>
+                            )}
+                          </div>
+                          {event.notes && <p className="text-sm text-muted-foreground mt-0.5 truncate">{event.notes}</p>}
+                        </div>
+                        <div className="flex items-center gap-1">
+                          {source === 'local' ? (
+                            <>
+                              <button onClick={() => { setEditing(event); setShowForm(true) }} className="p-1.5 rounded-lg hover:bg-accent text-muted-foreground">
+                                <Pencil className="h-4 w-4" />
+                              </button>
+                              <button onClick={() => deleteEvent(event.id)} className="p-1.5 rounded-lg hover:bg-accent text-muted-foreground hover:text-destructive">
+                                <Trash2 className="h-4 w-4" />
+                              </button>
+                            </>
+                          ) : (
+                            <a href={event.htmlLink} target="_blank" rel="noreferrer" className="p-1.5 rounded-lg hover:bg-accent text-muted-foreground">
+                              <ExternalLink className="h-4 w-4" />
+                            </a>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </TabsContent>
+
+        <TabsContent value="month">
+          <MonthCalendar />
+        </TabsContent>
+      </Tabs>
 
       {user && showForm && (
         <EventForm open={showForm} onClose={() => setShowForm(false)} onSave={load} event={editing} userId={user.id} />
