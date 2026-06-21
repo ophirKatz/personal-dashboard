@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
-import { authenticateGoogleRequest } from './_googleAuth'
+import { authenticateGoogleRequest } from './_googleAuth.js'
 
 type GoogleEventTime = { date?: string; dateTime?: string }
 type GoogleEvent = {
