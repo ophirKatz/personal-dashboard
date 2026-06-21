@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { CheckCircle2, Flame, Bell, CalendarDays, Plus, ShoppingCart, Folder, X } from 'lucide-react'
+import { CheckCircle2, Flame, Bell, CalendarDays, Plus, ShoppingCart, Mountain, DollarSign, TrendingUp, X } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { supabase } from '../supabase'
 import type { Habit, HabitLog, Todo, Reminder, CalendarEvent, Notification } from '../supabase'
@@ -140,24 +140,46 @@ export default function Dashboard() {
       )}
 
       {/* Quick links */}
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-4 gap-3">
         <Link
           to="/shopping"
-          className="flex items-center gap-3 p-3.5 bg-card border border-border rounded-xl active:scale-[0.98] transition-transform"
+          aria-label="Shopping List"
+          title="Shopping List"
+          className="flex items-center justify-center p-3.5 bg-card border border-border rounded-xl active:scale-[0.98] transition-transform"
         >
           <div className="w-9 h-9 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0">
             <ShoppingCart className="h-4 w-4" />
           </div>
-          <span className="text-sm font-medium">Shopping List</span>
         </Link>
         <Link
-          to="/files"
-          className="flex items-center gap-3 p-3.5 bg-card border border-border rounded-xl active:scale-[0.98] transition-transform"
+          to="/climbing"
+          aria-label="Climbing"
+          title="Climbing"
+          className="flex items-center justify-center p-3.5 bg-card border border-border rounded-xl active:scale-[0.98] transition-transform"
         >
-          <div className="w-9 h-9 rounded-lg bg-blue-100 text-blue-700 flex items-center justify-center shrink-0">
-            <Folder className="h-4 w-4" />
+          <div className="w-9 h-9 rounded-lg bg-orange-100 text-orange-700 flex items-center justify-center shrink-0">
+            <Mountain className="h-4 w-4" />
           </div>
-          <span className="text-sm font-medium">Files</span>
+        </Link>
+        <Link
+          to="/finance"
+          aria-label="Finance"
+          title="Finance"
+          className="flex items-center justify-center p-3.5 bg-card border border-border rounded-xl active:scale-[0.98] transition-transform"
+        >
+          <div className="w-9 h-9 rounded-lg bg-amber-100 text-amber-700 flex items-center justify-center shrink-0">
+            <DollarSign className="h-4 w-4" />
+          </div>
+        </Link>
+        <Link
+          to="/habits"
+          aria-label="Habits"
+          title="Habits"
+          className="flex items-center justify-center p-3.5 bg-card border border-border rounded-xl active:scale-[0.98] transition-transform"
+        >
+          <div className="w-9 h-9 rounded-lg bg-purple-100 text-purple-700 flex items-center justify-center shrink-0">
+            <TrendingUp className="h-4 w-4" />
+          </div>
         </Link>
       </div>
 
