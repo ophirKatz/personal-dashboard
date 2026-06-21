@@ -106,6 +106,36 @@ the same Google OAuth client from step 1a, but needs two extra things:
 
 ---
 
+## 1e. Google Tasks — Enable the integration
+
+The Todos page can mirror your Google Tasks **"My Tasks"** list, and checking/unchecking a
+task in the app toggles its completion in Google Tasks too. This reuses the same Google OAuth
+client and the same `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` from step 1d — no new env vars
+are needed. Two extra things are required:
+
+1. **Enable the Tasks API** — in [Google Cloud Console](https://console.cloud.google.com/),
+   go to **APIs & Services → Library**, search for **Google Tasks API**, and click **Enable**.
+2. **Add the Tasks scope to the OAuth consent screen** — go to **APIs & Services → OAuth
+   consent screen → Data Access → Add or Remove Scopes**, and add:
+   ```
+   https://www.googleapis.com/auth/tasks
+   ```
+   This is the full read/write scope (not `.readonly`), since checking off a task in the app
+   needs to write the completion status back to Google. It's a "sensitive" scope — same Testing
+   mode / Test users consideration as the Calendar scope in step 1d applies here too.
+
+> **Re-login required:** if you already connected Google Calendar before this feature existed,
+> you must reconnect once to grant the additional Tasks scope. Log out and back in, or use the
+> "Connect Google Tasks" button that appears on the Todos page — either flow now requests both
+> the Calendar and Tasks scopes together in a single consent screen.
+
+**Scope note:** only the list view and the completion checkbox are synced. Creating, editing,
+or deleting a task in the app stays local-only, and the same applies in reverse — new tasks
+added in Google Tasks will appear in the app's list, but deleting them must still be done in
+Google Tasks (or in the app, for tasks created in the app).
+
+---
+
 ## 2. Vercel — Environment Variables
 
 As part of the import in step 0 (or right after), set these environment variables in the Vercel dashboard:
@@ -183,7 +213,7 @@ The `vercel.json` in this repo configures SPA routing (all paths → `index.html
 | `shopping_items` | Flat shopping list items (single list per user) |
 | `events` | Calendar events (manually created, local to the app) |
 | `files` | File metadata (actual files in Storage) |
-| `google_calendar_tokens` | One row per user: Google OAuth refresh/access token used to read their Google Calendar |
+| `google_oauth_tokens` | One row per user: Google OAuth refresh/access token used to read their Google Calendar and Google Tasks |
 
 ### Storage
 
@@ -200,7 +230,7 @@ All tables use the same policy pattern:
 FOR ALL USING (auth.uid() = user_id)
 WITH CHECK (auth.uid() = user_id)
 ```
-(`google_calendar_tokens` uses `user_id` as its primary key instead of a separate `id` column,
+(`google_oauth_tokens` uses `user_id` as its primary key instead of a separate `id` column,
 but the same ownership policy.)
 
 Storage objects are scoped to `(storage.foldername(name))[1] = auth.uid()::text`.
@@ -213,7 +243,7 @@ Storage objects are scoped to `(storage.foldername(name))[1] = auth.uid()::text`
 |---|---|---|
 | Dashboard | `/` | Today's habits, tasks, reminders, events |
 | Habits | `/habits` | Create/edit/delete, heatmap, streak |
-| Todos | `/todos` | Filters: Today / Upcoming / All / Done |
+| Todos | `/todos` | Filters: Today / Upcoming / All / Done. Merges local tasks with your Google Tasks "My Tasks" list (badged "Google"). Checking the box syncs completion back to Google, proxied server-side through `/api/google-tasks` so tokens never reach the browser. Create/edit/delete stays local-only |
 | Reminders | `/reminders` | Overdue highlighted, dismiss advances repeat |
 | Climbing | `/climbing` | Log / History / Stats tabs |
 | Shopping | `/shopping` | Single flat list |
@@ -258,6 +288,18 @@ Common causes: unused imports (the tsconfig is set to `noUnusedLocals: false` to
 - Check that `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` are set in Vercel (no `VITE_` prefix) and redeploy
 
 **`/api/calendar-events` 404s in local dev:**
+- Same cause as the stock quote endpoint: `npm run dev` doesn't run serverless functions.
+  Use `vercel dev` locally with `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET` set in `.env.local` to test it.
+
+**Google Tasks shows "Connect Google Tasks" / tasks never appear, or checking a box fails:**
+- Click **Connect Google Tasks** on the Todos page (or log out and back in) and accept the consent
+  screen — this is required even if Calendar is already connected, since Tasks is a separate scope
+- Confirm the Tasks API is enabled in Google Cloud Console (step 1e)
+- Confirm `https://www.googleapis.com/auth/tasks` is listed under OAuth consent screen scopes
+- If your OAuth consent screen is in Testing mode, confirm your account is listed as a test user
+- A 403 from `/api/google-tasks` means the stored token doesn't have the Tasks scope yet — reconnect
+
+**`/api/google-tasks` 404s in local dev:**
 - Same cause as the stock quote endpoint: `npm run dev` doesn't run serverless functions.
   Use `vercel dev` locally with `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET` set in `.env.local` to test it.
 

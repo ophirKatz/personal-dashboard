@@ -1,15 +1,23 @@
 import { useEffect, useState } from 'react'
-import { Plus } from 'lucide-react'
+import { Plus, Link2 } from 'lucide-react'
 import { supabase } from '../supabase'
 import type { Todo } from '../supabase'
 import type { User } from '@supabase/supabase-js'
 import TodoItem from '../features/todos/TodoItem'
 import TodoForm from '../features/todos/TodoForm'
+import GoogleTaskItem from '../features/todos/GoogleTaskItem'
+import { fetchGoogleTasks } from '../features/todos/googleTasks'
+import type { GoogleTask } from '../features/todos/googleTasks'
+import { connectGoogle } from '../lib/googleAuth'
 import { Button } from '../components/ui/button'
 import { Input } from '../components/ui/input'
 import { today } from '../utils'
 
 type Filter = 'today' | 'upcoming' | 'all' | 'completed'
+
+type MergedTodo =
+  | { source: 'local'; todo: Todo }
+  | { source: 'google'; todo: GoogleTask }
 
 const FILTERS: { key: Filter; label: string }[] = [
   { key: 'today', label: 'Today' },
@@ -21,6 +29,8 @@ const FILTERS: { key: Filter; label: string }[] = [
 export default function Todos() {
   const [user, setUser] = useState<User | null>(null)
   const [todos, setTodos] = useState<Todo[]>([])
+  const [googleTasks, setGoogleTasks] = useState<GoogleTask[]>([])
+  const [googleConnected, setGoogleConnected] = useState(true)
   const [filter, setFilter] = useState<Filter>('today')
   const [showForm, setShowForm] = useState(false)
   const [editingTodo, setEditingTodo] = useState<Todo | undefined>()
@@ -32,8 +42,13 @@ export default function Todos() {
   }, [])
 
   async function load() {
-    const { data } = await supabase.from('todos').select('*').order('created_at', { ascending: false })
-    setTodos(data ?? [])
+    const [localRes, googleRes] = await Promise.all([
+      supabase.from('todos').select('*').order('created_at', { ascending: false }),
+      fetchGoogleTasks(),
+    ])
+    setTodos(localRes.data ?? [])
+    setGoogleTasks(googleRes.tasks)
+    setGoogleConnected(googleRes.connected)
     setLoading(false)
   }
 
@@ -54,18 +69,29 @@ export default function Todos() {
   }
 
   const t = today()
-  const filtered = todos.filter(todo => {
-    if (filter === 'completed') return todo.completed
-    if (todo.completed) return false
-    if (filter === 'today') return todo.due_date === t || !todo.due_date
-    if (filter === 'upcoming') return todo.due_date && todo.due_date > t
+  const merged: MergedTodo[] = [
+    ...todos.map(todo => ({ source: 'local' as const, todo })),
+    ...googleTasks.map(todo => ({ source: 'google' as const, todo })),
+  ]
+
+  function dueDate(item: MergedTodo) {
+    return item.source === 'local' ? item.todo.due_date : item.todo.due
+  }
+
+  const filtered = merged.filter(item => {
+    if (filter === 'completed') return item.todo.completed
+    if (item.todo.completed) return false
+    const due = dueDate(item)
+    if (filter === 'today') return due === t || !due
+    if (filter === 'upcoming') return due && due > t
     return true
   })
 
   const sorted = [...filtered].sort((a, b) => {
     if (filter !== 'completed') {
-      const pa = { high: 0, medium: 1, low: 2 }[a.priority]
-      const pb = { high: 0, medium: 1, low: 2 }[b.priority]
+      const priorityRank = { high: 0, medium: 1, low: 2 }
+      const pa = a.source === 'local' ? priorityRank[a.todo.priority] : 1
+      const pb = b.source === 'local' ? priorityRank[b.todo.priority] : 1
       if (pa !== pb) return pa - pb
     }
     return 0
@@ -97,6 +123,16 @@ export default function Todos() {
         ))}
       </div>
 
+      {!loading && !googleConnected && (
+        <button
+          onClick={connectGoogle}
+          className="w-full flex items-center justify-center gap-2 mb-5 p-3 rounded-xl border border-dashed border-border text-sm font-medium text-muted-foreground hover:bg-accent transition-colors"
+        >
+          <Link2 className="h-4 w-4" />
+          Connect Google Tasks
+        </button>
+      )}
+
       {loading ? (
         <div className="flex justify-center py-12">
           <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
@@ -109,14 +145,16 @@ export default function Todos() {
         </div>
       ) : (
         <div className="space-y-2">
-          {sorted.map(todo => (
+          {sorted.map(item => item.source === 'local' ? (
             <TodoItem
-              key={todo.id}
-              todo={todo}
-              onEdit={() => { setEditingTodo(todo); setShowForm(true) }}
-              onDelete={() => deleteTodo(todo.id)}
+              key={`local-${item.todo.id}`}
+              todo={item.todo}
+              onEdit={() => { setEditingTodo(item.todo); setShowForm(true) }}
+              onDelete={() => deleteTodo(item.todo.id)}
               onChange={load}
             />
+          ) : (
+            <GoogleTaskItem key={`google-${item.todo.id}`} task={item.todo} onChange={load} />
           ))}
         </div>
       )}

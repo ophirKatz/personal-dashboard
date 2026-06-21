@@ -9,17 +9,6 @@ export type GoogleCalendarEvent = {
   htmlLink: string
 }
 
-export async function connectGoogleCalendar() {
-  await supabase.auth.signInWithOAuth({
-    provider: 'google',
-    options: {
-      redirectTo: window.location.origin,
-      scopes: 'https://www.googleapis.com/auth/calendar.readonly',
-      queryParams: { access_type: 'offline', prompt: 'consent' },
-    },
-  })
-}
-
 export async function fetchGoogleCalendarEvents(days = 30): Promise<{ connected: boolean; events: GoogleCalendarEvent[] }> {
   const { data: { session } } = await supabase.auth.getSession()
   if (!session) return { connected: false, events: [] }

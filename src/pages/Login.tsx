@@ -1,9 +1,9 @@
 import { Mountain } from 'lucide-react'
-import { connectGoogleCalendar } from '../features/calendar/googleCalendar'
+import { connectGoogle } from '../lib/googleAuth'
 
 export default function Login() {
   async function handleLogin() {
-    await connectGoogleCalendar()
+    await connectGoogle()
   }
 
   return (
