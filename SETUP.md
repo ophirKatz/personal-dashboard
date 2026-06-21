@@ -138,10 +138,11 @@ Google Tasks (or in the app, for tasks created in the app).
 
 ## 1f. Google Drive — Enable the integration
 
-The new Drive page lets you pick specific Google Drive folders to sync read-only — browse your
-Drive, choose one or more folders, and the app lists the files inside them (with a link to open
-each file in Drive). This reuses the same Google OAuth client and `GOOGLE_CLIENT_ID` /
-`GOOGLE_CLIENT_SECRET` from step 1d — no new env vars are needed. Two extra things are required:
+The Files page can sync specific Google Drive folders read-only — click "Sync a Google Drive
+folder", browse/search your Drive, and pick one or more folders. They show up alongside your
+local folders (badged "Google"), and opening one lists its files with a link to open each in
+Drive. This reuses the same Google OAuth client and `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET`
+from step 1d — no new env vars are needed. Two extra things are required:
 
 1. **Enable the Drive API** — in [Google Cloud Console](https://console.cloud.google.com/),
    go to **APIs & Services → Library**, search for **Google Drive API**, and click **Enable**.
@@ -155,7 +156,7 @@ each file in Drive). This reuses the same Google OAuth client and `GOOGLE_CLIENT
 
 > **Re-login required:** if you connected Google Calendar or Tasks before this feature existed,
 > you must reconnect once to grant the additional Drive scope. Log out and back in, or use the
-> "Connect Google Drive" button that appears on the Drive page — either flow now requests the
+> "Connect Google Drive" button that appears on the Files page — either flow now requests the
 > Calendar, Tasks, and Drive scopes together in a single consent screen.
 
 **Scope note:** the app only ever lists files inside folders you explicitly add via the folder
@@ -280,8 +281,7 @@ Storage objects are scoped to `(storage.foldername(name))[1] = auth.uid()::text`
 | Climbing | `/climbing` | Log / History / Stats tabs |
 | Shopping | `/shopping` | Single flat list |
 | Calendar | `/calendar` | Upcoming events only (past hidden). Merges local events with real Google Calendar events (badged "Google"), proxied server-side through `/api/calendar-events` so tokens never reach the browser |
-| Files | `/files` | Folder-based file storage |
-| Drive | `/drive` | Pick specific Google Drive folders via a folder-tree picker; lists files inside each synced folder, read-only, proxied server-side through `/api/google-drive-browse`, `/api/google-drive-folders`, and `/api/google-drive-files` so tokens never reach the browser |
+| Files | `/files` | Folder-based file storage. Also lets you sync specific Google Drive folders via a folder-tree picker — synced folders appear alongside local ones (badged "Google"); opening one lists its files read-only, proxied server-side through `/api/google-drive-browse`, `/api/google-drive-folders`, and `/api/google-drive-files` so tokens never reach the browser |
 | Finance | `/finance` | USD/EUR/NIS converter (free, no-key [currency-api](https://github.com/fawazahmed0/currency-api)) + TENB stock quote, proxied server-side through `/api/stock-quote` (Finnhub, needs `FINNHUB_API_KEY`) so the key never reaches the browser |
 
 ---
@@ -337,7 +337,7 @@ Common causes: unused imports (the tsconfig is set to `noUnusedLocals: false` to
   Use `vercel dev` locally with `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET` set in `.env.local` to test it.
 
 **Google Drive shows "Connect Google Drive" / folder picker is empty, or no files appear:**
-- Click **Connect Google Drive** on the Drive page (or log out and back in) and accept the consent
+- Click **Connect Google Drive** on the Files page (or log out and back in) and accept the consent
   screen — required even if Calendar/Tasks are already connected, since Drive is a separate scope
 - Confirm the Drive API is enabled in Google Cloud Console (step 1f)
 - Confirm `https://www.googleapis.com/auth/drive.readonly` is listed under OAuth consent screen scopes
