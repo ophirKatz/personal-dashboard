@@ -41,6 +41,8 @@ export type Todo = {
   reminder_enabled: boolean
   remind_at: string | null
   notified_at: string | null
+  source: 'local' | 'google'
+  google_task_id: string | null
 }
 
 export type Reminder = {

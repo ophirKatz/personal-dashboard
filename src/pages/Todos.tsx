@@ -43,7 +43,7 @@ export default function Todos() {
 
   async function load() {
     const [localRes, googleRes] = await Promise.all([
-      supabase.from('todos').select('*').order('created_at', { ascending: false }),
+      supabase.from('todos').select('*').eq('source', 'local').order('created_at', { ascending: false }),
       fetchGoogleTasks(),
     ])
     setTodos(localRes.data ?? [])
