@@ -1,6 +1,5 @@
-import type { VercelRequest, VercelResponse } from '@vercel/node'
-import { createClient } from '@supabase/supabase-js'
-import webpush from 'web-push'
+import { createClient } from 'npm:@supabase/supabase-js@2'
+import webpush from 'npm:web-push@3'
 
 type PendingNotification = {
   userId: string
@@ -9,21 +8,19 @@ type PendingNotification = {
   url: string
 }
 
-export default async function handler(req: VercelRequest, res: VercelResponse) {
-  const cronSecret = process.env.CRON_SECRET
-  if (!cronSecret || req.headers.authorization !== `Bearer ${cronSecret}`) {
-    res.status(401).json({ error: 'UNAUTHORIZED' })
-    return
+Deno.serve(async (req: Request) => {
+  const cronSecret = Deno.env.get('CRON_SECRET')
+  if (!cronSecret || req.headers.get('authorization') !== `Bearer ${cronSecret}`) {
+    return new Response(JSON.stringify({ error: 'UNAUTHORIZED' }), { status: 401 })
   }
 
-  const supabaseUrl = process.env.VITE_SUPABASE_URL
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
-  const vapidPublicKey = process.env.VAPID_PUBLIC_KEY
-  const vapidPrivateKey = process.env.VAPID_PRIVATE_KEY
-  const vapidSubject = process.env.VAPID_SUBJECT
+  const supabaseUrl = Deno.env.get('SUPABASE_URL')
+  const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
+  const vapidPublicKey = Deno.env.get('VAPID_PUBLIC_KEY')
+  const vapidPrivateKey = Deno.env.get('VAPID_PRIVATE_KEY')
+  const vapidSubject = Deno.env.get('VAPID_SUBJECT')
   if (!supabaseUrl || !serviceRoleKey || !vapidPublicKey || !vapidPrivateKey || !vapidSubject) {
-    res.status(500).json({ error: 'MISSING_CONFIG' })
-    return
+    return new Response(JSON.stringify({ error: 'MISSING_CONFIG' }), { status: 500 })
   }
 
   webpush.setVapidDetails(vapidSubject, vapidPublicKey, vapidPrivateKey)
@@ -74,8 +71,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   if (pending.length === 0) {
-    res.status(200).json({ sent: 0 })
-    return
+    return new Response(JSON.stringify({ sent: 0 }), { status: 200 })
   }
 
   const userIds = [...new Set(pending.map(n => n.userId))]
@@ -103,5 +99,5 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
   }
 
-  res.status(200).json({ sent })
-}
+  return new Response(JSON.stringify({ sent }), { status: 200 })
+})

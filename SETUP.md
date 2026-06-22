@@ -192,7 +192,10 @@ app is a PWA with a custom service worker (`src/sw.ts`) that listens for `push` 
 - The browser/PWA subscribes to push via the Web Push API and stores the subscription
   (endpoint + keys) in the new `push_subscriptions` table (Settings page → "Enable notifications")
 - A Postgres cron job (`pg_cron` + `pg_net`, both already enabled on the Supabase project) runs
-  every minute and calls a new `/api/send-notifications` serverless function over HTTP
+  every minute and calls a **Supabase Edge Function** (`supabase/functions/send-notifications`)
+  over HTTP — not a Vercel function. This avoids ever putting the Supabase service-role key into
+  Vercel: Edge Functions get `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` injected automatically
+  by Supabase, scoped to that project only.
 - That function checks for due reminders (`remind_at <= now()` and not yet notified) and habits
   with a matching `reminder_time` that haven't been logged today, then sends a push via the
   `web-push` library to every stored subscription for that user
@@ -200,13 +203,25 @@ app is a PWA with a custom service worker (`src/sw.ts`) that listens for `push` 
 **This was already set up for you (via MCPs), no action needed:**
 - `pg_cron` and `pg_net` extensions enabled on the Supabase project
 - A `cron_secret` stored in Supabase Vault, and a `send-due-notifications` cron job scheduled to
-  call `https://personal-dashboard-azure-omega.vercel.app/api/send-notifications` every minute
+  call the deployed `send-notifications` Edge Function every minute
+- The Edge Function itself, deployed at
+  `https://tjjvrqamitwtoslinrxy.supabase.co/functions/v1/send-notifications`
 - The `push_subscriptions` table (RLS-protected, one row per device) and new columns:
   `habits.reminder_enabled`, `habits.reminder_time`, `habits.last_notified_date`,
   `reminders.notified_at`
 
-**What still requires manual action — add these to Vercel (step 2 below), there's no MCP tool
-that can write Vercel environment variables:**
+**What still requires manual action — there's no MCP tool that can write Vercel environment
+variables or Supabase Edge Function secrets, so these must be added by hand:**
+
+In **Vercel** (Settings → Environment Variables, step 2 below) — only needed by the browser and
+the subscribe/unsubscribe endpoints, never by the notification sender itself:
+
+| Name | Value |
+|---|---|
+| `VITE_VAPID_PUBLIC_KEY` | `BCPyVmqKJ3SIxbQt9JYkCPV8FkTF6pFytctsl1DTVBSusLRMKgcLxjtttX-MA7HARDqNo7zUr37vGntNZEn5tLQ` — the browser needs this to call `pushManager.subscribe()` |
+
+In **Supabase** (Dashboard → your project → **Edge Functions → Manage secrets**, or
+`supabase secrets set` via the CLI) — these are read by the `send-notifications` function:
 
 | Name | Value |
 |---|---|
@@ -214,8 +229,9 @@ that can write Vercel environment variables:**
 | `VAPID_PRIVATE_KEY` | `-lSYIueFwVAgIs_RFzfBDvvIR5ctM33zABnf_tATcIs` |
 | `VAPID_SUBJECT` | `mailto:ophirk8396@gmail.com` (or any contact address — required by the Web Push spec) |
 | `CRON_SECRET` | `fa6e9b50a5ce3a434177549e919a2dc9e53f3600e1420b2ee13e2e72361249db` — must match exactly what's stored in Supabase Vault; only change this if you also update the Vault secret and the cron job |
-| `SUPABASE_SERVICE_ROLE_KEY` | From [Supabase Dashboard](https://supabase.com/dashboard/project/tjjvrqamitwtoslinrxy/settings/api) → **Project Settings → API → service_role secret**. This bypasses RLS so the cron function can read every user's subscriptions/habits/reminders — never expose it to the browser (no `VITE_` prefix) |
-| `VITE_VAPID_PUBLIC_KEY` | Same value as `VAPID_PUBLIC_KEY` above — this one **does** get the `VITE_` prefix since the browser needs it to call `pushManager.subscribe()` |
+
+`SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` do **not** need to be set manually — Supabase
+injects both into every Edge Function automatically, scoped to this project.
 
 **Enabling notifications on iPhone:**
 1. Open the deployed app in Safari and tap **Share → Add to Home Screen** (push notifications
@@ -227,13 +243,14 @@ that can write Vercel environment variables:**
 4. Set a reminder time on a habit (Habits → edit a habit → toggle **Reminder**), or create a
    Reminder for a few minutes out, and wait — it should arrive as a real lock-screen notification
 
-**If the cron job's target URL changes** (e.g. a different production domain), update it with:
+**If the Edge Function's project changes** (e.g. a different Supabase project), update the cron
+job's target URL with:
 ```sql
 select cron.alter_job(
   (select jobid from cron.job where jobname = 'send-due-notifications'),
   command := $$
   select net.http_post(
-    url := 'https://<new-domain>/api/send-notifications',
+    url := 'https://<new-project-ref>.supabase.co/functions/v1/send-notifications',
     headers := jsonb_build_object(
       'Content-Type', 'application/json',
       'Authorization', 'Bearer ' || (select decrypted_secret from vault.decrypted_secrets where name = 'cron_secret')
@@ -260,7 +277,7 @@ As part of the import in step 0 (or right after), set these environment variable
 | `FINNHUB_API_KEY` | Free key from [finnhub.io/register](https://finnhub.io/register) — powers the TENB stock quote on the Finance page. **No `VITE_` prefix** — this one stays server-side, read only by the `/api/stock-quote` serverless function, never shipped to the browser bundle |
 | `GOOGLE_CLIENT_ID` | The same OAuth **Client ID** from step 1a / 1d. **No `VITE_` prefix.** |
 | `GOOGLE_CLIENT_SECRET` | The same OAuth **Client Secret** from step 1a / 1d. **No `VITE_` prefix** — used only by the `/api/calendar-events` serverless function to refresh the Google access token, never shipped to the browser bundle |
-| `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT`, `CRON_SECRET`, `SUPABASE_SERVICE_ROLE_KEY`, `VITE_VAPID_PUBLIC_KEY` | See step 1g above for exact values and what each one does |
+| `VITE_VAPID_PUBLIC_KEY` | See step 1g above. The other push-notification secrets (`VAPID_PRIVATE_KEY`, `VAPID_SUBJECT`, `CRON_SECRET`) live in Supabase Edge Function secrets, not Vercel — see step 1g |
 
 3. After saving, **redeploy** the project for env vars to take effect:
    - Go to **Deployments** tab → latest deployment → **⋯ → Redeploy**
@@ -445,11 +462,15 @@ Common causes: unused imports (the tsconfig is set to `noUnusedLocals: false` to
 - Check the browser's notification permission for the site hasn't been previously denied
 
 **Notifications never arrive even though "Enable notifications" succeeded:**
-- Confirm `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT`, `CRON_SECRET`, and
-  `SUPABASE_SERVICE_ROLE_KEY` are all set in Vercel and you've redeployed
+- Confirm `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT`, and `CRON_SECRET` are all set
+  as **Supabase Edge Function secrets** (Dashboard → Edge Functions → Manage secrets) — these are
+  separate from Vercel's env vars and from each other
 - Confirm the `send-due-notifications` cron job exists and is active:
   `select * from cron.job where jobname = 'send-due-notifications';` in the Supabase SQL editor
 - Check recent runs: `select * from cron.job_run_details order by start_time desc limit 5;`
+- Check the Edge Function's own logs (Dashboard → Edge Functions → `send-notifications` → Logs)
+  for errors like `MISSING_CONFIG` (a secret isn't set) or `UNAUTHORIZED` (the `CRON_SECRET`
+  secret doesn't match the one in Supabase Vault)
 - A habit's `reminder_time` is stored in UTC (converted from your local time at save time) — if
   your habit reminder never fires, double check the time you picked actually matches an upcoming
   UTC minute, e.g. via the Habits page reminder display
