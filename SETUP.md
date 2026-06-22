@@ -138,9 +138,13 @@ Google Tasks (or in the app, for tasks created in the app).
 
 ## 1f. Google Drive — Enable the integration
 
-The Files page can sync specific Google Drive folders read-only — click "Sync a Google Drive
-folder", browse/search your Drive, and pick one or more folders. They show up alongside your
-local folders (badged "Google"), and opening one lists its files with a link to open each in
+The Files page can recursively sync specific Google Drive folders — click "Sync a Google Drive
+folder", browse/search your Drive, and pick a folder. The app then walks that folder and all of
+its subfolders, downloads every file's actual content, and uploads it into the same Supabase
+Storage bucket used for local uploads. Synced folders show up alongside your local folders
+(badged "Google"); opening one lists real, locally-stored files — viewable/downloadable exactly
+like local files, not links back to Drive. Re-syncing (automatic on add, or via the refresh
+button) only re-downloads files that changed and removes local copies of anything deleted from
 Drive. This reuses the same Google OAuth client and `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET`
 from step 1d — no new env vars are needed. Two extra things are required:
 
@@ -152,19 +156,29 @@ from step 1d — no new env vars are needed. Two extra things are required:
    https://www.googleapis.com/auth/drive.readonly
    ```
    This is a "sensitive" scope. Same Testing mode / Test users consideration as the Calendar
-   scope in step 1d applies here too.
+   scope in step 1d applies here too. `drive.readonly` is sufficient for downloading file content
+   (`files.get?alt=media` / `files.export`), so no scope change or re-login is needed for this
+   feature if Drive was already connected.
 
-> **Re-login required:** if you connected Google Calendar or Tasks before this feature existed,
-> you must reconnect once to grant the additional Drive scope. Log out and back in, or use the
-> "Connect Google Drive" button that appears on the Files page — either flow now requests the
-> Calendar, Tasks, and Drive scopes together in a single consent screen.
+> **Re-login required (only if Drive was never connected before):** if you haven't connected
+> Google Drive yet, click "Connect Google Drive" on the Files page (or log out and back in) to
+> grant the Drive scope alongside Calendar/Tasks in a single consent screen.
 
-**Scope note:** the app only ever lists files inside folders you explicitly add via the folder
-picker — nothing is read or synced automatically. `drive.readonly` technically grants read access
-to your whole Drive (Google does not offer a scope limited to "files inside folder X"), but the
-app's own folder-selection list (stored in Supabase, RLS-protected) is what gates which folders
-its API endpoints will actually return files for. Removing a folder from the list immediately
-stops the app from listing its contents, even though the OAuth grant itself is broader.
+**Scope note:** the app only ever syncs folders you explicitly add via the folder picker —
+nothing is read or synced automatically. `drive.readonly` technically grants read access to your
+whole Drive (Google does not offer a scope limited to "files inside folder X"), but the app's own
+folder-selection list (stored in Supabase, RLS-protected) is what gates which folders its sync
+endpoint will actually walk and download. Removing a folder from the list deletes its downloaded
+copies from Storage immediately, even though the OAuth grant itself is broader.
+
+**Google Docs/Sheets/Slides:** these have no raw binary content in Drive, so they're exported on
+download — Docs → PDF, Sheets → `.xlsx`, Slides → `.pptx`, Drawings → `.png`. Other native Google
+types with no file-like export (Forms, Sites, Maps, Apps Script, shortcuts) are skipped.
+
+**Large folders:** each sync request only processes a bounded batch of files before returning, so
+the client loops automatically until the whole tree is synced — large folders just take more
+round trips, with no risk of hitting a serverless function timeout. The 50 MB per-file Storage
+limit (see step 5 below) still applies; oversized files are skipped and retried on the next sync.
 
 ---
 
@@ -244,15 +258,15 @@ The `vercel.json` in this repo configures SPA routing (all paths → `index.html
 | `climbing_attempts` | Individual attempts within a session |
 | `shopping_items` | Flat shopping list items (single list per user) |
 | `events` | Calendar events (manually created, local to the app) |
-| `files` | File metadata (actual files in Storage) |
+| `files` | File metadata (actual files in Storage). `source` distinguishes local uploads from recursively-synced Google Drive files; Drive rows also carry `root_folder_id`, `drive_file_id`, `relative_path` (subfolder path within the synced root), and `drive_modified_time` (used to skip re-downloading unchanged files) |
 | `google_oauth_tokens` | One row per user: Google OAuth refresh/access token used to read their Google Calendar, Google Tasks, and Google Drive |
-| `google_drive_folders` | The Drive folders a user has chosen to sync (Drive folder ID + name) |
+| `google_drive_folders` | The Drive root folders a user has chosen to sync (Drive folder ID + name), plus `sync_status` / `sync_error` / `last_synced_at` for the recursive sync job. Deleting a row cascades to delete its synced `files` rows |
 
 ### Storage
 
 **Bucket:** `user-files` (private)
-**Path convention:** `{user_id}/{folder_name}/{timestamp}.{ext}`
-**Max file size:** 50 MB (enforced at bucket level)
+**Path convention:** `{user_id}/{folder_name}/{timestamp}.{ext}` for local uploads, `{user_id}/google-drive/{drive_file_id}` for files synced from Google Drive
+**Max file size:** 50 MB (enforced at bucket level) — oversized Drive files are skipped on sync
 
 Files are accessed via signed URLs (1-hour expiry), generated on demand when a user taps Download.
 
@@ -281,7 +295,7 @@ Storage objects are scoped to `(storage.foldername(name))[1] = auth.uid()::text`
 | Climbing | `/climbing` | Log / History / Stats tabs |
 | Shopping | `/shopping` | Single flat list |
 | Calendar | `/calendar` | Upcoming events only (past hidden). Merges local events with real Google Calendar events (badged "Google"), proxied server-side through `/api/calendar-events` so tokens never reach the browser |
-| Files | `/files` | Folder-based file storage. Also lets you sync specific Google Drive folders via a folder-tree picker — synced folders appear alongside local ones (badged "Google"); opening one lists its files read-only, proxied server-side through `/api/google-drive-browse`, `/api/google-drive-folders`, and `/api/google-drive-files` so tokens never reach the browser |
+| Files | `/files` | Folder-based file storage. Also lets you recursively sync Google Drive folders (and all their subfolders/files) via a folder-tree picker — synced folders appear alongside local ones (badged "Google"); files are downloaded and stored in Supabase Storage, so they're viewable/downloadable exactly like local files, not links to Drive. Proxied server-side through `/api/google-drive-browse`, `/api/google-drive-folders`, and `/api/google-drive-sync` so tokens never reach the browser |
 | Finance | `/finance` | USD/EUR/NIS converter (free, no-key [currency-api](https://github.com/fawazahmed0/currency-api)) + TENB stock quote, proxied server-side through `/api/stock-quote` (Finnhub, needs `FINNHUB_API_KEY`) so the key never reaches the browser |
 
 ---
@@ -342,12 +356,11 @@ Common causes: unused imports (the tsconfig is set to `noUnusedLocals: false` to
 - Confirm the Drive API is enabled in Google Cloud Console (step 1f)
 - Confirm `https://www.googleapis.com/auth/drive.readonly` is listed under OAuth consent screen scopes
 - If your OAuth consent screen is in Testing mode, confirm your account is listed as a test user
-- A 403 from `/api/google-drive-browse` or `/api/google-drive-files` means the stored token doesn't
+- A 403 from `/api/google-drive-browse` or `/api/google-drive-sync` means the stored token doesn't
   have the Drive scope yet — reconnect
-- A 404 from `/api/google-drive-files` for a folder you just added usually means it hasn't finished
-  saving yet — reopen the folder
+- If a folder's card shows "sync failed", open it to see the error, then tap the refresh icon to retry
 
-**`/api/google-drive-browse`, `/api/google-drive-folders`, or `/api/google-drive-files` 404s in local dev:**
+**`/api/google-drive-browse`, `/api/google-drive-folders`, or `/api/google-drive-sync` 404s in local dev:**
 - Same cause as the stock quote endpoint: `npm run dev` doesn't run serverless functions.
   Use `vercel dev` locally with `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET` set in `.env.local` to test it.
 

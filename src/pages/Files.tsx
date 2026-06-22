@@ -1,22 +1,22 @@
 import { useEffect, useState, useRef, lazy, Suspense } from 'react'
-import { Plus, Download, Trash2, Folder as FolderIcon, Upload, X, Eye, Pencil, Search, Link2, ExternalLink } from 'lucide-react'
+import { Plus, Download, Trash2, Folder as FolderIcon, Upload, X, Eye, Pencil, Search, Link2, RefreshCw } from 'lucide-react'
 import { supabase } from '../supabase'
 import type { FileRecord } from '../supabase'
 import type { User } from '@supabase/supabase-js'
 import { Button } from '../components/ui/button'
 import { Input } from '../components/ui/input'
 import { formatFileSize, fileIcon, isViewable } from '../utils'
-import { format } from 'date-fns'
+import { format, formatDistanceToNow } from 'date-fns'
 import { connectGoogle } from '../lib/googleAuth'
 import { DriveFolderPicker } from '../features/drive/DriveFolderPicker'
-import { fetchSelectedDriveFolders, addDriveFolder, removeDriveFolder, fetchDriveFolderFiles } from '../features/drive/googleDrive'
-import type { DriveFolder, DriveFile } from '../features/drive/googleDrive'
+import { fetchSelectedDriveFolders, addDriveFolder, removeDriveFolder, syncDriveFolder } from '../features/drive/googleDrive'
+import type { DriveFolder } from '../features/drive/googleDrive'
 
 const FileViewer = lazy(() => import('../components/FileViewer').then(m => ({ default: m.FileViewer })))
 
 type SelectedFolder =
   | { source: 'local'; name: string }
-  | { source: 'google'; folder: DriveFolder }
+  | { source: 'google'; folderId: string }
 
 export default function Files() {
   const [user, setUser] = useState<User | null>(null)
@@ -24,8 +24,7 @@ export default function Files() {
   const [googleConnected, setGoogleConnected] = useState(true)
   const [googleFolders, setGoogleFolders] = useState<DriveFolder[]>([])
   const [selected, setSelected] = useState<SelectedFolder | null>(null)
-  const [driveFiles, setDriveFiles] = useState<DriveFile[]>([])
-  const [driveFilesLoading, setDriveFilesLoading] = useState(false)
+  const [syncingFolderIds, setSyncingFolderIds] = useState<Set<string>>(new Set())
   const [pickerOpen, setPickerOpen] = useState(false)
   const [newFolder, setNewFolder] = useState('')
   const [uploading, setUploading] = useState(false)
@@ -52,26 +51,32 @@ export default function Files() {
 
   useEffect(() => { load() }, [])
 
-  const folders = [...new Set(files.map(f => f.folder))].sort()
+  const folders = [...new Set(files.filter(f => f.source === 'local').map(f => f.folder))].sort()
   const query = search.trim().toLowerCase()
   const searchResults = query ? files.filter(f => f.name.toLowerCase().includes(query)) : []
 
-  async function loadDriveFiles(folder: DriveFolder) {
-    setDriveFilesLoading(true)
-    const res = await fetchDriveFolderFiles(folder.folder_id)
-    setDriveFiles(res.files)
-    setDriveFilesLoading(false)
+  async function triggerSync(folderId: string) {
+    setSyncingFolderIds(prev => new Set(prev).add(folderId))
+    await syncDriveFolder(folderId, () => load())
+    setSyncingFolderIds(prev => {
+      const next = new Set(prev)
+      next.delete(folderId)
+      return next
+    })
+    load()
   }
 
   function openGoogleFolder(folder: DriveFolder) {
-    setSelected({ source: 'google', folder })
-    loadDriveFiles(folder)
+    setSelected({ source: 'google', folderId: folder.folder_id })
   }
 
   async function handleSelectDriveFolder(folderId: string, folderName: string) {
     const ok = await addDriveFolder(folderId, folderName)
     setPickerOpen(false)
-    if (ok) load()
+    if (ok) {
+      load()
+      triggerSync(folderId)
+    }
   }
 
   async function handleRemoveDriveFolder(folder: DriveFolder) {
@@ -147,6 +152,7 @@ export default function Files() {
         <span className="text-2xl">{fileIcon(file.mime_type)}</span>
         <div className="flex-1 min-w-0">
           <p className="font-medium truncate">{file.name}</p>
+          {file.relative_path && <p className="text-xs text-muted-foreground truncate">{file.relative_path}</p>}
           <p className="text-xs text-muted-foreground mt-0.5">
             {showFolder && <>{file.folder} · </>}
             {formatFileSize(file.size_bytes)} · {format(new Date(file.created_at), 'MMM d, yyyy')}
@@ -172,27 +178,11 @@ export default function Files() {
     )
   }
 
-  function DriveFileRow({ file }: { file: DriveFile }) {
-    return (
-      <div className="flex items-center gap-3 p-4 bg-card border border-border rounded-xl">
-        <span className="text-2xl">{fileIcon(file.mimeType)}</span>
-        <div className="flex-1 min-w-0">
-          <p className="font-medium truncate">{file.name}</p>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            {file.sizeBytes != null && <>{formatFileSize(file.sizeBytes)} · </>}
-            {format(new Date(file.modifiedTime), 'MMM d, yyyy')}
-          </p>
-        </div>
-        {file.webViewLink && (
-          <a href={file.webViewLink} target="_blank" rel="noreferrer" className="p-2 rounded-lg hover:bg-accent text-muted-foreground">
-            <ExternalLink className="h-4 w-4" />
-          </a>
-        )}
-      </div>
-    )
-  }
-
-  const currentFiles = selected?.source === 'local' ? files.filter(f => f.folder === selected.name) : []
+  const currentFiles = selected?.source === 'local' ? files.filter(f => f.source === 'local' && f.folder === selected.name) : []
+  const selectedGoogleFolder = selected?.source === 'google' ? googleFolders.find(f => f.folder_id === selected.folderId) : undefined
+  const currentDriveFiles = selectedGoogleFolder
+    ? files.filter(f => f.source === 'google_drive' && f.root_folder_id === selectedGoogleFolder.folder_id)
+    : []
 
   if (selected?.source === 'local') {
     return (
@@ -243,7 +233,9 @@ export default function Files() {
     )
   }
 
-  if (selected?.source === 'google') {
+  if (selected?.source === 'google' && selectedGoogleFolder) {
+    const folder = selectedGoogleFolder
+    const syncing = folder.sync_status === 'syncing' || syncingFolderIds.has(folder.folder_id)
     return (
       <div className="p-4 max-w-2xl mx-auto">
         <div className="flex items-center gap-3 mb-6">
@@ -252,30 +244,53 @@ export default function Files() {
           </button>
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-1.5">
-              <h1 className="text-2xl font-bold truncate">{selected.folder.folder_name}</h1>
+              <h1 className="text-2xl font-bold truncate">{folder.folder_name}</h1>
               <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-blue-100 text-blue-700 shrink-0">Google</span>
             </div>
-            <p className="text-sm text-muted-foreground">{driveFiles.length} file{driveFiles.length !== 1 ? 's' : ''}</p>
+            <p className="text-sm text-muted-foreground">
+              {syncing
+                ? 'Syncing…'
+                : folder.sync_status === 'error'
+                  ? `Sync failed: ${folder.sync_error ?? 'unknown error'}`
+                  : `${currentDriveFiles.length} file${currentDriveFiles.length !== 1 ? 's' : ''}${folder.last_synced_at ? ` · synced ${formatDistanceToNow(new Date(folder.last_synced_at), { addSuffix: true })}` : ''}`}
+            </p>
           </div>
           <button
-            onClick={() => handleRemoveDriveFolder(selected.folder)}
+            onClick={() => triggerSync(folder.folder_id)}
+            disabled={syncing}
+            className="p-2 rounded-lg hover:bg-accent text-muted-foreground disabled:opacity-40"
+          >
+            <RefreshCw className={`h-5 w-5 ${syncing ? 'animate-spin' : ''}`} />
+          </button>
+          <button
+            onClick={() => handleRemoveDriveFolder(folder)}
             className="p-2 rounded-lg hover:bg-accent text-muted-foreground hover:text-destructive"
           >
             <Trash2 className="h-5 w-5" />
           </button>
         </div>
 
-        {driveFilesLoading ? (
-          <div className="flex justify-center py-12"><div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" /></div>
-        ) : driveFiles.length === 0 ? (
+        {currentDriveFiles.length === 0 ? (
           <div className="text-center py-16 text-muted-foreground">
-            <div className="text-4xl mb-3">📂</div>
-            <p className="font-medium">No files in this folder</p>
+            {syncing ? (
+              <div className="w-6 h-6 mx-auto border-2 border-primary border-t-transparent rounded-full animate-spin" />
+            ) : (
+              <>
+                <div className="text-4xl mb-3">📂</div>
+                <p className="font-medium">No files in this folder</p>
+              </>
+            )}
           </div>
         ) : (
           <div className="space-y-2">
-            {driveFiles.map(file => <DriveFileRow key={file.id} file={file} />)}
+            {currentDriveFiles.map(file => <FileRow key={file.id} file={file} />)}
           </div>
+        )}
+
+        {viewingFile && (
+          <Suspense fallback={null}>
+            <FileViewer file={viewingFile} onClose={() => setViewingFile(null)} />
+          </Suspense>
         )}
       </div>
     )
@@ -350,7 +365,7 @@ export default function Files() {
           ) : (
             <div className="grid grid-cols-2 gap-3">
               {folders.map(folder => {
-                const count = files.filter(f => f.folder === folder).length
+                const count = files.filter(f => f.source === 'local' && f.folder === folder).length
                 return (
                   <button
                     key={`local-${folder}`}
@@ -365,26 +380,39 @@ export default function Files() {
                   </button>
                 )
               })}
-              {googleFolders.map(gf => (
-                <div
-                  key={`google-${gf.id}`}
-                  className="relative flex flex-col items-start gap-2 p-4 bg-card border border-border rounded-xl hover:bg-accent transition-colors text-left"
-                >
-                  <button
-                    onClick={() => handleRemoveDriveFolder(gf)}
-                    className="absolute top-2 right-2 p-1 rounded-lg hover:bg-background text-muted-foreground hover:text-destructive"
+              {googleFolders.map(gf => {
+                const count = files.filter(f => f.source === 'google_drive' && f.root_folder_id === gf.folder_id).length
+                const syncing = gf.sync_status === 'syncing' || syncingFolderIds.has(gf.folder_id)
+                return (
+                  <div
+                    key={`google-${gf.id}`}
+                    className="relative flex flex-col items-start gap-2 p-4 bg-card border border-border rounded-xl hover:bg-accent transition-colors text-left"
                   >
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </button>
-                  <button onClick={() => openGoogleFolder(gf)} className="flex flex-col items-start gap-2 w-full pr-4">
-                    <FolderIcon className="h-8 w-8 text-blue-400" />
-                    <div>
-                      <p className="font-medium text-sm truncate max-w-full">{gf.folder_name}</p>
-                      <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-blue-100 text-blue-700">Google</span>
-                    </div>
-                  </button>
-                </div>
-              ))}
+                    <button
+                      onClick={() => handleRemoveDriveFolder(gf)}
+                      className="absolute top-2 right-2 p-1 rounded-lg hover:bg-background text-muted-foreground hover:text-destructive"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                    <button onClick={() => openGoogleFolder(gf)} className="flex flex-col items-start gap-2 w-full pr-4">
+                      <FolderIcon className="h-8 w-8 text-blue-400" />
+                      <div>
+                        <p className="font-medium text-sm truncate max-w-full">{gf.folder_name}</p>
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-blue-100 text-blue-700">Google</span>
+                          {syncing ? (
+                            <RefreshCw className="h-3 w-3 text-muted-foreground animate-spin" />
+                          ) : gf.sync_status === 'error' ? (
+                            <span className="text-[10px] text-destructive">sync failed</span>
+                          ) : (
+                            <span className="text-xs text-muted-foreground">{count} file{count !== 1 ? 's' : ''}</span>
+                          )}
+                        </div>
+                      </div>
+                    </button>
+                  </div>
+                )
+              })}
             </div>
           )}
         </>

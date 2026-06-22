@@ -91,6 +91,11 @@ export type FileRecord = {
   size_bytes: number
   mime_type: string
   created_at: string
+  source: 'local' | 'google_drive'
+  root_folder_id: string | null
+  drive_file_id: string | null
+  relative_path: string
+  drive_modified_time: string | null
 }
 
 export type StockAlert = {
@@ -108,6 +113,9 @@ export type GoogleDriveFolder = {
   folder_id: string
   folder_name: string
   created_at: string
+  sync_status: 'idle' | 'syncing' | 'error'
+  sync_error: string | null
+  last_synced_at: string | null
 }
 
 export type Notification = {
