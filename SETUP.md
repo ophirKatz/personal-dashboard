@@ -390,7 +390,7 @@ The `vercel.json` in this repo configures SPA routing (all paths → `index.html
 |---|---|
 | `habits` | Habit definitions (name, emoji, color, frequency, optional `reminder_time`/`reminder_enabled` for push reminders) |
 | `habit_logs` | Daily check-offs per habit |
-| `todos` | Tasks with priority, due date, notes, optional `reminder_enabled`/`remind_at` for push reminders; `notified_at` tracks whether a push was already sent |
+| `todos` | Tasks with priority, due date, notes, optional `reminder_enabled`/`remind_at` for push reminders; `notified_at` tracks whether a push was already sent. `source` distinguishes local tasks from synced Google Tasks; Google rows carry `google_task_id` and get their `due_date` synced from Google on every `/api/google-tasks` fetch, which is what lets push notifications and due-date-aware features see them |
 | `reminders` | Time-based reminders with optional repeat; `notified_at` tracks whether a push was already sent for the current `remind_at` |
 | `climbing_sessions` | Bouldering session records |
 | `climbing_attempts` | Individual attempts within a session |
@@ -432,7 +432,7 @@ Storage objects are scoped to `(storage.foldername(name))[1] = auth.uid()::text`
 |---|---|---|
 | Dashboard | `/` | Today's habits, tasks, reminders, and an AI-generated Focus section (Today / This Week tabs) summarizing relevant todos and calendar events, cached and refreshed daily at 7am, on relevant todo/event changes, and via a manual refresh icon (see step 1h) |
 | Habits | `/habits` | Create/edit/delete, heatmap, streak, optional daily push reminder at a chosen time |
-| Todos | `/todos` | Filters: Today / Upcoming / All / Done. Merges local tasks with your Google Tasks "My Tasks" list (badged "Google"). Checking the box syncs completion back to Google, proxied server-side through `/api/google-tasks` so tokens never reach the browser. Create/edit/delete stays local-only. Local tasks with a due date can toggle **Remind me** for a push notification at the due date/time |
+| Todos | `/todos` | Filters: Today / Upcoming / All / Done. Merges local tasks with your Google Tasks "My Tasks" list (badged "Google"). Checking the box syncs completion back to Google, proxied server-side through `/api/google-tasks` so tokens never reach the browser. Create/edit/delete stays local-only. Local tasks with a due date can toggle **Remind me** for a push notification at the due date/time. Google Tasks get their due date synced into the database on every fetch and automatically send a push notification on their due date (no toggle needed, since Google Tasks have no time-of-day) |
 | Reminders | `/reminders` | Overdue highlighted, dismiss advances repeat, sends a push notification when due |
 | Climbing | `/climbing` | Log / History / Stats tabs |
 | Shopping | `/shopping` | Single flat list |

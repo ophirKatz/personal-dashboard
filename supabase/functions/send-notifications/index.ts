@@ -56,6 +56,19 @@ Deno.serve(async (req: Request) => {
     await supabase.from('todos').update({ notified_at: now.toISOString() }).eq('id', todo.id)
   }
 
+  const { data: dueGoogleTodos } = await supabase
+    .from('todos')
+    .select('id, user_id, title')
+    .eq('source', 'google')
+    .eq('completed', false)
+    .lte('due_date', nowDate)
+    .is('notified_at', null)
+
+  for (const todo of dueGoogleTodos ?? []) {
+    pending.push({ userId: todo.user_id, title: 'Task due', body: todo.title, url: '/todos' })
+    await supabase.from('todos').update({ notified_at: now.toISOString() }).eq('id', todo.id)
+  }
+
   const { data: dueHabits } = await supabase
     .from('habits')
     .select('id, user_id, name, emoji, reminder_time, last_notified_date')
