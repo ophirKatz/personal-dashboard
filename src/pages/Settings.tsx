@@ -39,7 +39,9 @@ export default function Settings() {
         setError(
           result.error === 'PERMISSION_DENIED'
             ? 'Notification permission was denied. Enable it in your device settings.'
-            : 'Could not enable push notifications. Please try again.',
+            : result.error === 'MISSING_CONFIG'
+              ? 'Push notifications are not configured for this deployment.'
+              : 'Could not enable push notifications. Please try again.',
         )
       }
     }
