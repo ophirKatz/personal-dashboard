@@ -1,22 +1,23 @@
 import { useEffect, useState } from 'react'
-import { CheckCircle2, Flame, Bell, Plus, ShoppingCart, Mountain, DollarSign, TrendingUp, X } from 'lucide-react'
+import { Bell, ShoppingCart, Mountain, DollarSign, TrendingUp, X } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { supabase } from '../supabase'
 import type { Habit, HabitLog, Todo, Reminder, CalendarEvent, Notification } from '../supabase'
-import type { User } from '@supabase/supabase-js'
-import { today, formatDateTime, formatTime, PRIORITY_CONFIG } from '../utils'
+import { today, formatDateTime } from '../utils'
 import { isBefore, addDays, format } from 'date-fns'
-import TodoForm from '../features/todos/TodoForm'
 import { fetchGoogleCalendarEvents } from '../features/calendar/googleCalendar'
 import type { GoogleCalendarEvent } from '../features/calendar/googleCalendar'
 import FocusSection from '../features/focus/FocusSection'
+import TodaySection from '../features/today/TodaySection'
+import type { TodayEvent } from '../features/today/TodaySection'
+
+const USER_NAME = 'Ophir'
 
 type DashboardEvent =
   | { source: 'local'; event: CalendarEvent }
   | { source: 'google'; event: GoogleCalendarEvent }
 
 export default function Dashboard() {
-  const [user, setUser] = useState<User | null>(null)
   const [habits, setHabits] = useState<Habit[]>([])
   const [todayLogs, setTodayLogs] = useState<HabitLog[]>([])
   const [todos, setTodos] = useState<Todo[]>([])
@@ -24,13 +25,7 @@ export default function Dashboard() {
   const [events, setEvents] = useState<CalendarEvent[]>([])
   const [googleEvents, setGoogleEvents] = useState<GoogleCalendarEvent[]>([])
   const [notifications, setNotifications] = useState<Notification[]>([])
-  const [showAddTodo, setShowAddTodo] = useState(false)
   const [loading, setLoading] = useState(true)
-  const [quickTitle, setQuickTitle] = useState('')
-
-  useEffect(() => {
-    supabase.auth.getUser().then(({ data: { user } }) => setUser(user))
-  }, [])
 
   async function loadLocalData() {
     const t = today()
@@ -89,23 +84,9 @@ export default function Dashboard() {
     setTodos(prev => prev.filter(t => t.id !== id))
   }
 
-  async function quickAddTodo(e: React.FormEvent) {
-    e.preventDefault()
-    if (!quickTitle.trim() || !user) return
-    await supabase.from('todos').insert({
-      title: quickTitle.trim(),
-      priority: 'medium',
-      user_id: user.id,
-      due_date: today(),
-    })
-    setQuickTitle('')
-    loadLocalData()
-  }
-
   const now = new Date()
   const overdueReminders = reminders.filter(r => isBefore(new Date(r.remind_at), now))
   const upcomingReminders = reminders.filter(r => !isBefore(new Date(r.remind_at), now)).slice(0, 5)
-  const doneCount = habits.filter(h => todayLogs.some(l => l.habit_id === h.id)).length
 
   const mergedEvents: DashboardEvent[] = [
     ...events.map(event => ({ source: 'local' as const, event })),
@@ -116,10 +97,15 @@ export default function Dashboard() {
     return (a.event.event_time ?? '99:99:99').localeCompare(b.event.event_time ?? '99:99:99')
   })
 
+  const t = today()
+  const todayEvents: TodayEvent[] = mergedEvents
+    .filter(({ event }) => event.event_date === t)
+    .map(({ source, event }) => ({ id: event.id, title: event.title, time: event.event_time, source }))
+
   return (
     <div className="p-4 max-w-2xl mx-auto space-y-5">
       <div className="pt-2">
-        <h1 className="text-2xl font-bold">{greetingTime()}</h1>
+        <h1 className="text-2xl font-bold">{greetingTime(USER_NAME)}</h1>
         <p className="text-muted-foreground text-sm">{format(new Date(), 'EEEE, MMMM d')}</p>
       </div>
 
@@ -189,76 +175,16 @@ export default function Dashboard() {
         </Link>
       </div>
 
-      {/* Habits */}
-      {!loading && habits.length > 0 && (
-        <Section title="Today's Habits" badge={`${doneCount}/${habits.length}`}>
-          <div className="flex gap-3 overflow-x-auto pb-1 -mx-1 px-1">
-            {habits.map(habit => {
-              const done = todayLogs.some(l => l.habit_id === habit.id)
-              return (
-                <button
-                  key={habit.id}
-                  onClick={() => toggleHabit(habit)}
-                  className="flex flex-col items-center gap-1.5 shrink-0 relative"
-                >
-                  <div
-                    className="w-14 h-14 rounded-2xl flex items-center justify-center text-2xl transition-all active:scale-95"
-                    style={{ backgroundColor: done ? habit.color : 'hsl(var(--muted))', opacity: done ? 1 : 0.5 }}
-                  >
-                    {habit.emoji}
-                  </div>
-                  {done && (
-                    <CheckCircle2 className="h-4 w-4 text-primary absolute -top-1 -right-1 bg-background rounded-full" />
-                  )}
-                  <span className="text-[10px] text-muted-foreground max-w-[56px] truncate">{habit.name}</span>
-                </button>
-              )
-            })}
-          </div>
-        </Section>
-      )}
-
-      {/* Quick add todo - only needs `user`, not the dashboard data load, so it's never gated */}
-      <form onSubmit={quickAddTodo} className="flex gap-2">
-        <input
-          value={quickTitle}
-          onChange={e => setQuickTitle(e.target.value)}
-          placeholder="Add a task for today…"
-          className="flex-1 h-11 px-4 rounded-xl border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+      {/* Today: habits, tasks due today, today's events, and weather */}
+      {!loading && (
+        <TodaySection
+          habits={habits}
+          todayLogs={todayLogs}
+          onToggleHabit={toggleHabit}
+          todos={todos}
+          onCompleteTodo={completeTodo}
+          events={todayEvents}
         />
-        <button
-          type="submit"
-          disabled={!quickTitle.trim()}
-          className="h-11 w-11 rounded-xl bg-primary text-primary-foreground flex items-center justify-center disabled:opacity-40"
-        >
-          <Plus className="h-5 w-5" />
-        </button>
-      </form>
-
-      {/* Todos */}
-      {!loading && todos.length > 0 && (
-        <Section title="Due Today">
-          <div className="space-y-2">
-            {todos.slice(0, 5).map(todo => (
-              <div key={todo.id} className="flex items-center gap-3 p-3.5 bg-card border border-border rounded-xl">
-                <button
-                  onClick={() => completeTodo(todo.id)}
-                  className="w-5 h-5 rounded-md border-2 border-primary flex items-center justify-center shrink-0 hover:bg-primary/10"
-                />
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium truncate">{todo.title}</p>
-                  {todo.due_time && <p className="text-xs text-muted-foreground mt-0.5">{formatTime(todo.due_time)}</p>}
-                </div>
-                <span className={`text-xs font-medium px-2 py-0.5 rounded-full shrink-0 ${PRIORITY_CONFIG[todo.priority].className}`}>
-                  {PRIORITY_CONFIG[todo.priority].label}
-                </span>
-              </div>
-            ))}
-            {todos.length > 5 && (
-              <p className="text-xs text-center text-muted-foreground">+{todos.length - 5} more</p>
-            )}
-          </div>
-        </Section>
       )}
 
       {/* Reminders */}
@@ -297,10 +223,6 @@ export default function Dashboard() {
           <p className="text-sm mt-1">Start by adding habits and tasks.</p>
         </div>
       )}
-
-      {user && showAddTodo && (
-        <TodoForm open={showAddTodo} onClose={() => setShowAddTodo(false)} onSave={loadLocalData} userId={user.id} />
-      )}
     </div>
   )
 }
@@ -319,9 +241,8 @@ function Section({ title, badge, badgeClass, children }: {
   )
 }
 
-function greetingTime() {
+function greetingTime(name: string) {
   const h = new Date().getHours()
-  if (h < 12) return 'Good morning 👋'
-  if (h < 17) return 'Good afternoon 👋'
-  return 'Good evening 👋'
+  const greeting = h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening'
+  return `${greeting}, ${name} 👋`
 }
