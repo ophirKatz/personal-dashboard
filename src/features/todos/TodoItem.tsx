@@ -31,14 +31,13 @@ export default function TodoItem({ todo, onEdit, onDelete, onChange }: Props) {
   async function saveDateTime(nextDate: string, nextTime: string) {
     setDueDate(nextDate)
     setDueTime(nextTime)
-    const reminderEnabled = nextDate ? todo.reminder_enabled : false
-    const remindAt = reminderEnabled ? new Date(`${nextDate}T${nextTime || '09:00'}`).toISOString() : null
+    const remindAt = nextDate && nextTime ? new Date(`${nextDate}T${nextTime}`).toISOString() : null
     await supabase.from('todos').update({
       due_date: nextDate || null,
       due_time: nextDate ? nextTime || null : null,
-      reminder_enabled: reminderEnabled,
+      reminder_enabled: !!remindAt,
       remind_at: remindAt,
-      notified_at: null,
+      notified_at: remindAt === todo.remind_at ? todo.notified_at : null,
     }).eq('id', todo.id)
     onChange()
   }
