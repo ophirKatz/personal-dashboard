@@ -1,10 +1,11 @@
 import { useEffect, useState, useRef, lazy, Suspense } from 'react'
-import { Plus, Download, Trash2, Folder as FolderIcon, Upload, X, Eye, Pencil, Search, Link2, RefreshCw } from 'lucide-react'
+import { Plus, Download, Trash2, Folder as FolderIcon, FolderPlus, Upload, X, Eye, Pencil, Search, Link2, RefreshCw } from 'lucide-react'
 import { supabase } from '../supabase'
 import type { FileRecord } from '../supabase'
 import type { User } from '@supabase/supabase-js'
 import { Button } from '../components/ui/button'
 import { Input } from '../components/ui/input'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogBody, DialogFooter } from '../components/ui/dialog'
 import { formatFileSize, fileIcon, isViewable } from '../utils'
 import { format, formatDistanceToNow } from 'date-fns'
 import { connectGoogle } from '../lib/googleAuth'
@@ -31,6 +32,7 @@ export default function Files() {
   const [driveSubPath, setDriveSubPath] = useState('')
   const [syncingFolderIds, setSyncingFolderIds] = useState<Set<string>>(new Set())
   const [pickerOpen, setPickerOpen] = useState(false)
+  const [newFolderOpen, setNewFolderOpen] = useState(false)
   const [newFolder, setNewFolder] = useState('')
   const [uploading, setUploading] = useState(false)
   const [uploadProgress, setUploadProgress] = useState<string | null>(null)
@@ -151,6 +153,7 @@ export default function Files() {
     if (!newFolder.trim()) return
     setSelected({ source: 'local', name: newFolder.trim() })
     setNewFolder('')
+    setNewFolderOpen(false)
   }
 
   function FileRow({ file, showFolder, hidePath }: { file: FileRecord; showFolder?: boolean; hidePath?: boolean }) {
@@ -357,7 +360,38 @@ export default function Files() {
 
   return (
     <div className="p-4 max-w-2xl mx-auto">
-      <h1 className="text-2xl font-bold mb-6">Files</h1>
+      <div className="flex items-center justify-between mb-6">
+        <h1 className="text-2xl font-bold">Files</h1>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="icon"
+            className="rounded-xl"
+            onClick={() => setNewFolderOpen(true)}
+          >
+            <FolderPlus className="h-4 w-4" />
+          </Button>
+          {!loading && (googleConnected ? (
+            <Button
+              variant="outline"
+              size="icon"
+              className="rounded-xl"
+              onClick={() => setPickerOpen(true)}
+            >
+              <RefreshCw className="h-4 w-4" />
+            </Button>
+          ) : (
+            <Button
+              variant="outline"
+              size="icon"
+              className="rounded-xl"
+              onClick={connectGoogle}
+            >
+              <Link2 className="h-4 w-4" />
+            </Button>
+          ))}
+        </div>
+      </div>
 
       <div className="relative mb-5">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -383,36 +417,6 @@ export default function Files() {
         </div>
       ) : (
         <>
-          <form onSubmit={createFolder} className="flex gap-2 mb-3">
-            <Input
-              value={newFolder}
-              onChange={e => setNewFolder(e.target.value)}
-              placeholder="New folder name…"
-              className="flex-1"
-            />
-            <Button type="submit" size="icon" disabled={!newFolder.trim()}>
-              <Plus className="h-4 w-4" />
-            </Button>
-          </form>
-
-          {!loading && (googleConnected ? (
-            <button
-              onClick={() => setPickerOpen(true)}
-              className="w-full flex items-center justify-center gap-2 mb-5 p-3 rounded-xl border border-dashed border-border text-sm font-medium text-muted-foreground hover:bg-accent transition-colors"
-            >
-              <Plus className="h-4 w-4" />
-              Sync a Google Drive folder
-            </button>
-          ) : (
-            <button
-              onClick={connectGoogle}
-              className="w-full flex items-center justify-center gap-2 mb-5 p-3 rounded-xl border border-dashed border-border text-sm font-medium text-muted-foreground hover:bg-accent transition-colors"
-            >
-              <Link2 className="h-4 w-4" />
-              Connect Google Drive
-            </button>
-          ))}
-
           {loading ? (
             <div className="flex justify-center py-12"><div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" /></div>
           ) : folders.length === 0 && googleFolders.length === 0 ? (
@@ -484,6 +488,29 @@ export default function Files() {
       )}
 
       <DriveFolderPicker open={pickerOpen} onClose={() => setPickerOpen(false)} onSelect={handleSelectDriveFolder} />
+
+      <Dialog open={newFolderOpen} onOpenChange={setNewFolderOpen}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>New folder</DialogTitle></DialogHeader>
+          <form onSubmit={createFolder}>
+            <DialogBody>
+              <Input
+                value={newFolder}
+                onChange={e => setNewFolder(e.target.value)}
+                placeholder="Folder name…"
+                autoFocus
+              />
+            </DialogBody>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setNewFolderOpen(false)}>Cancel</Button>
+              <Button type="submit" disabled={!newFolder.trim()}>
+                <Plus className="h-4 w-4" />
+                Create
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
