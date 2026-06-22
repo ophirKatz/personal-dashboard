@@ -88,6 +88,9 @@ export type CalendarEvent = {
   event_time: string | null
   notes: string | null
   created_at: string
+  source: 'local' | 'google'
+  google_event_id: string | null
+  html_link: string | null
 }
 
 export type FileRecord = {
