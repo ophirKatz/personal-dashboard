@@ -335,26 +335,31 @@ secret configured in step 1h, and `SUPABASE_URL`/`SUPABASE_SERVICE_ROLE_KEY` are
 
 ---
 
-## 1j. Voice Shortcuts (Siri) — Add to shopping list / log a climb by voice
+## 1j. Voice Shortcuts (Siri) — Add to shopping list / log a climb / add a todo by voice
 
-You can say "Hey Siri, add to shopping list" or "Hey Siri, log a climb" and dictate freeform text
-(e.g. "milk, eggs, and bananas" or "three v three, one v five six") — it gets parsed by Claude and
-written directly into your `shopping_items` / `climbing_sessions`+`climbing_attempts` tables, no
-need to open the app.
+You can say "Hey Siri, add to shopping list", "Hey Siri, log a climb", or "Hey Siri, add a todo"
+and dictate freeform text (e.g. "milk, eggs, and bananas", "three v three, one v five six", or "call
+the dentist tomorrow at 3pm, high priority") — it gets parsed by Claude and written directly into
+your `shopping_items` / `climbing_sessions`+`climbing_attempts` / `todos` tables, no need to open
+the app.
 
-**How it works:** two Supabase Edge Functions, `voice-shopping` and `voice-climbing`, each take a
-`{"transcript": "..."}` POST body. Since a Siri Shortcut can't hold a short-lived Supabase session
-JWT, they authenticate with a separate long-lived **personal API token** instead (`api_tokens`
-table — `token_hash` only, the raw token is never stored). Generate one in **Settings → Voice
-shortcuts (Siri) → Generate new token**; it's shown once, so copy it immediately.
+**How it works:** three Supabase Edge Functions, `voice-shopping`, `voice-climbing`, and
+`voice-todo`, each take a `{"transcript": "..."}` POST body. Since a Siri Shortcut can't hold a
+short-lived Supabase session JWT, they authenticate with a separate long-lived **personal API
+token** instead (`api_tokens` table — `token_hash` only, the raw token is never stored). Generate
+one in **Settings → Voice shortcuts (Siri) → Generate new token**; it's shown once, so copy it
+immediately.
 
 **This was already set up for you (via MCPs), no action needed:**
 - The `api_tokens` table (RLS: each user manages only their own rows)
-- The `voice-shopping` and `voice-climbing` Edge Functions, deployed with `verify_jwt: false`
-  (they do their own auth via the token hash, not Supabase's built-in JWT check), at:
+- The `voice-shopping`, `voice-climbing`, and `voice-todo` Edge Functions, deployed with
+  `verify_jwt: false` (they do their own auth via the token hash, not Supabase's built-in JWT
+  check), at:
   - `https://tjjvrqamitwtoslinrxy.supabase.co/functions/v1/voice-shopping`
   - `https://tjjvrqamitwtoslinrxy.supabase.co/functions/v1/voice-climbing`
-- Both reuse the existing `ANTHROPIC_API_KEY` Edge Function secret (step 1h) — no new secret needed
+  - `https://tjjvrqamitwtoslinrxy.supabase.co/functions/v1/voice-todo`
+- All three reuse the existing `ANTHROPIC_API_KEY` Edge Function secret (step 1h) — no new secret
+  needed
 
 **What still requires manual action — building the iOS Shortcuts themselves can't be done via
 MCP, it's a one-time setup in the Shortcuts app on your iPhone.**
@@ -406,14 +411,17 @@ The body should render as (with the variable chip in place of the bracket):
 **Action 4: Speak Text**
 - Add action **Speak Text**, set its input to the output of Action 3 (the `message` value)
 
-**Action 5: Add to Siri**
-- Tap the shortcut name at the top → settings icon (⋯) → **Add to Siri**
-- Record a phrase, e.g. **"add to shopping list"**
-- Save
+**Action 5: name it so Siri can trigger it**
+- On current iOS, any shortcut is automatically invocable by saying **"Hey Siri" + its exact
+  name** — there's no separate "Add to Siri" phrase-recording step anymore. Just make sure the
+  shortcut is named exactly the phrase you want to say, e.g. `Add to shopping list`.
+- (Some iOS versions still expose a "Siri Phrases" option under the shortcut's Details/settings
+  icon if you want a phrase different from the name — but renaming is the reliable, version-proof
+  way.)
 
-### Step 3 — Build "Log a Climb"
+### Step 3 — Build "Log a climb"
 
-Duplicate the shortcut (⋯ → **Duplicate**) and rename it `Log a Climb`, then edit Action 2:
+Duplicate the shortcut and rename it `Log a climb`, then edit Action 2:
 
 | Field | Value |
 |---|---|
@@ -423,23 +431,44 @@ Duplicate the shortcut (⋯ → **Duplicate**) and rename it `Log a Climb`, then
 | Headers | `Content-Type` = `application/json` |
 | Request Body (JSON) | `{"transcript": [Dictated Text]}` (same as before) |
 
-Leave Actions 3–4 (Get Dictionary Value on `message`, then Speak Text) as-is. Record a new Siri
-phrase for this one, e.g. **"log a climb"**.
+Leave Actions 3–4 (Get Dictionary Value on `message`, then Speak Text) as-is.
 
-### Step 4 — Use it
+### Step 4 — Build "Add a todo"
 
-Say **"Hey Siri, add to shopping list"** or **"Hey Siri, log a climb"**, then speak naturally:
+Duplicate the shortcut again and rename it `Add a todo`, then edit Action 2:
+
+| Field | Value |
+|---|---|
+| URL | `https://tjjvrqamitwtoslinrxy.supabase.co/functions/v1/voice-todo` |
+| Method | `POST` |
+| Headers | `Authorization` = `Bearer <YOUR_TOKEN>` |
+| Headers | `Content-Type` = `application/json` |
+| Request Body (JSON) | `{"transcript": [Dictated Text]}` (same as before) |
+
+Leave Actions 3–4 as-is.
+
+### Step 5 — Use it
+
+Say **"Hey Siri, add to shopping list"**, **"Hey Siri, log a climb"**, or **"Hey Siri, add a
+todo"**, then speak naturally:
 
 - Shopping: *"milk, eggs, and bananas"*
 - Climbing: *"three v three, one v five six, fell on a v six seven"*
+- Todo: *"call the dentist tomorrow at 3pm, high priority"*
 
 Siri dictates, sends it to the matching Edge Function, and speaks back a confirmation like
-*"Added Milk, Eggs, Bananas to your shopping list."* or *"Logged 3 climbs: v2-3, v5-6, v6-7
-(project)."* Entries appear in the app the next time the Shopping or Climbing page loads.
+*"Added Milk, Eggs, Bananas to your shopping list."*, *"Logged 3 climbs: v2-3, v5-6, v6-7
+(project)."*, or *"Added 1 task: Call the dentist."* Entries appear in the app the next time the
+Shopping, Climbing, or Todos page loads.
 
 **Climbing grade parsing rule:** a single spoken grade always rounds *up* to the band where it's
 the upper bound — "v4" → `v3-4`, "v7" → `v6-7` — except "v0", which has no band below it and maps
 to `v0-1`. A spoken range like "five six" maps directly to `v5-6`.
+
+**Todo parsing:** relative dates/times ("tomorrow", "next Friday", "3pm") are resolved to absolute
+values relative to the day you spoke. Priority defaults to "medium" unless you say "high
+priority"/"urgent" or "low priority"/"whenever". If a date and time are both given, a reminder is
+automatically enabled (matching the in-app "add a time to get a reminder" behavior).
 
 **Troubleshooting a Shortcut that fails silently:** temporarily replace the final **Speak Text**
 action with **Show Result** on the raw output of "Get Contents of URL" — this surfaces the actual
