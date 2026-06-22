@@ -31,18 +31,17 @@ export default function Dashboard() {
     supabase.auth.getUser().then(({ data: { user } }) => setUser(user))
   }, [])
 
-  async function load() {
+  async function loadLocalData() {
     const t = today()
     const in7 = format(addDays(new Date(), 7), 'yyyy-MM-dd')
 
-    const [habitsRes, logsRes, todosRes, remindersRes, eventsRes, notificationsRes, googleRes] = await Promise.all([
+    const [habitsRes, logsRes, todosRes, remindersRes, eventsRes, notificationsRes] = await Promise.all([
       supabase.from('habits').select('*').order('created_at'),
       supabase.from('habit_logs').select('*').eq('logged_date', t),
       supabase.from('todos').select('*').eq('completed', false).or(`due_date.eq.${t},due_date.is.null`).order('created_at'),
       supabase.from('reminders').select('*').lte('remind_at', new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()).order('remind_at'),
       supabase.from('events').select('*').gte('event_date', t).lte('event_date', in7).order('event_date').order('event_time'),
       supabase.from('notifications').select('*').eq('read', false).order('created_at', { ascending: false }),
-      fetchGoogleCalendarEvents(7),
     ])
 
     setHabits(habitsRes.data ?? [])
@@ -51,11 +50,21 @@ export default function Dashboard() {
     setReminders(remindersRes.data ?? [])
     setEvents(eventsRes.data ?? [])
     setNotifications(notificationsRes.data ?? [])
-    setGoogleEvents(googleRes.events)
     setLoading(false)
   }
 
-  useEffect(() => { load() }, [])
+  // Kept separate from loadLocalData: this hits an external API (token refresh +
+  // Google Calendar) and is the slow part of the page, so it must never gate the
+  // fast Supabase-backed sections from rendering.
+  async function loadGoogleEvents() {
+    const googleRes = await fetchGoogleCalendarEvents(7)
+    setGoogleEvents(googleRes.events)
+  }
+
+  useEffect(() => {
+    loadLocalData()
+    loadGoogleEvents()
+  }, [])
 
   async function toggleHabit(habit: Habit) {
     const logged = todayLogs.some(l => l.habit_id === habit.id)
@@ -89,7 +98,7 @@ export default function Dashboard() {
       due_date: today(),
     })
     setQuickTitle('')
-    load()
+    loadLocalData()
   }
 
   const now = new Date()
@@ -106,14 +115,6 @@ export default function Dashboard() {
     return (a.event.event_time ?? '99:99:99').localeCompare(b.event.event_time ?? '99:99:99')
   })
 
-  if (loading) {
-    return (
-      <div className="flex justify-center pt-20">
-        <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-      </div>
-    )
-  }
-
   return (
     <div className="p-4 max-w-2xl mx-auto space-y-5">
       <div className="pt-2">
@@ -122,7 +123,7 @@ export default function Dashboard() {
       </div>
 
       {/* Notifications */}
-      {notifications.length > 0 && (
+      {!loading && notifications.length > 0 && (
         <div className="space-y-2">
           {notifications.map(n => (
             <div key={n.id} className="flex items-start gap-3 p-3.5 rounded-xl border bg-primary/5 border-primary/30">
@@ -139,7 +140,7 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* Quick links */}
+      {/* Quick links - static, no data dependency, always shown immediately */}
       <div className="grid grid-cols-4 gap-3">
         <Link
           to="/shopping"
@@ -184,7 +185,7 @@ export default function Dashboard() {
       </div>
 
       {/* Habits */}
-      {habits.length > 0 && (
+      {!loading && habits.length > 0 && (
         <Section title="Today's Habits" badge={`${doneCount}/${habits.length}`}>
           <div className="flex gap-3 overflow-x-auto pb-1 -mx-1 px-1">
             {habits.map(habit => {
@@ -212,7 +213,7 @@ export default function Dashboard() {
         </Section>
       )}
 
-      {/* Quick add todo */}
+      {/* Quick add todo - only needs `user`, not the dashboard data load, so it's never gated */}
       <form onSubmit={quickAddTodo} className="flex gap-2">
         <input
           value={quickTitle}
@@ -230,7 +231,7 @@ export default function Dashboard() {
       </form>
 
       {/* Todos */}
-      {todos.length > 0 && (
+      {!loading && todos.length > 0 && (
         <Section title="Due Today">
           <div className="space-y-2">
             {todos.slice(0, 5).map(todo => (
@@ -256,7 +257,7 @@ export default function Dashboard() {
       )}
 
       {/* Reminders */}
-      {(overdueReminders.length > 0 || upcomingReminders.length > 0) && (
+      {!loading && (overdueReminders.length > 0 || upcomingReminders.length > 0) && (
         <Section title="Reminders" badge={overdueReminders.length > 0 ? `${overdueReminders.length} overdue` : undefined} badgeClass="text-destructive">
           <div className="space-y-2">
             {[...overdueReminders, ...upcomingReminders].slice(0, 4).map(r => {
@@ -276,7 +277,7 @@ export default function Dashboard() {
       )}
 
       {/* Events */}
-      {mergedEvents.length > 0 && (
+      {!loading && mergedEvents.length > 0 && (
         <Section title="Upcoming Events">
           <div className="space-y-2">
             {mergedEvents.slice(0, 5).map(({ source, event }) => (
@@ -300,7 +301,13 @@ export default function Dashboard() {
         </Section>
       )}
 
-      {habits.length === 0 && todos.length === 0 && reminders.length === 0 && mergedEvents.length === 0 && (
+      {loading && (
+        <div className="flex justify-center pt-6">
+          <div className="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+        </div>
+      )}
+
+      {!loading && habits.length === 0 && todos.length === 0 && reminders.length === 0 && mergedEvents.length === 0 && (
         <div className="text-center py-16 text-muted-foreground">
           <div className="text-5xl mb-4">🌅</div>
           <p className="font-semibold text-lg text-foreground">Welcome!</p>
@@ -309,7 +316,7 @@ export default function Dashboard() {
       )}
 
       {user && showAddTodo && (
-        <TodoForm open={showAddTodo} onClose={() => setShowAddTodo(false)} onSave={load} userId={user.id} />
+        <TodoForm open={showAddTodo} onClose={() => setShowAddTodo(false)} onSave={loadLocalData} userId={user.id} />
       )}
     </div>
   )
