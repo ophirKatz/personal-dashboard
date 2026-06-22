@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react'
-import { Plus, Trash2, RotateCcw } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
+import { Plus, Trash2, RotateCcw, ImagePlus } from 'lucide-react'
 import { supabase } from '../supabase'
 import type { ShoppingItem } from '../supabase'
 import type { User } from '@supabase/supabase-js'
@@ -7,11 +7,25 @@ import { Button } from '../components/ui/button'
 import { Input } from '../components/ui/input'
 import { Checkbox } from '../components/ui/checkbox'
 
+const ALLOWED_IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif'])
+
+function readFileAsBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve((reader.result as string).split(',')[1] ?? '')
+    reader.onerror = () => reject(reader.error)
+    reader.readAsDataURL(file)
+  })
+}
+
 export default function Shopping() {
   const [user, setUser] = useState<User | null>(null)
   const [items, setItems] = useState<ShoppingItem[]>([])
   const [newItemName, setNewItemName] = useState('')
   const [loading, setLoading] = useState(true)
+  const [importing, setImporting] = useState(false)
+  const [importError, setImportError] = useState<string | null>(null)
+  const imageInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => setUser(user))
@@ -49,6 +63,44 @@ export default function Shopping() {
     setItems(prev => prev.map(i => ({ ...i, checked: false })))
   }
 
+  async function importFromImage(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    if (!file) return
+
+    if (!ALLOWED_IMAGE_TYPES.has(file.type)) {
+      setImportError('Please choose a JPEG, PNG, WebP, or GIF image.')
+      return
+    }
+
+    setImporting(true)
+    setImportError(null)
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) throw new Error('Not signed in')
+
+      const image = await readFileAsBase64(file)
+      const res = await fetch('/api/extract-shopping-items', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+        body: JSON.stringify({ image, mediaType: file.type }),
+      })
+      const result = await res.json()
+      if (!res.ok) throw new Error(result.message ?? result.error ?? 'Import failed')
+
+      const imported: ShoppingItem[] = result.items ?? []
+      if (imported.length === 0) {
+        setImportError('No items found in that image.')
+      } else {
+        setItems(prev => [...prev, ...imported])
+      }
+    } catch (err) {
+      setImportError(err instanceof Error ? err.message : 'Import failed')
+    } finally {
+      setImporting(false)
+    }
+  }
+
   const checked = items.filter(i => i.checked).length
 
   return (
@@ -58,12 +110,32 @@ export default function Shopping() {
           <h1 className="text-2xl font-bold">Shopping List</h1>
           {items.length > 0 && <p className="text-sm text-muted-foreground">{checked}/{items.length} checked</p>}
         </div>
+        <input ref={imageInputRef} type="file" accept="image/*" className="hidden" onChange={importFromImage} />
+        <button
+          onClick={() => imageInputRef.current?.click()}
+          disabled={importing}
+          className="p-2 rounded-lg hover:bg-accent text-muted-foreground disabled:opacity-50"
+          title="Import from photo"
+        >
+          {importing ? (
+            <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
+          ) : (
+            <ImagePlus className="h-4 w-4" />
+          )}
+        </button>
         {checked > 0 && (
           <button onClick={uncheckAll} className="p-2 rounded-lg hover:bg-accent text-muted-foreground" title="Uncheck all">
             <RotateCcw className="h-4 w-4" />
           </button>
         )}
       </div>
+
+      {importError && (
+        <div className="mb-4 p-3 rounded-lg bg-destructive/10 text-destructive text-sm flex items-center justify-between gap-2">
+          <span>{importError}</span>
+          <button onClick={() => setImportError(null)} className="text-destructive/70 hover:text-destructive">✕</button>
+        </div>
+      )}
 
       <form onSubmit={addItem} className="flex gap-2 mb-5">
         <Input value={newItemName} onChange={e => setNewItemName(e.target.value)} placeholder="Add item…" className="flex-1" />

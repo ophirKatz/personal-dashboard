@@ -334,6 +334,7 @@ As part of the import in step 0 (or right after), set these environment variable
 | `GOOGLE_CLIENT_ID` | The same OAuth **Client ID** from step 1a / 1d. **No `VITE_` prefix.** |
 | `GOOGLE_CLIENT_SECRET` | The same OAuth **Client Secret** from step 1a / 1d. **No `VITE_` prefix** — used only by the `/api/calendar-events` serverless function to refresh the Google access token, never shipped to the browser bundle |
 | `VITE_VAPID_PUBLIC_KEY` | See step 1g above. The other push-notification secrets (`VAPID_PRIVATE_KEY`, `VAPID_SUBJECT`, `CRON_SECRET`) live in Supabase Edge Function secrets, not Vercel — see step 1g |
+| `ANTHROPIC_API_KEY` | Your Claude API key from [console.anthropic.com](https://console.anthropic.com/) — used by `/api/extract-shopping-items` to read shopping list items from an uploaded photo. **This is a separate copy from the Supabase Edge Function secret of the same name** (step 1h) — Vercel and Edge Functions don't share secrets. No `VITE_` prefix — stays server-side |
 
 3. After saving, **redeploy** the project for env vars to take effect:
    - Go to **Deployments** tab → latest deployment → **⋯ → Redeploy**
