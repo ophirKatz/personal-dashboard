@@ -335,6 +335,122 @@ secret configured in step 1h, and `SUPABASE_URL`/`SUPABASE_SERVICE_ROLE_KEY` are
 
 ---
 
+## 1j. Voice Shortcuts (Siri) — Add to shopping list / log a climb by voice
+
+You can say "Hey Siri, add to shopping list" or "Hey Siri, log a climb" and dictate freeform text
+(e.g. "milk, eggs, and bananas" or "three v three, one v five six") — it gets parsed by Claude and
+written directly into your `shopping_items` / `climbing_sessions`+`climbing_attempts` tables, no
+need to open the app.
+
+**How it works:** two Supabase Edge Functions, `voice-shopping` and `voice-climbing`, each take a
+`{"transcript": "..."}` POST body. Since a Siri Shortcut can't hold a short-lived Supabase session
+JWT, they authenticate with a separate long-lived **personal API token** instead (`api_tokens`
+table — `token_hash` only, the raw token is never stored). Generate one in **Settings → Voice
+shortcuts (Siri) → Generate new token**; it's shown once, so copy it immediately.
+
+**This was already set up for you (via MCPs), no action needed:**
+- The `api_tokens` table (RLS: each user manages only their own rows)
+- The `voice-shopping` and `voice-climbing` Edge Functions, deployed with `verify_jwt: false`
+  (they do their own auth via the token hash, not Supabase's built-in JWT check), at:
+  - `https://tjjvrqamitwtoslinrxy.supabase.co/functions/v1/voice-shopping`
+  - `https://tjjvrqamitwtoslinrxy.supabase.co/functions/v1/voice-climbing`
+- Both reuse the existing `ANTHROPIC_API_KEY` Edge Function secret (step 1h) — no new secret needed
+
+**What still requires manual action — building the iOS Shortcuts themselves can't be done via
+MCP, it's a one-time setup in the Shortcuts app on your iPhone.**
+
+### Step 1 — Generate your token
+
+Open **Settings** in the app → **Voice shortcuts (Siri)** → **Generate new token**. Copy it
+immediately; it's shown once and isn't recoverable (revoke and generate a new one if you lose it).
+You'll paste this into both Shortcuts below as `<YOUR_TOKEN>`.
+
+### Step 2 — Build "Add to Shopping List"
+
+In the iOS **Shortcuts** app, tap **+** to create a new shortcut, name it `Add to Shopping List`,
+and add these actions in order:
+
+**Action 1: Dictate Text**
+- Language: your choice
+- Stop Listening: "After Pause" (default is fine)
+
+**Action 2: Get Contents of URL**
+
+Tap to expand it and set:
+
+| Field | Value |
+|---|---|
+| URL | `https://tjjvrqamitwtoslinrxy.supabase.co/functions/v1/voice-shopping` |
+| Method | `POST` |
+| Headers | `Authorization` = `Bearer <YOUR_TOKEN>` |
+| Headers | `Content-Type` = `application/json` |
+| Request Body | `JSON` |
+
+In the JSON body editor, add one field:
+
+```
+Key: transcript
+Value: [tap the variable picker, select "Dictated Text" from Action 1]
+```
+
+The body should render as (with the variable chip in place of the bracket):
+
+```json
+{"transcript": [Dictated Text]}
+```
+
+**Action 3: Get Dictionary Value**
+- Add action **Get Dictionary Value**, set Get → `Value for Key`, key = `message`, dictionary =
+  the output of Action 2 ("Contents of URL")
+
+**Action 4: Speak Text**
+- Add action **Speak Text**, set its input to the output of Action 3 (the `message` value)
+
+**Action 5: Add to Siri**
+- Tap the shortcut name at the top → settings icon (⋯) → **Add to Siri**
+- Record a phrase, e.g. **"add to shopping list"**
+- Save
+
+### Step 3 — Build "Log a Climb"
+
+Duplicate the shortcut (⋯ → **Duplicate**) and rename it `Log a Climb`, then edit Action 2:
+
+| Field | Value |
+|---|---|
+| URL | `https://tjjvrqamitwtoslinrxy.supabase.co/functions/v1/voice-climbing` |
+| Method | `POST` |
+| Headers | `Authorization` = `Bearer <YOUR_TOKEN>` |
+| Headers | `Content-Type` = `application/json` |
+| Request Body (JSON) | `{"transcript": [Dictated Text]}` (same as before) |
+
+Leave Actions 3–4 (Get Dictionary Value on `message`, then Speak Text) as-is. Record a new Siri
+phrase for this one, e.g. **"log a climb"**.
+
+### Step 4 — Use it
+
+Say **"Hey Siri, add to shopping list"** or **"Hey Siri, log a climb"**, then speak naturally:
+
+- Shopping: *"milk, eggs, and bananas"*
+- Climbing: *"three v three, one v five six, fell on a v six seven"*
+
+Siri dictates, sends it to the matching Edge Function, and speaks back a confirmation like
+*"Added Milk, Eggs, Bananas to your shopping list."* or *"Logged 3 climbs: v2-3, v5-6, v6-7
+(project)."* Entries appear in the app the next time the Shopping or Climbing page loads.
+
+**Climbing grade parsing rule:** a single spoken grade always rounds *up* to the band where it's
+the upper bound — "v4" → `v3-4`, "v7" → `v6-7` — except "v0", which has no band below it and maps
+to `v0-1`. A spoken range like "five six" maps directly to `v5-6`.
+
+**Troubleshooting a Shortcut that fails silently:** temporarily replace the final **Speak Text**
+action with **Show Result** on the raw output of "Get Contents of URL" — this surfaces the actual
+JSON response (or HTTP error) instead of silence, which is the fastest way to tell whether the
+token, URL, or JSON body is wrong.
+
+**Revoking access:** delete a token from the Settings page at any time — any Shortcut using it
+immediately stops working (the Edge Functions return `401 UNAUTHORIZED`).
+
+---
+
 ## 2. Vercel — Environment Variables
 
 As part of the import in step 0 (or right after), set these environment variables in the Vercel dashboard:
@@ -419,6 +535,7 @@ The `vercel.json` in this repo configures SPA routing (all paths → `index.html
 | `notifications` | In-app notification banners (e.g. triggered stock alerts) |
 | `push_subscriptions` | One row per subscribed browser/device (Web Push endpoint + keys), used by `/api/send-notifications` to deliver habit/reminder/todo pushes |
 | `focus_summaries` | Cached AI-generated focus briefing per user per `period` (`today`/`week`), written by the `generate-focus-summary` Edge Function; `status`/`error` track the last generation attempt, `generated_at` is shown in the UI as "Updated X ago" |
+| `api_tokens` | Long-lived personal API tokens (hashed, `token_hash` only) used by external callers like an iOS Shortcut that can't hold a short-lived Supabase session JWT — see step 1j |
 
 ### Storage
 
@@ -558,6 +675,15 @@ Common causes: unused imports (the tsconfig is set to `noUnusedLocals: false` to
 - On iPhone, the app must be opened from the Home Screen icon (added via Share → Add to Home
   Screen), not from a regular Safari tab — iOS only allows push for installed PWAs
 - Check the browser's notification permission for the site hasn't been previously denied
+
+**Voice shortcut says nothing happened / Siri shortcut fails:**
+- A `401` from `voice-shopping`/`voice-climbing` means the token in the Shortcut's Authorization
+  header doesn't match any row in `api_tokens` — regenerate one in Settings and update the Shortcut
+- A `502 EXTRACTION_FAILED` means Claude couldn't parse the transcript as JSON, or didn't return any
+  items/attempts — try dictating more clearly (e.g. "milk, eggs" or "three v three")
+- Check the Edge Function's logs (Dashboard → Edge Functions → `voice-shopping` / `voice-climbing`
+  → Logs) for the exact error
+- Confirm `ANTHROPIC_API_KEY` is set as a Supabase Edge Function secret (step 1h)
 
 **Notifications never arrive even though "Enable notifications" succeeded:**
 - Confirm `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT`, and `CRON_SECRET` are all set
