@@ -130,6 +130,12 @@ export type GoogleDriveFolder = {
   last_synced_at: string | null
 }
 
+export type UserSettings = {
+  user_id: string
+  auto_generate_focus_summaries: boolean
+  updated_at: string
+}
+
 export type FocusSummary = {
   id: string
   user_id: string

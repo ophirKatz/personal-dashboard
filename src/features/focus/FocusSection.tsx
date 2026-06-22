@@ -3,6 +3,7 @@ import { RefreshCw, Sparkles } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import { supabase } from '../../supabase'
 import type { FocusSummary } from '../../supabase'
+import { getAutoGenerateFocusSummaries } from '../../lib/userSettings'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '../../components/ui/tabs'
 
 type Period = 'today' | 'week'
@@ -12,6 +13,7 @@ export default function FocusSection() {
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState<Period | null>(null)
   const [tab, setTab] = useState<Period>('today')
+  const [autoGenerate, setAutoGenerate] = useState<boolean | null>(null)
 
   async function load() {
     const { data } = await supabase.from('focus_summaries').select('*').in('period', ['today', 'week'])
@@ -25,6 +27,7 @@ export default function FocusSection() {
 
   useEffect(() => {
     load()
+    getAutoGenerateFocusSummaries().then(setAutoGenerate)
   }, [])
 
   async function refresh(period: Period) {
@@ -34,13 +37,14 @@ export default function FocusSection() {
     setRefreshing(null)
   }
 
-  // Auto-generate on first load (or on switching to a tab) if no cached summary exists yet.
+  // Auto-generate on first load (or on switching to a tab) if no cached summary exists yet,
+  // unless the user disabled auto-generation in Settings (manual refresh always still works).
   useEffect(() => {
-    if (!loading && !summaries[tab] && refreshing !== tab) {
+    if (!loading && autoGenerate && !summaries[tab] && refreshing !== tab) {
       refresh(tab)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [loading, tab])
+  }, [loading, tab, autoGenerate])
 
   function renderContent(period: Period) {
     const summary = summaries[period]

@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react'
-import { Bell, BellOff } from 'lucide-react'
+import { Bell, BellOff, Sparkles } from 'lucide-react'
 import { Button } from '../components/ui/button'
 import { haptic } from '../lib/haptics'
 import { isPushSupported, getPushSubscription, enablePushNotifications, disablePushNotifications } from '../lib/push'
+import { getAutoGenerateFocusSummaries, setAutoGenerateFocusSummaries } from '../lib/userSettings'
 
 export default function Settings() {
   const [supported, setSupported] = useState(true)
@@ -10,6 +11,10 @@ export default function Settings() {
   const [loading, setLoading] = useState(true)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  const [autoGenerateFocus, setAutoGenerateFocus] = useState(true)
+  const [focusLoading, setFocusLoading] = useState(true)
+  const [focusBusy, setFocusBusy] = useState(false)
 
   useEffect(() => {
     if (!isPushSupported()) {
@@ -22,6 +27,22 @@ export default function Settings() {
       setLoading(false)
     })
   }, [])
+
+  useEffect(() => {
+    getAutoGenerateFocusSummaries().then(enabled => {
+      setAutoGenerateFocus(enabled)
+      setFocusLoading(false)
+    })
+  }, [])
+
+  async function toggleAutoGenerateFocus() {
+    setFocusBusy(true)
+    haptic('selection')
+    const next = !autoGenerateFocus
+    await setAutoGenerateFocusSummaries(next)
+    setAutoGenerateFocus(next)
+    setFocusBusy(false)
+  }
 
   async function toggle() {
     setBusy(true)
@@ -84,6 +105,31 @@ export default function Settings() {
             {error && <p className="text-sm text-destructive mt-2">{error}</p>}
           </>
         )}
+      </div>
+
+      <div className="bg-card border border-border rounded-2xl p-4 mt-4">
+        <div className="flex items-center gap-3">
+          <div className="p-2.5 rounded-xl bg-muted">
+            <Sparkles className="h-5 w-5 text-muted-foreground" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="font-medium">Auto-generate focus summaries</p>
+            <p className="text-sm text-muted-foreground">
+              Automatically refresh the Focus section's AI summary when todos or events change, and
+              once daily. Turn off to save API usage — you can still refresh it manually anytime.
+            </p>
+          </div>
+          {!focusLoading && (
+            <button
+              type="button"
+              onClick={toggleAutoGenerateFocus}
+              disabled={focusBusy}
+              className={`relative w-11 h-6 rounded-full transition-colors shrink-0 ${autoGenerateFocus ? 'bg-primary' : 'bg-muted'}`}
+            >
+              <span className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${autoGenerateFocus ? 'translate-x-5' : ''}`} />
+            </button>
+          )}
+        </div>
       </div>
     </div>
   )
