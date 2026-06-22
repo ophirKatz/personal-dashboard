@@ -1,16 +1,15 @@
 import { supabase } from '../../supabase'
 
-export type DriveFolder = { id: string; folder_id: string; folder_name: string; created_at: string }
-export type DriveBrowseFolder = { id: string; name: string }
-export type DriveFile = {
+export type DriveFolder = {
   id: string
-  name: string
-  mimeType: string
-  modifiedTime: string
-  webViewLink: string | null
-  iconLink: string | null
-  sizeBytes: number | null
+  folder_id: string
+  folder_name: string
+  created_at: string
+  sync_status: 'idle' | 'syncing' | 'error'
+  sync_error: string | null
+  last_synced_at: string | null
 }
+export type DriveBrowseFolder = { id: string; name: string }
 
 async function authHeaders(): Promise<Record<string, string> | null> {
   const { data: { session } } = await supabase.auth.getSession()
@@ -70,14 +69,37 @@ export async function removeDriveFolder(folderId: string): Promise<boolean> {
   return res.ok
 }
 
-export async function fetchDriveFolderFiles(folderId: string): Promise<{ connected: boolean; files: DriveFile[] }> {
+type SyncCursor = unknown
+
+// Loops over /api/google-drive-sync, which only processes a bounded slice of the
+// folder tree per call and returns a cursor to resume from, until the whole tree is synced.
+export async function syncDriveFolder(
+  folderId: string,
+  onProgress?: (syncedSoFar: number) => void,
+): Promise<{ ok: boolean; error?: string }> {
   const headers = await authHeaders()
-  if (!headers) return { connected: false, files: [] }
+  if (!headers) return { ok: false, error: 'NOT_CONNECTED' }
 
-  const res = await fetch(`/api/google-drive-files?folderId=${encodeURIComponent(folderId)}`, { headers })
-  if (res.status === 404) return { connected: false, files: [] }
-  if (!res.ok) return { connected: false, files: [] }
+  let cursor: SyncCursor | undefined
+  let total = 0
 
-  const data = await res.json()
-  return { connected: true, files: data.files ?? [] }
+  for (;;) {
+    const res = await fetch('/api/google-drive-sync', {
+      method: 'POST',
+      headers: { ...headers, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ folder_id: folderId, cursor }),
+    })
+
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}))
+      return { ok: false, error: data.error ?? 'SYNC_FAILED' }
+    }
+
+    const data = await res.json()
+    total += data.syncedCount ?? 0
+    onProgress?.(total)
+
+    if (data.done) return { ok: true }
+    cursor = data.cursor
+  }
 }
