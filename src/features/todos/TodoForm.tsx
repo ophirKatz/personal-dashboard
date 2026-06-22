@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogBody, DialogFooter } from '../../components/ui/dialog'
 import { today } from '../../utils'
 import { haptic } from '../../lib/haptics'
+import { updateGoogleTask } from './googleTasks'
 
 type Props = {
   open: boolean
@@ -19,6 +20,7 @@ type Props = {
 }
 
 export default function TodoForm({ open, onClose, onSave, todo, userId }: Props) {
+  const isGoogleTask = todo?.source === 'google'
   const [title, setTitle] = useState(todo?.title ?? '')
   const [notes, setNotes] = useState(todo?.notes ?? '')
   const [dueDate, setDueDate] = useState(todo?.due_date ?? today())
@@ -30,23 +32,33 @@ export default function TodoForm({ open, onClose, onSave, todo, userId }: Props)
     e.preventDefault()
     if (!title.trim()) return
     setSaving(true)
-    const remindAt = dueDate && dueTime ? new Date(`${dueDate}T${dueTime}`).toISOString() : null
-    const payload = {
-      title: title.trim(),
-      notes: notes.trim() || null,
-      due_date: dueDate || null,
-      due_time: dueDate ? dueTime || null : null,
-      priority,
-      reminder_enabled: !!remindAt,
-      remind_at: remindAt,
-      notified_at: todo && remindAt === todo.remind_at ? todo.notified_at : null,
-      user_id: userId,
-    }
-    if (todo) {
-      await supabase.from('todos').update(payload).eq('id', todo.id)
+
+    if (todo && isGoogleTask) {
+      await updateGoogleTask(todo, {
+        title: title.trim(),
+        notes: notes.trim() || null,
+        due_date: dueDate || null,
+      })
     } else {
-      await supabase.from('todos').insert(payload)
+      const remindAt = dueDate && dueTime ? new Date(`${dueDate}T${dueTime}`).toISOString() : null
+      const payload = {
+        title: title.trim(),
+        notes: notes.trim() || null,
+        due_date: dueDate || null,
+        due_time: dueDate ? dueTime || null : null,
+        priority,
+        reminder_enabled: !!remindAt,
+        remind_at: remindAt,
+        notified_at: todo && remindAt === todo.remind_at ? todo.notified_at : null,
+        user_id: userId,
+      }
+      if (todo) {
+        await supabase.from('todos').update(payload).eq('id', todo.id)
+      } else {
+        await supabase.from('todos').insert(payload)
+      }
     }
+
     haptic('success')
     setSaving(false)
     onSave()
@@ -65,30 +77,39 @@ export default function TodoForm({ open, onClose, onSave, todo, userId }: Props)
               <Label>Title</Label>
               <Input value={title} onChange={e => setTitle(e.target.value)} placeholder="What needs doing?" autoFocus />
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {isGoogleTask ? (
               <div className="space-y-2 min-w-0">
                 <Label>Due date</Label>
-                <Input type="date" value={dueDate} min={today()} onChange={e => setDueDate(e.target.value)} className="min-w-0" />
+                <Input type="date" value={dueDate} onChange={e => setDueDate(e.target.value)} className="min-w-0" />
               </div>
-              <div className="space-y-2 min-w-0">
-                <Label>Time</Label>
-                <Input type="time" value={dueTime} disabled={!dueDate} onChange={e => setDueTime(e.target.value)} className="min-w-0" />
-              </div>
-            </div>
-            {dueDate && !dueTime && (
-              <p className="text-xs text-muted-foreground">Add a time to get a reminder notification.</p>
+            ) : (
+              <>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-2 min-w-0">
+                    <Label>Due date</Label>
+                    <Input type="date" value={dueDate} min={today()} onChange={e => setDueDate(e.target.value)} className="min-w-0" />
+                  </div>
+                  <div className="space-y-2 min-w-0">
+                    <Label>Time</Label>
+                    <Input type="time" value={dueTime} disabled={!dueDate} onChange={e => setDueTime(e.target.value)} className="min-w-0" />
+                  </div>
+                </div>
+                {dueDate && !dueTime && (
+                  <p className="text-xs text-muted-foreground">Add a time to get a reminder notification.</p>
+                )}
+                <div className="space-y-2">
+                  <Label>Priority</Label>
+                  <Select value={priority} onValueChange={(v: 'low' | 'medium' | 'high') => setPriority(v)}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="low">Low</SelectItem>
+                      <SelectItem value="medium">Medium</SelectItem>
+                      <SelectItem value="high">High</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </>
             )}
-            <div className="space-y-2">
-              <Label>Priority</Label>
-              <Select value={priority} onValueChange={(v: 'low' | 'medium' | 'high') => setPriority(v)}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="low">Low</SelectItem>
-                  <SelectItem value="medium">Medium</SelectItem>
-                  <SelectItem value="high">High</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
             <div className="space-y-2">
               <Label>Notes</Label>
               <Textarea value={notes} onChange={e => setNotes(e.target.value)} placeholder="Optional notes…" rows={3} />
