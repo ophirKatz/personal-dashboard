@@ -6,6 +6,7 @@ import type { Habit, HabitLog, Todo, Reminder, CalendarEvent, Notification } fro
 import { today, formatDateTime } from '../utils'
 import { isBefore, addDays, format } from 'date-fns'
 import { refreshGoogleCalendarEvents } from '../features/calendar/googleCalendar'
+import { toggleGoogleTask } from '../features/todos/googleTasks'
 import FocusSection from '../features/focus/FocusSection'
 import TodaySection from '../features/today/TodaySection'
 import type { TodayEvent } from '../features/today/TodaySection'
@@ -67,7 +68,13 @@ export default function Dashboard() {
   }
 
   async function completeTodo(id: string) {
-    await supabase.from('todos').update({ completed: true, completed_at: new Date().toISOString() }).eq('id', id)
+    const todo = todos.find(t => t.id === id)
+    if (!todo) return
+    if (todo.source === 'google') {
+      await toggleGoogleTask(todo)
+    } else {
+      await supabase.from('todos').update({ completed: true, completed_at: new Date().toISOString() }).eq('id', id)
+    }
     setTodos(prev => prev.filter(t => t.id !== id))
   }
 
