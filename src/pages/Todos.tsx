@@ -6,7 +6,7 @@ import type { User } from '@supabase/supabase-js'
 import TodoItem from '../features/todos/TodoItem'
 import TodoForm from '../features/todos/TodoForm'
 import GoogleTaskItem from '../features/todos/GoogleTaskItem'
-import { refreshGoogleTasks } from '../features/todos/googleTasks'
+import { refreshGoogleTasks, deleteGoogleTask } from '../features/todos/googleTasks'
 import { connectGoogle, isGoogleConnected } from '../lib/googleAuth'
 import { Button } from '../components/ui/button'
 import { Input } from '../components/ui/input'
@@ -51,8 +51,12 @@ export default function Todos() {
     })
   }, [])
 
-  async function deleteTodo(id: string) {
-    await supabase.from('todos').delete().eq('id', id)
+  async function deleteTodo(todo: Todo) {
+    if (todo.source === 'google') {
+      await deleteGoogleTask(todo)
+    } else {
+      await supabase.from('todos').delete().eq('id', todo.id)
+    }
     load()
   }
 
@@ -139,11 +143,17 @@ export default function Todos() {
               key={todo.id}
               todo={todo}
               onEdit={() => { setEditingTodo(todo); setShowForm(true) }}
-              onDelete={() => deleteTodo(todo.id)}
+              onDelete={() => deleteTodo(todo)}
               onChange={load}
             />
           ) : (
-            <GoogleTaskItem key={todo.id} task={todo} onChange={load} />
+            <GoogleTaskItem
+              key={todo.id}
+              task={todo}
+              onEdit={() => { setEditingTodo(todo); setShowForm(true) }}
+              onDelete={() => deleteTodo(todo)}
+              onChange={load}
+            />
           ))}
         </div>
       )}

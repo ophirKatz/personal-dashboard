@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Pencil, Trash2 } from 'lucide-react'
 import { cn, formatDate } from '../../utils'
 import { Checkbox } from '../../components/ui/checkbox'
 import { haptic } from '../../lib/haptics'
@@ -7,10 +8,12 @@ import type { Todo } from '../../supabase'
 
 type Props = {
   task: Todo
+  onEdit: () => void
+  onDelete: () => void
   onChange: () => void
 }
 
-export default function GoogleTaskItem({ task, onChange }: Props) {
+export default function GoogleTaskItem({ task, onEdit, onDelete, onChange }: Props) {
   const [pending, setPending] = useState(false)
 
   async function toggleComplete() {
@@ -19,6 +22,11 @@ export default function GoogleTaskItem({ task, onChange }: Props) {
     await toggleGoogleTask(task)
     setPending(false)
     onChange()
+  }
+
+  function handleDelete() {
+    haptic('warning')
+    onDelete()
   }
 
   return (
@@ -38,6 +46,14 @@ export default function GoogleTaskItem({ task, onChange }: Props) {
           <p className="text-xs text-muted-foreground mt-1">{formatDate(task.due_date)}</p>
         )}
         {task.notes && <p className="text-sm text-muted-foreground mt-1 truncate">{task.notes}</p>}
+      </div>
+      <div className="flex items-center gap-1 shrink-0">
+        <button onClick={onEdit} className="p-1.5 rounded-lg hover:bg-accent text-muted-foreground">
+          <Pencil className="h-4 w-4" />
+        </button>
+        <button onClick={handleDelete} className="p-1.5 rounded-lg hover:bg-accent text-muted-foreground hover:text-destructive">
+          <Trash2 className="h-4 w-4" />
+        </button>
       </div>
     </div>
   )
