@@ -3,10 +3,10 @@ import { cn, formatDate } from '../../utils'
 import { Checkbox } from '../../components/ui/checkbox'
 import { haptic } from '../../lib/haptics'
 import { toggleGoogleTask } from './googleTasks'
-import type { GoogleTask } from './googleTasks'
+import type { Todo } from '../../supabase'
 
 type Props = {
-  task: GoogleTask
+  task: Todo
   onChange: () => void
 }
 
@@ -16,7 +16,7 @@ export default function GoogleTaskItem({ task, onChange }: Props) {
   async function toggleComplete() {
     haptic(task.completed ? 'light' : 'success')
     setPending(true)
-    await toggleGoogleTask(task.id, !task.completed)
+    await toggleGoogleTask(task)
     setPending(false)
     onChange()
   }
@@ -34,8 +34,8 @@ export default function GoogleTaskItem({ task, onChange }: Props) {
           <p className={cn('font-medium truncate', task.completed && 'line-through text-muted-foreground')}>{task.title}</p>
           <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-blue-100 text-blue-700 shrink-0">Google</span>
         </div>
-        {task.due && (
-          <p className="text-xs text-muted-foreground mt-1">{formatDate(task.due)}</p>
+        {task.due_date && (
+          <p className="text-xs text-muted-foreground mt-1">{formatDate(task.due_date)}</p>
         )}
         {task.notes && <p className="text-sm text-muted-foreground mt-1 truncate">{task.notes}</p>}
       </div>

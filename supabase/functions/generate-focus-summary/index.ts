@@ -3,8 +3,7 @@ import { createClient, SupabaseClient } from 'npm:@supabase/supabase-js@2'
 type Period = 'today' | 'week'
 
 type Todo = { title: string; notes: string | null; due_date: string | null; due_time: string | null; priority: string }
-type LocalEvent = { title: string; date: string; time: string | null; notes: string | null; source: 'local' }
-type GoogleEvent = { title: string; date: string; time: string | null; source: 'google' }
+type Event = { title: string; date: string; time: string | null; notes: string | null; source: 'local' | 'google' }
 
 function todayInTZ(tz: string): string {
   return new Intl.DateTimeFormat('en-CA', { timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date())
@@ -29,81 +28,9 @@ async function getAllUserIds(supabase: SupabaseClient): Promise<string[]> {
   return [...ids]
 }
 
-async function getGoogleEvents(
-  supabase: SupabaseClient,
-  userId: string,
-  timeMin: string,
-  timeMax: string,
-  clientId?: string,
-  clientSecret?: string,
-): Promise<GoogleEvent[]> {
-  if (!clientId || !clientSecret) return []
-
-  const { data: tokenRow } = await supabase
-    .from('google_oauth_tokens')
-    .select('refresh_token, access_token, access_token_expires_at')
-    .eq('user_id', userId)
-    .maybeSingle<{ refresh_token: string; access_token: string | null; access_token_expires_at: string | null }>()
-  if (!tokenRow) return []
-
-  let accessToken = tokenRow.access_token
-  const expiresAt = tokenRow.access_token_expires_at ? new Date(tokenRow.access_token_expires_at).getTime() : 0
-  if (!accessToken || expiresAt - Date.now() < 60_000) {
-    try {
-      const refreshRes = await fetch('https://oauth2.googleapis.com/token', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: new URLSearchParams({
-          client_id: clientId,
-          client_secret: clientSecret,
-          refresh_token: tokenRow.refresh_token,
-          grant_type: 'refresh_token',
-        }),
-      })
-      if (!refreshRes.ok) return []
-      const refreshed = await refreshRes.json()
-      accessToken = refreshed.access_token
-      const newExpiresAt = new Date(Date.now() + (refreshed.expires_in ?? 3600) * 1000).toISOString()
-      await supabase
-        .from('google_oauth_tokens')
-        .update({ access_token: accessToken, access_token_expires_at: newExpiresAt, updated_at: new Date().toISOString() })
-        .eq('user_id', userId)
-    } catch {
-      return []
-    }
-  }
-
-  const params = new URLSearchParams({
-    timeMin,
-    timeMax,
-    singleEvents: 'true',
-    orderBy: 'startTime',
-    maxResults: '50',
-  })
-
-  try {
-    const eventsRes = await fetch(`https://www.googleapis.com/calendar/v3/calendars/primary/events?${params}`, {
-      headers: { Authorization: `Bearer ${accessToken}` },
-    })
-    if (!eventsRes.ok) return []
-    const data: { items?: Array<{ summary?: string; status?: string; start: { date?: string; dateTime?: string } }> } =
-      await eventsRes.json()
-    return (data.items ?? [])
-      .filter(ev => ev.status !== 'cancelled' && (ev.start.date || ev.start.dateTime))
-      .map(ev => ({
-        title: ev.summary ?? '(No title)',
-        date: ev.start.date ?? ev.start.dateTime!.slice(0, 10),
-        time: ev.start.dateTime ? ev.start.dateTime.slice(11, 16) : null,
-        source: 'google' as const,
-      }))
-  } catch {
-    return []
-  }
-}
-
 async function callClaude(
   period: Period,
-  context: { today: string; rangeEnd: string; todos: Todo[]; events: Array<LocalEvent | GoogleEvent> },
+  context: { today: string; rangeEnd: string; todos: Todo[]; events: Event[] },
   apiKey: string,
 ): Promise<string> {
   const system =
@@ -163,7 +90,7 @@ async function generateFocusSummary(
   supabase: SupabaseClient,
   userId: string,
   period: Period,
-  secrets: { anthropicApiKey?: string; googleClientId?: string; googleClientSecret?: string },
+  secrets: { anthropicApiKey?: string },
 ): Promise<{ period: Period; summary: string }> {
   const todayStr = todayInTZ('Asia/Jerusalem')
   const rangeEnd = period === 'today' ? todayStr : addDays(todayStr, 6)
@@ -177,30 +104,20 @@ async function generateFocusSummary(
     todosQuery,
     supabase
       .from('events')
-      .select('title, event_date, event_time, notes')
+      .select('title, event_date, event_time, notes, source')
       .eq('user_id', userId)
       .gte('event_date', todayStr)
       .lte('event_date', rangeEnd),
   ])
 
-  const googleEvents = await getGoogleEvents(
-    supabase,
-    userId,
-    new Date(`${todayStr}T00:00:00Z`).toISOString(),
-    new Date(`${rangeEnd}T23:59:59Z`).toISOString(),
-    secrets.googleClientId,
-    secrets.googleClientSecret,
-  )
-
   const todos = (todosRes.data ?? []) as Todo[]
-  const localEvents: LocalEvent[] = (eventsRes.data ?? []).map(e => ({
+  const events: Event[] = (eventsRes.data ?? []).map(e => ({
     title: e.title,
     date: e.event_date,
     time: e.event_time,
     notes: e.notes,
-    source: 'local' as const,
+    source: e.source,
   }))
-  const events = [...localEvents, ...googleEvents]
 
   let summary: string
   if (todos.length === 0 && events.length === 0) {
@@ -222,8 +139,6 @@ Deno.serve(async (req: Request) => {
   const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
   const cronSecret = Deno.env.get('CRON_SECRET')
   const anthropicApiKey = Deno.env.get('ANTHROPIC_API_KEY')
-  const googleClientId = Deno.env.get('GOOGLE_CLIENT_ID')
-  const googleClientSecret = Deno.env.get('GOOGLE_CLIENT_SECRET')
 
   if (!supabaseUrl || !serviceRoleKey) {
     return new Response(JSON.stringify({ error: 'MISSING_CONFIG' }), { status: 500 })
@@ -264,7 +179,7 @@ Deno.serve(async (req: Request) => {
     isManual = true
   }
 
-  const secrets = { anthropicApiKey, googleClientId, googleClientSecret }
+  const secrets = { anthropicApiKey }
   const results: Array<{ userId: string; period: Period; summary?: string; error?: string }> = []
 
   for (const target of targets) {

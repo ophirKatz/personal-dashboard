@@ -6,18 +6,13 @@ import type { User } from '@supabase/supabase-js'
 import TodoItem from '../features/todos/TodoItem'
 import TodoForm from '../features/todos/TodoForm'
 import GoogleTaskItem from '../features/todos/GoogleTaskItem'
-import { fetchGoogleTasks } from '../features/todos/googleTasks'
-import type { GoogleTask } from '../features/todos/googleTasks'
-import { connectGoogle } from '../lib/googleAuth'
+import { refreshGoogleTasks } from '../features/todos/googleTasks'
+import { connectGoogle, isGoogleConnected } from '../lib/googleAuth'
 import { Button } from '../components/ui/button'
 import { Input } from '../components/ui/input'
 import { today } from '../utils'
 
 type Filter = 'today' | 'upcoming' | 'all' | 'completed'
-
-type MergedTodo =
-  | { source: 'local'; todo: Todo }
-  | { source: 'google'; todo: GoogleTask }
 
 const FILTERS: { key: Filter; label: string }[] = [
   { key: 'today', label: 'Today' },
@@ -29,7 +24,6 @@ const FILTERS: { key: Filter; label: string }[] = [
 export default function Todos() {
   const [user, setUser] = useState<User | null>(null)
   const [todos, setTodos] = useState<Todo[]>([])
-  const [googleTasks, setGoogleTasks] = useState<GoogleTask[]>([])
   const [googleConnected, setGoogleConnected] = useState(true)
   const [filter, setFilter] = useState<Filter>('today')
   const [showForm, setShowForm] = useState(false)
@@ -42,17 +36,20 @@ export default function Todos() {
   }, [])
 
   async function load() {
-    const [localRes, googleRes] = await Promise.all([
-      supabase.from('todos').select('*').eq('source', 'local').order('created_at', { ascending: false }),
-      fetchGoogleTasks(),
+    const [todosRes, connected] = await Promise.all([
+      supabase.from('todos').select('*').order('created_at', { ascending: false }),
+      isGoogleConnected(),
     ])
-    setTodos(localRes.data ?? [])
-    setGoogleTasks(googleRes.tasks)
-    setGoogleConnected(googleRes.connected)
+    setTodos(todosRes.data ?? [])
+    setGoogleConnected(connected)
     setLoading(false)
   }
 
-  useEffect(() => { load() }, [])
+  useEffect(() => {
+    load().then(() => {
+      refreshGoogleTasks().then(load)
+    })
+  }, [])
 
   async function deleteTodo(id: string) {
     await supabase.from('todos').delete().eq('id', id)
@@ -69,19 +66,11 @@ export default function Todos() {
   }
 
   const t = today()
-  const merged: MergedTodo[] = [
-    ...todos.map(todo => ({ source: 'local' as const, todo })),
-    ...googleTasks.map(todo => ({ source: 'google' as const, todo })),
-  ]
 
-  function dueDate(item: MergedTodo) {
-    return item.source === 'local' ? item.todo.due_date : item.todo.due
-  }
-
-  const filtered = merged.filter(item => {
-    if (filter === 'completed') return item.todo.completed
-    if (item.todo.completed) return false
-    const due = dueDate(item)
+  const filtered = todos.filter(todo => {
+    if (filter === 'completed') return todo.completed
+    if (todo.completed) return false
+    const due = todo.due_date
     if (filter === 'today') return due === t || !due
     if (filter === 'upcoming') return due && due > t
     return true
@@ -90,8 +79,8 @@ export default function Todos() {
   const sorted = [...filtered].sort((a, b) => {
     if (filter !== 'completed') {
       const priorityRank = { high: 0, medium: 1, low: 2 }
-      const pa = a.source === 'local' ? priorityRank[a.todo.priority] : 1
-      const pb = b.source === 'local' ? priorityRank[b.todo.priority] : 1
+      const pa = priorityRank[a.priority]
+      const pb = priorityRank[b.priority]
       if (pa !== pb) return pa - pb
     }
     return 0
@@ -145,16 +134,16 @@ export default function Todos() {
         </div>
       ) : (
         <div className="space-y-2">
-          {sorted.map(item => item.source === 'local' ? (
+          {sorted.map(todo => todo.source === 'local' ? (
             <TodoItem
-              key={`local-${item.todo.id}`}
-              todo={item.todo}
-              onEdit={() => { setEditingTodo(item.todo); setShowForm(true) }}
-              onDelete={() => deleteTodo(item.todo.id)}
+              key={todo.id}
+              todo={todo}
+              onEdit={() => { setEditingTodo(todo); setShowForm(true) }}
+              onDelete={() => deleteTodo(todo.id)}
               onChange={load}
             />
           ) : (
-            <GoogleTaskItem key={`google-${item.todo.id}`} task={item.todo} onChange={load} />
+            <GoogleTaskItem key={todo.id} task={todo} onChange={load} />
           ))}
         </div>
       )}

@@ -3,48 +3,34 @@ import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { startOfMonth, endOfMonth, startOfWeek, endOfWeek, eachDayOfInterval, format, isSameMonth, isToday, addMonths, parseISO } from 'date-fns'
 import { supabase } from '../../supabase'
 import type { CalendarEvent } from '../../supabase'
-import { fetchGoogleCalendarEvents } from './googleCalendar'
-import type { GoogleCalendarEvent } from './googleCalendar'
 import { Button } from '../../components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogBody } from '../../components/ui/dialog'
 import { cn, formatTime } from '../../utils'
-
-type MergedEvent =
-  | { source: 'local'; event: CalendarEvent }
-  | { source: 'google'; event: GoogleCalendarEvent }
 
 const WEEKDAY_LABELS = ['S', 'M', 'T', 'W', 'T', 'F', 'S']
 
 export default function MonthCalendar() {
   const [month, setMonth] = useState(() => startOfMonth(new Date()))
-  const [localEvents, setLocalEvents] = useState<CalendarEvent[]>([])
-  const [googleEvents, setGoogleEvents] = useState<GoogleCalendarEvent[]>([])
+  const [events, setEvents] = useState<CalendarEvent[]>([])
   const [selectedDate, setSelectedDate] = useState<string | null>(null)
-
-  useEffect(() => {
-    fetchGoogleCalendarEvents(90).then(res => setGoogleEvents(res.events))
-  }, [])
 
   useEffect(() => {
     const start = format(month, 'yyyy-MM-dd')
     const end = format(endOfMonth(month), 'yyyy-MM-dd')
     supabase.from('events').select('*').gte('event_date', start).lte('event_date', end)
-      .then(({ data }) => setLocalEvents(data ?? []))
+      .then(({ data }) => setEvents(data ?? []))
   }, [month])
 
   const eventsByDate = useMemo(() => {
-    const map: Record<string, MergedEvent[]> = {}
-    localEvents.forEach(event => {
-      map[event.event_date] = [...(map[event.event_date] ?? []), { source: 'local', event }]
-    })
-    googleEvents.forEach(event => {
-      map[event.event_date] = [...(map[event.event_date] ?? []), { source: 'google', event }]
+    const map: Record<string, CalendarEvent[]> = {}
+    events.forEach(event => {
+      map[event.event_date] = [...(map[event.event_date] ?? []), event]
     })
     Object.values(map).forEach(items =>
-      items.sort((a, b) => (a.event.event_time ?? '99:99:99').localeCompare(b.event.event_time ?? '99:99:99'))
+      items.sort((a, b) => (a.event_time ?? '99:99:99').localeCompare(b.event_time ?? '99:99:99'))
     )
     return map
-  }, [localEvents, googleEvents])
+  }, [events])
 
   const days = useMemo(() => {
     const gridStart = startOfWeek(startOfMonth(month))
@@ -109,11 +95,11 @@ export default function MonthCalendar() {
             {selectedEvents.length === 0 ? (
               <p className="text-sm text-muted-foreground">No events on this day.</p>
             ) : (
-              selectedEvents.map(({ source, event }) => (
-                <div key={`${source}-${event.id}`} className="p-3 rounded-xl border border-border bg-card">
+              selectedEvents.map(event => (
+                <div key={event.id} className="p-3 rounded-xl border border-border bg-card">
                   <div className="flex items-center gap-1.5">
                     <p className="font-medium">{event.title}</p>
-                    {source === 'google' && (
+                    {event.source === 'google' && (
                       <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-blue-100 text-blue-700 shrink-0">Google</span>
                     )}
                   </div>
@@ -121,8 +107,8 @@ export default function MonthCalendar() {
                     <p className="text-xs text-muted-foreground mt-0.5">{formatTime(event.event_time)}</p>
                   )}
                   {event.notes && <p className="text-sm text-muted-foreground mt-1">{event.notes}</p>}
-                  {source === 'google' && (
-                    <a href={event.htmlLink} target="_blank" rel="noreferrer" className="text-xs text-primary mt-1 inline-block hover:underline">
+                  {event.source === 'google' && event.html_link && (
+                    <a href={event.html_link} target="_blank" rel="noreferrer" className="text-xs text-primary mt-1 inline-block hover:underline">
                       Open in Google Calendar
                     </a>
                   )}

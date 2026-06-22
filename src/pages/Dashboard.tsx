@@ -5,17 +5,12 @@ import { supabase } from '../supabase'
 import type { Habit, HabitLog, Todo, Reminder, CalendarEvent, Notification } from '../supabase'
 import { today, formatDateTime } from '../utils'
 import { isBefore, addDays, format } from 'date-fns'
-import { fetchGoogleCalendarEvents } from '../features/calendar/googleCalendar'
-import type { GoogleCalendarEvent } from '../features/calendar/googleCalendar'
+import { refreshGoogleCalendarEvents } from '../features/calendar/googleCalendar'
 import FocusSection from '../features/focus/FocusSection'
 import TodaySection from '../features/today/TodaySection'
 import type { TodayEvent } from '../features/today/TodaySection'
 
 const USER_NAME = 'Ophir'
-
-type DashboardEvent =
-  | { source: 'local'; event: CalendarEvent }
-  | { source: 'google'; event: GoogleCalendarEvent }
 
 export default function Dashboard() {
   const [habits, setHabits] = useState<Habit[]>([])
@@ -23,7 +18,6 @@ export default function Dashboard() {
   const [todos, setTodos] = useState<Todo[]>([])
   const [reminders, setReminders] = useState<Reminder[]>([])
   const [events, setEvents] = useState<CalendarEvent[]>([])
-  const [googleEvents, setGoogleEvents] = useState<GoogleCalendarEvent[]>([])
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -49,17 +43,10 @@ export default function Dashboard() {
     setLoading(false)
   }
 
-  // Kept separate from loadLocalData: this hits an external API (token refresh +
-  // Google Calendar) and is the slow part of the page, so it must never gate the
-  // fast Supabase-backed sections from rendering.
-  async function loadGoogleEvents() {
-    const googleRes = await fetchGoogleCalendarEvents(7)
-    setGoogleEvents(googleRes.events)
-  }
-
   useEffect(() => {
-    loadLocalData()
-    loadGoogleEvents()
+    loadLocalData().then(() => {
+      refreshGoogleCalendarEvents().then(loadLocalData)
+    })
   }, [])
 
   async function toggleHabit(habit: Habit) {
@@ -88,19 +75,16 @@ export default function Dashboard() {
   const overdueReminders = reminders.filter(r => isBefore(new Date(r.remind_at), now))
   const upcomingReminders = reminders.filter(r => !isBefore(new Date(r.remind_at), now)).slice(0, 5)
 
-  const mergedEvents: DashboardEvent[] = [
-    ...events.map(event => ({ source: 'local' as const, event })),
-    ...googleEvents.map(event => ({ source: 'google' as const, event })),
-  ].sort((a, b) => {
-    const dateCompare = a.event.event_date.localeCompare(b.event.event_date)
+  const sortedEvents = [...events].sort((a, b) => {
+    const dateCompare = a.event_date.localeCompare(b.event_date)
     if (dateCompare !== 0) return dateCompare
-    return (a.event.event_time ?? '99:99:99').localeCompare(b.event.event_time ?? '99:99:99')
+    return (a.event_time ?? '99:99:99').localeCompare(b.event_time ?? '99:99:99')
   })
 
   const t = today()
-  const todayEvents: TodayEvent[] = mergedEvents
-    .filter(({ event }) => event.event_date === t)
-    .map(({ source, event }) => ({ id: event.id, title: event.title, time: event.event_time, source }))
+  const todayEvents: TodayEvent[] = sortedEvents
+    .filter(event => event.event_date === t)
+    .map(event => ({ id: event.id, title: event.title, time: event.event_time, source: event.source }))
 
   return (
     <div className="p-4 max-w-2xl mx-auto space-y-5">
@@ -216,7 +200,7 @@ export default function Dashboard() {
         </div>
       )}
 
-      {!loading && habits.length === 0 && todos.length === 0 && reminders.length === 0 && mergedEvents.length === 0 && (
+      {!loading && habits.length === 0 && todos.length === 0 && reminders.length === 0 && events.length === 0 && (
         <div className="text-center py-16 text-muted-foreground">
           <div className="text-5xl mb-4">🌅</div>
           <p className="font-semibold text-lg text-foreground">Welcome!</p>

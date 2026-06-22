@@ -1,39 +1,30 @@
 import { supabase } from '../../supabase'
+import type { Todo } from '../../supabase'
 
-export type GoogleTask = {
-  id: string
-  title: string
-  notes: string | null
-  due: string | null
-  completed: boolean
+export async function refreshGoogleTasks(): Promise<void> {
+  await supabase.functions.invoke('fetch-google-tasks')
 }
 
-export async function fetchGoogleTasks(): Promise<{ connected: boolean; tasks: GoogleTask[] }> {
+export async function toggleGoogleTask(todo: Todo): Promise<boolean> {
   const { data: { session } } = await supabase.auth.getSession()
-  if (!session) return { connected: false, tasks: [] }
+  if (!session || !todo.google_task_id) return false
 
-  const res = await fetch('/api/google-tasks', {
-    headers: { Authorization: `Bearer ${session.access_token}` },
-  })
-
-  if (!res.ok) return { connected: false, tasks: [] }
-
-  const data = await res.json()
-  return { connected: true, tasks: data.tasks ?? [] }
-}
-
-export async function toggleGoogleTask(taskId: string, completed: boolean): Promise<boolean> {
-  const { data: { session } } = await supabase.auth.getSession()
-  if (!session) return false
-
+  const completed = !todo.completed
   const res = await fetch('/api/google-tasks', {
     method: 'PATCH',
     headers: {
       Authorization: `Bearer ${session.access_token}`,
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({ taskId, completed }),
+    body: JSON.stringify({ taskId: todo.google_task_id, completed }),
   })
 
-  return res.ok
+  if (!res.ok) return false
+
+  await supabase
+    .from('todos')
+    .update({ completed, completed_at: completed ? new Date().toISOString() : null })
+    .eq('id', todo.id)
+
+  return true
 }
