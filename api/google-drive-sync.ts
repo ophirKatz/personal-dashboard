@@ -122,7 +122,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   await auth.supabase
     .from('google_drive_folders')
-    .update({ sync_status: 'syncing', sync_error: null })
+    .update({ sync_status: 'syncing', sync_error: null, sync_heartbeat_at: new Date().toISOString() })
     .eq('folder_id', folder_id)
 
   let queue: QueueItem[]
