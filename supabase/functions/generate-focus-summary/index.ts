@@ -15,7 +15,7 @@ function addDays(dateStr: string, days: number): string {
   return d.toISOString().slice(0, 10)
 }
 
-async function getAllUserIds(supabase: SupabaseClient): Promise<string[]> {
+async function getAutoGenerateEnabledUserIds(supabase: SupabaseClient): Promise<string[]> {
   const ids = new Set<string>()
   const [todosRes, eventsRes, tokensRes] = await Promise.all([
     supabase.from('todos').select('user_id'),
@@ -25,7 +25,14 @@ async function getAllUserIds(supabase: SupabaseClient): Promise<string[]> {
   for (const row of [...(todosRes.data ?? []), ...(eventsRes.data ?? []), ...(tokensRes.data ?? [])]) {
     ids.add((row as { user_id: string }).user_id)
   }
-  return [...ids]
+
+  const { data: disabledRows } = await supabase
+    .from('user_settings')
+    .select('user_id')
+    .eq('auto_generate_focus_summaries', false)
+  const disabled = new Set((disabledRows ?? []).map(row => (row as { user_id: string }).user_id))
+
+  return [...ids].filter(id => !disabled.has(id))
 }
 
 async function callClaude(
@@ -162,7 +169,7 @@ Deno.serve(async (req: Request) => {
     if (body.user_id && body.period) {
       targets = [{ userId: body.user_id, period: body.period }]
     } else {
-      const userIds = await getAllUserIds(supabase)
+      const userIds = await getAutoGenerateEnabledUserIds(supabase)
       targets = userIds.flatMap(userId => [{ userId, period: 'today' as Period }, { userId, period: 'week' as Period }])
     }
   } else {
