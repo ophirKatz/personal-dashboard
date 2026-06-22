@@ -1,19 +1,30 @@
 import { Routes, Route, Navigate } from 'react-router-dom'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, lazy, Suspense } from 'react'
 import type { User } from '@supabase/supabase-js'
 import { supabase } from './supabase'
 import Layout from './components/Layout'
 import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
-import Habits from './pages/Habits'
-import Todos from './pages/Todos'
-import Reminders from './pages/Reminders'
-import Climbing from './pages/Climbing'
-import Shopping from './pages/Shopping'
-import Calendar from './pages/Calendar'
-import Files from './pages/Files'
-import Finance from './pages/Finance'
 import { checkStockAlerts } from './features/notifications/notifications'
+
+// Lazy-loaded so their dependencies (recharts, pdfjs/react-pdf, etc.) stay out
+// of the bundle needed for the initial Home Screen load.
+const Habits = lazy(() => import('./pages/Habits'))
+const Todos = lazy(() => import('./pages/Todos'))
+const Reminders = lazy(() => import('./pages/Reminders'))
+const Climbing = lazy(() => import('./pages/Climbing'))
+const Shopping = lazy(() => import('./pages/Shopping'))
+const Calendar = lazy(() => import('./pages/Calendar'))
+const Files = lazy(() => import('./pages/Files'))
+const Finance = lazy(() => import('./pages/Finance'))
+
+function PageFallback() {
+  return (
+    <div className="flex justify-center pt-20">
+      <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+    </div>
+  )
+}
 
 export default function App() {
   const [user, setUser] = useState<User | null | undefined>(undefined)
@@ -54,19 +65,21 @@ export default function App() {
   if (!user) return <Login />
 
   return (
-    <Routes>
-      <Route element={<Layout />}>
-        <Route index element={<Dashboard />} />
-        <Route path="habits" element={<Habits />} />
-        <Route path="todos" element={<Todos />} />
-        <Route path="reminders" element={<Reminders />} />
-        <Route path="climbing" element={<Climbing />} />
-        <Route path="shopping" element={<Shopping />} />
-        <Route path="calendar" element={<Calendar />} />
-        <Route path="files" element={<Files />} />
-        <Route path="finance" element={<Finance />} />
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Route>
-    </Routes>
+    <Suspense fallback={<PageFallback />}>
+      <Routes>
+        <Route element={<Layout />}>
+          <Route index element={<Dashboard />} />
+          <Route path="habits" element={<Habits />} />
+          <Route path="todos" element={<Todos />} />
+          <Route path="reminders" element={<Reminders />} />
+          <Route path="climbing" element={<Climbing />} />
+          <Route path="shopping" element={<Shopping />} />
+          <Route path="calendar" element={<Calendar />} />
+          <Route path="files" element={<Files />} />
+          <Route path="finance" element={<Finance />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Route>
+      </Routes>
+    </Suspense>
   )
 }
