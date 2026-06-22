@@ -54,12 +54,14 @@ const SYSTEM_PROMPT =
   'You extract bouldering climbing attempts from a short spoken transcript dictated right after a ' +
   'climbing session (e.g. "three v three, one v five six, fell on a v six seven"). Grades are spoken ' +
   'as a single V-grade or a range ("five six" means V5/6) and must be normalized to one of these exact ' +
-  `bands: ${VALID_GRADES.join(', ')} (round a single grade to its nearest band, e.g. spoken "v4" -> ` +
-  '"v3-4" or "v4-5", picking whichever is closer; prefer the lower band on a tie). Each attempt has a ' +
-  'result: "sent" by default, or "project" if the speaker says they fell, failed, didn\'t finish, or ' +
-  'it\'s still a project. Respond with ONLY strict JSON, no markdown fences, no commentary, in this ' +
-  'exact shape: {"attempts": [{"grade": "v3-4", "result": "sent"}]}. If there are no climbing ' +
-  'attempts, respond with {"attempts": []}.'
+  `bands: ${VALID_GRADES.join(', ')}. A single spoken grade N always maps to the band where N is the ` +
+  'upper number, i.e. "v(N-1)-N" (e.g. spoken "v4" -> "v3-4", spoken "v7" -> "v6-7"); the only ' +
+  'exception is "v0", which has no band below it and maps to "v0-1". A spoken range like "five six" ' +
+  'maps directly to that exact band ("v5-6"). Each attempt has a result: "sent" by default, or ' +
+  '"project" if the speaker says they fell, failed, didn\'t finish, or it\'s still a project. Respond ' +
+  'with ONLY strict JSON, no markdown fences, no commentary, in this exact shape: {"attempts": ' +
+  '[{"grade": "v3-4", "result": "sent"}]}. If there are no climbing attempts, respond with ' +
+  '{"attempts": []}.'
 
 type Attempt = { grade: string; result: 'sent' | 'project' }
 

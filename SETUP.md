@@ -357,26 +357,94 @@ shortcuts (Siri) → Generate new token**; it's shown once, so copy it immediate
 - Both reuse the existing `ANTHROPIC_API_KEY` Edge Function secret (step 1h) — no new secret needed
 
 **What still requires manual action — building the iOS Shortcuts themselves can't be done via
-MCP, it's a one-time setup in the Shortcuts app on your iPhone:**
+MCP, it's a one-time setup in the Shortcuts app on your iPhone.**
 
-1. Open **Settings** in the app, scroll to **Voice shortcuts (Siri)**, tap **Generate new token**,
-   and copy the token shown (you won't be able to see it again — generate a new one if you lose it).
-2. In the iOS **Shortcuts** app, create a new shortcut named e.g. "Add to Shopping List":
-   - Add action **Dictate Text** (language: your choice)
-   - Add action **Get Contents of URL**:
-     - URL: `https://tjjvrqamitwtoslinrxy.supabase.co/functions/v1/voice-shopping`
-     - Method: `POST`
-     - Headers: `Authorization` → `Bearer <your token>`, `Content-Type` → `application/json`
-     - Request Body → JSON: `{"transcript": [Dictated Text]}` (insert the Dictated Text variable)
-   - Add action **Get Dictionary from Input** (or **Get Value for** `message` from the
-     "Contents of URL" result), then **Speak Text** with that value so Siri reads back the result
-   - Tap the shortcut's settings (⋯) → **Add to Siri** and record a phrase, e.g. "add to shopping
-     list"
-3. Duplicate the shortcut as "Log a Climb", pointing at `voice-climbing` instead, with a phrase
-   like "log a climb"
-4. Say "Hey Siri, add to shopping list" (or "Hey Siri, log a climb"), dictate your items/attempts,
-   and Siri will speak back a confirmation once they're saved — they'll appear in the app the next
-   time the Shopping or Climbing page loads.
+### Step 1 — Generate your token
+
+Open **Settings** in the app → **Voice shortcuts (Siri)** → **Generate new token**. Copy it
+immediately; it's shown once and isn't recoverable (revoke and generate a new one if you lose it).
+You'll paste this into both Shortcuts below as `<YOUR_TOKEN>`.
+
+### Step 2 — Build "Add to Shopping List"
+
+In the iOS **Shortcuts** app, tap **+** to create a new shortcut, name it `Add to Shopping List`,
+and add these actions in order:
+
+**Action 1: Dictate Text**
+- Language: your choice
+- Stop Listening: "After Pause" (default is fine)
+
+**Action 2: Get Contents of URL**
+
+Tap to expand it and set:
+
+| Field | Value |
+|---|---|
+| URL | `https://tjjvrqamitwtoslinrxy.supabase.co/functions/v1/voice-shopping` |
+| Method | `POST` |
+| Headers | `Authorization` = `Bearer <YOUR_TOKEN>` |
+| Headers | `Content-Type` = `application/json` |
+| Request Body | `JSON` |
+
+In the JSON body editor, add one field:
+
+```
+Key: transcript
+Value: [tap the variable picker, select "Dictated Text" from Action 1]
+```
+
+The body should render as (with the variable chip in place of the bracket):
+
+```json
+{"transcript": [Dictated Text]}
+```
+
+**Action 3: Get Dictionary Value**
+- Add action **Get Dictionary Value**, set Get → `Value for Key`, key = `message`, dictionary =
+  the output of Action 2 ("Contents of URL")
+
+**Action 4: Speak Text**
+- Add action **Speak Text**, set its input to the output of Action 3 (the `message` value)
+
+**Action 5: Add to Siri**
+- Tap the shortcut name at the top → settings icon (⋯) → **Add to Siri**
+- Record a phrase, e.g. **"add to shopping list"**
+- Save
+
+### Step 3 — Build "Log a Climb"
+
+Duplicate the shortcut (⋯ → **Duplicate**) and rename it `Log a Climb`, then edit Action 2:
+
+| Field | Value |
+|---|---|
+| URL | `https://tjjvrqamitwtoslinrxy.supabase.co/functions/v1/voice-climbing` |
+| Method | `POST` |
+| Headers | `Authorization` = `Bearer <YOUR_TOKEN>` |
+| Headers | `Content-Type` = `application/json` |
+| Request Body (JSON) | `{"transcript": [Dictated Text]}` (same as before) |
+
+Leave Actions 3–4 (Get Dictionary Value on `message`, then Speak Text) as-is. Record a new Siri
+phrase for this one, e.g. **"log a climb"**.
+
+### Step 4 — Use it
+
+Say **"Hey Siri, add to shopping list"** or **"Hey Siri, log a climb"**, then speak naturally:
+
+- Shopping: *"milk, eggs, and bananas"*
+- Climbing: *"three v three, one v five six, fell on a v six seven"*
+
+Siri dictates, sends it to the matching Edge Function, and speaks back a confirmation like
+*"Added Milk, Eggs, Bananas to your shopping list."* or *"Logged 3 climbs: v2-3, v5-6, v6-7
+(project)."* Entries appear in the app the next time the Shopping or Climbing page loads.
+
+**Climbing grade parsing rule:** a single spoken grade always rounds *up* to the band where it's
+the upper bound — "v4" → `v3-4`, "v7" → `v6-7` — except "v0", which has no band below it and maps
+to `v0-1`. A spoken range like "five six" maps directly to `v5-6`.
+
+**Troubleshooting a Shortcut that fails silently:** temporarily replace the final **Speak Text**
+action with **Show Result** on the raw output of "Get Contents of URL" — this surfaces the actual
+JSON response (or HTTP error) instead of silence, which is the fastest way to tell whether the
+token, URL, or JSON body is wrong.
 
 **Revoking access:** delete a token from the Settings page at any time — any Shortcut using it
 immediately stops working (the Edge Functions return `401 UNAUTHORIZED`).
