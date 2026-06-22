@@ -76,19 +76,16 @@ export default function Shopping() {
     setImporting(true)
     setImportError(null)
     try {
-      const { data: { session } } = await supabase.auth.getSession()
-      if (!session) throw new Error('Not signed in')
-
       const image = await readFileAsBase64(file)
-      const res = await fetch('/api/extract-shopping-items', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
-        body: JSON.stringify({ image, mediaType: file.type }),
+      const { data, error } = await supabase.functions.invoke('extract-shopping-items', {
+        body: { image, mediaType: file.type },
       })
-      const result = await res.json()
-      if (!res.ok) throw new Error(result.message ?? result.error ?? 'Import failed')
+      if (error) {
+        const body = await error.context?.json?.().catch(() => null)
+        throw new Error(body?.message ?? body?.error ?? error.message ?? 'Import failed')
+      }
 
-      const imported: ShoppingItem[] = result.items ?? []
+      const imported: ShoppingItem[] = data?.items ?? []
       if (imported.length === 0) {
         setImportError('No items found in that image.')
       } else {

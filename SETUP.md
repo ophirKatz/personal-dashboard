@@ -319,6 +319,22 @@ part of the push notifications setup (step 1g) and is reused here.
 
 ---
 
+## 1i. Shopping List Photo Import
+
+The Shopping page's "Import from photo" button lets you upload a photo of a shopping list (handwritten,
+printed, or a recipe's ingredients) and have Claude extract the items, which are then inserted directly
+into your `shopping_items`.
+
+**How it works:** the button calls the `extract-shopping-items` Supabase Edge Function
+(`supabase/functions/extract-shopping-items`) via `supabase.functions.invoke`, authenticated with your
+own session. The function sends the image to Claude, parses the returned JSON list of item names, and
+inserts them for your user only.
+
+**No additional manual setup needed** — the function reuses the same `ANTHROPIC_API_KEY` Edge Function
+secret configured in step 1h, and `SUPABASE_URL`/`SUPABASE_SERVICE_ROLE_KEY` are injected automatically.
+
+---
+
 ## 2. Vercel — Environment Variables
 
 As part of the import in step 0 (or right after), set these environment variables in the Vercel dashboard:
@@ -334,7 +350,6 @@ As part of the import in step 0 (or right after), set these environment variable
 | `GOOGLE_CLIENT_ID` | The same OAuth **Client ID** from step 1a / 1d. **No `VITE_` prefix.** |
 | `GOOGLE_CLIENT_SECRET` | The same OAuth **Client Secret** from step 1a / 1d. **No `VITE_` prefix** — used only by the `/api/calendar-events` serverless function to refresh the Google access token, never shipped to the browser bundle |
 | `VITE_VAPID_PUBLIC_KEY` | See step 1g above. The other push-notification secrets (`VAPID_PRIVATE_KEY`, `VAPID_SUBJECT`, `CRON_SECRET`) live in Supabase Edge Function secrets, not Vercel — see step 1g |
-| `ANTHROPIC_API_KEY` | Your Claude API key from [console.anthropic.com](https://console.anthropic.com/) — used by `/api/extract-shopping-items` to read shopping list items from an uploaded photo. **This is a separate copy from the Supabase Edge Function secret of the same name** (step 1h) — Vercel and Edge Functions don't share secrets. No `VITE_` prefix — stays server-side |
 
 3. After saving, **redeploy** the project for env vars to take effect:
    - Go to **Deployments** tab → latest deployment → **⋯ → Redeploy**
