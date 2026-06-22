@@ -319,6 +319,22 @@ part of the push notifications setup (step 1g) and is reused here.
 
 ---
 
+## 1i. Shopping List Photo Import
+
+The Shopping page's "Import from photo" button lets you upload a photo of a shopping list (handwritten,
+printed, or a recipe's ingredients) and have Claude extract the items, which are then inserted directly
+into your `shopping_items`.
+
+**How it works:** the button calls the `extract-shopping-items` Supabase Edge Function
+(`supabase/functions/extract-shopping-items`) via `supabase.functions.invoke`, authenticated with your
+own session. The function sends the image to Claude, parses the returned JSON list of item names, and
+inserts them for your user only.
+
+**No additional manual setup needed** — the function reuses the same `ANTHROPIC_API_KEY` Edge Function
+secret configured in step 1h, and `SUPABASE_URL`/`SUPABASE_SERVICE_ROLE_KEY` are injected automatically.
+
+---
+
 ## 2. Vercel — Environment Variables
 
 As part of the import in step 0 (or right after), set these environment variables in the Vercel dashboard:
