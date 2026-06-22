@@ -38,6 +38,9 @@ export type Todo = {
   completed: boolean
   completed_at: string | null
   created_at: string
+  reminder_enabled: boolean
+  remind_at: string | null
+  notified_at: string | null
 }
 
 export type Reminder = {
