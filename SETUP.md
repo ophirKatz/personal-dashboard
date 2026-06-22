@@ -266,6 +266,59 @@ select cron.alter_job(
 
 ---
 
+## 1h. Focus Summaries — Enable the AI focus section
+
+The Dashboard's "Focus" section (Today / This Week tabs) replaces the old "Upcoming Events" list
+with a short AI-generated briefing of what's relevant for each period, built from your local todos
+and calendar events (plus Google Calendar, if connected). It's powered by Anthropic's Claude API
+and cached in a new `focus_summaries` table.
+
+**How it works end-to-end:**
+- A Supabase Edge Function (`supabase/functions/generate-focus-summary`) builds a small JSON context
+  (todos due in the period, local `events` rows in range, and — if you've connected Google Calendar —
+  matching Google Calendar events, fetched by the function itself using a direct OAuth refresh) and
+  asks Claude Haiku to write a short prioritized briefing, then upserts it into `focus_summaries`
+  (one row per user per period).
+- **Daily 7am refresh:** a `pg_cron` job (`generate-daily-focus-summaries`) calls the function every
+  day at 4am UTC (≈7am Asia/Jerusalem during daylight saving; ≈6am in winter, since `pg_cron` has no
+  timezone-aware scheduling — adjust the cron schedule yourself if the seasonal drift bothers you).
+- **Triggered refresh:** Postgres triggers on `todos` (insert/update of `due_date`) and `events`
+  (insert/update of `event_date`) call the same function whenever an item lands within today or the
+  next 7 days, so adding something relevant updates the cached summary without waiting for 7am.
+- **Manual refresh:** the refresh icon in the Focus section calls the function directly
+  (`supabase.functions.invoke`), authenticated with your own session — it only ever regenerates your
+  own summary for the active tab.
+- Both the cron job and the DB triggers authenticate to the function the same way
+  `send-due-notifications` does — via the `cron_secret` already stored in Supabase Vault.
+
+**This was already set up for you (via MCPs), no action needed:**
+- The `focus_summaries` table (RLS: read-only for the owning user; all writes go through the edge
+  function's service-role key)
+- The `notify_focus_refresh` Postgres function and the `todos_focus_refresh` / `events_focus_refresh`
+  triggers
+- The `generate-daily-focus-summaries` cron job
+- The `generate-focus-summary` Edge Function itself, deployed at
+  `https://tjjvrqamitwtoslinrxy.supabase.co/functions/v1/generate-focus-summary`
+
+**What still requires manual action** — there's no MCP tool that can write Supabase Edge Function
+secrets, so these must be added by hand in **Supabase Dashboard → your project → Edge Functions →
+Manage secrets** (or `supabase secrets set` via the CLI):
+
+| Name | Value |
+|---|---|
+| `ANTHROPIC_API_KEY` | Your Claude API key from [console.anthropic.com](https://console.anthropic.com/) — required for the function to generate anything; without it, only the "nothing scheduled" fallback message is produced |
+| `GOOGLE_CLIENT_ID` | The same OAuth Client ID used in step 1a/1d — needed so the function can refresh your Google token itself and read Calendar events server-side. **This is a separate copy from the Vercel env var of the same name** — Edge Functions and Vercel don't share secrets |
+| `GOOGLE_CLIENT_SECRET` | The same OAuth Client Secret as above — same "separate copy" note applies |
+
+If `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET` aren't set, the Focus section still works — it just
+won't include Google Calendar events in the summary, only local app events.
+
+`SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, and `CRON_SECRET` do **not** need to be set manually —
+the first two are injected automatically by Supabase, and `CRON_SECRET` was already configured as
+part of the push notifications setup (step 1g) and is reused here.
+
+---
+
 ## 2. Vercel — Environment Variables
 
 As part of the import in step 0 (or right after), set these environment variables in the Vercel dashboard:
@@ -349,6 +402,7 @@ The `vercel.json` in this repo configures SPA routing (all paths → `index.html
 | `stock_alerts` | Price thresholds per stock symbol |
 | `notifications` | In-app notification banners (e.g. triggered stock alerts) |
 | `push_subscriptions` | One row per subscribed browser/device (Web Push endpoint + keys), used by `/api/send-notifications` to deliver habit/reminder/todo pushes |
+| `focus_summaries` | Cached AI-generated focus briefing per user per `period` (`today`/`week`), written by the `generate-focus-summary` Edge Function; `status`/`error` track the last generation attempt, `generated_at` is shown in the UI as "Updated X ago" |
 
 ### Storage
 
@@ -376,7 +430,7 @@ Storage objects are scoped to `(storage.foldername(name))[1] = auth.uid()::text`
 
 | Module | Route | Notes |
 |---|---|---|
-| Dashboard | `/` | Today's habits, tasks, reminders, events |
+| Dashboard | `/` | Today's habits, tasks, reminders, and an AI-generated Focus section (Today / This Week tabs) summarizing relevant todos and calendar events, cached and refreshed daily at 7am, on relevant todo/event changes, and via a manual refresh icon (see step 1h) |
 | Habits | `/habits` | Create/edit/delete, heatmap, streak, optional daily push reminder at a chosen time |
 | Todos | `/todos` | Filters: Today / Upcoming / All / Done. Merges local tasks with your Google Tasks "My Tasks" list (badged "Google"). Checking the box syncs completion back to Google, proxied server-side through `/api/google-tasks` so tokens never reach the browser. Create/edit/delete stays local-only. Local tasks with a due date can toggle **Remind me** for a push notification at the due date/time |
 | Reminders | `/reminders` | Overdue highlighted, dismiss advances repeat, sends a push notification when due |
@@ -457,6 +511,31 @@ Common causes: unused imports (the tsconfig is set to `noUnusedLocals: false` to
 - `npm run dev` runs plain Vite, which doesn't execute serverless functions — `/api/stock-quote` will 404
 - To test it locally, install the Vercel CLI (`npm i -g vercel`) and run `vercel dev` instead, with `FINNHUB_API_KEY` set in `.env.local`
 - It works normally once deployed to Vercel, no extra steps needed there
+
+**Focus section shows "Couldn't generate a summary" / never says more than "nothing scheduled":**
+- Confirm `ANTHROPIC_API_KEY` is set as a **Supabase Edge Function secret** (Dashboard → Edge
+  Functions → Manage secrets) — without it, every period with at least one todo/event falls back to
+  an error rather than a real summary
+- Check the Edge Function's logs (Dashboard → Edge Functions → `generate-focus-summary` → Logs) for
+  the actual error (e.g. `MISSING_ANTHROPIC_API_KEY` or an Anthropic API error with a status code)
+- Tap the refresh icon in the Focus section to retry after fixing the secret
+
+**Focus summary never includes Google Calendar events:**
+- Confirm `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` are set as **Supabase Edge Function
+  secrets** — these are a separate copy from the same-named Vercel env vars (step 1d), since Edge
+  Functions and Vercel don't share secrets
+- Confirm Google Calendar is connected for your account (Calendar page → "Connect Google Calendar")
+- This is a soft dependency — if it's not configured, the summary just uses local app events instead
+  of failing outright
+
+**Focus summary doesn't update right after adding a todo/event:**
+- Check `select * from cron.job_run_details where jobid = (select jobid from cron.job where
+  jobname = 'generate-daily-focus-summaries') order by start_time desc limit 5;` for the daily run,
+  or check the Edge Function logs for trigger-originated calls (body will include a `user_id` and
+  `period`)
+- The triggers only fire on **insert** or on an **update that changes `due_date`/`event_date`** —
+  toggling a todo's completed state or editing its title doesn't re-trigger a refresh
+- Use the refresh icon for an immediate update in the meantime
 
 **"Enable notifications" button does nothing / shows "Could not enable push notifications":**
 - Confirm `VITE_VAPID_PUBLIC_KEY` is set in Vercel and you've redeployed since adding it

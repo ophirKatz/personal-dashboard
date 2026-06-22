@@ -125,6 +125,17 @@ export type GoogleDriveFolder = {
   last_synced_at: string | null
 }
 
+export type FocusSummary = {
+  id: string
+  user_id: string
+  period: 'today' | 'week'
+  summary: string | null
+  status: 'ready' | 'error'
+  error: string | null
+  generated_at: string | null
+  updated_at: string
+}
+
 export type Notification = {
   id: string
   user_id: string

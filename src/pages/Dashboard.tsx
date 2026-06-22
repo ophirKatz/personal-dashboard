@@ -1,14 +1,15 @@
 import { useEffect, useState } from 'react'
-import { CheckCircle2, Flame, Bell, CalendarDays, Plus, ShoppingCart, Mountain, DollarSign, TrendingUp, X } from 'lucide-react'
+import { CheckCircle2, Flame, Bell, Plus, ShoppingCart, Mountain, DollarSign, TrendingUp, X } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { supabase } from '../supabase'
 import type { Habit, HabitLog, Todo, Reminder, CalendarEvent, Notification } from '../supabase'
 import type { User } from '@supabase/supabase-js'
 import { today, formatDateTime, formatTime, PRIORITY_CONFIG } from '../utils'
-import { isBefore, addDays, parseISO, format } from 'date-fns'
+import { isBefore, addDays, format } from 'date-fns'
 import TodoForm from '../features/todos/TodoForm'
 import { fetchGoogleCalendarEvents } from '../features/calendar/googleCalendar'
 import type { GoogleCalendarEvent } from '../features/calendar/googleCalendar'
+import FocusSection from '../features/focus/FocusSection'
 
 type DashboardEvent =
   | { source: 'local'; event: CalendarEvent }
@@ -280,30 +281,8 @@ export default function Dashboard() {
         </Section>
       )}
 
-      {/* Events */}
-      {!loading && mergedEvents.length > 0 && (
-        <Section title="Upcoming Events">
-          <div className="space-y-2">
-            {mergedEvents.slice(0, 5).map(({ source, event }) => (
-              <div key={`${source}-${event.id}`} className="flex items-center gap-3 p-3.5 bg-card border border-border rounded-xl">
-                <CalendarDays className="h-4 w-4 text-muted-foreground shrink-0" />
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-1.5">
-                    <p className="text-sm font-medium truncate">{event.title}</p>
-                    {source === 'google' && (
-                      <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-blue-100 text-blue-700 shrink-0">Google</span>
-                    )}
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    {format(parseISO(event.event_date), 'MMM d')}
-                    {event.event_time && ` · ${format(new Date(`2000-01-01T${event.event_time}`), 'h:mm a')}`}
-                  </p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </Section>
-      )}
+      {/* Focus */}
+      {!loading && <FocusSection />}
 
       {loading && (
         <div className="flex justify-center pt-6">
