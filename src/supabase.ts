@@ -165,6 +165,15 @@ export type WeatherCache = {
   updated_at: string
 }
 
+export type ApiToken = {
+  id: string
+  user_id: string
+  label: string
+  token_hash: string
+  last_used_at: string | null
+  created_at: string
+}
+
 export type Notification = {
   id: string
   user_id: string

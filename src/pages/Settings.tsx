@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react'
 import { Bell, BellOff, Sparkles } from 'lucide-react'
+import { supabase } from '../supabase'
 import { Button } from '../components/ui/button'
 import { haptic } from '../lib/haptics'
 import { isPushSupported, getPushSubscription, enablePushNotifications, disablePushNotifications } from '../lib/push'
 import { getAutoGenerateFocusSummaries, setAutoGenerateFocusSummaries } from '../lib/userSettings'
+import VoiceShortcutsSection from '../features/voice/VoiceShortcutsSection'
 
 export default function Settings() {
   const [supported, setSupported] = useState(true)
@@ -11,6 +13,11 @@ export default function Settings() {
   const [loading, setLoading] = useState(true)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [userId, setUserId] = useState<string | null>(null)
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data: { user } }) => setUserId(user?.id ?? null))
+  }, [])
 
   const [autoGenerateFocus, setAutoGenerateFocus] = useState(true)
   const [focusLoading, setFocusLoading] = useState(true)
@@ -131,6 +138,8 @@ export default function Settings() {
           )}
         </div>
       </div>
+
+      {userId && <VoiceShortcutsSection userId={userId} />}
     </div>
   )
 }
