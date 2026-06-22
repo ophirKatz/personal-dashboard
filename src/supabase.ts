@@ -138,6 +138,24 @@ export type FocusSummary = {
   updated_at: string
 }
 
+export type WeatherCache = {
+  id: string
+  user_id: string
+  latitude: number
+  longitude: number
+  temperature: number | null
+  feels_like: number | null
+  weather_code: number | null
+  condition: string | null
+  is_day: boolean | null
+  humidity: number | null
+  wind_speed: number | null
+  status: 'ready' | 'error'
+  error: string | null
+  fetched_at: string | null
+  updated_at: string
+}
+
 export type Notification = {
   id: string
   user_id: string
