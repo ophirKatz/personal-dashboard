@@ -184,9 +184,10 @@ limit (see step 5 below) still applies; oversized files are skipped and retried 
 
 ## 1g. Push Notifications — Enable the integration
 
-Habits (with a reminder time set) and Reminders can send a real push notification to your
-iPhone's lock screen / notification center — not just an in-app banner. This works because the
-app is a PWA with a custom service worker (`src/sw.ts`) that listens for `push` events.
+Habits (with a reminder time set), Reminders, and Todos (with a due date/time and reminder
+enabled) can send a real push notification to your iPhone's lock screen / notification center —
+not just an in-app banner. This works because the app is a PWA with a custom service worker
+(`src/sw.ts`) that listens for `push` events.
 
 **How it works end-to-end:**
 - The browser/PWA subscribes to push via the Web Push API and stores the subscription
@@ -196,9 +197,10 @@ app is a PWA with a custom service worker (`src/sw.ts`) that listens for `push` 
   over HTTP — not a Vercel function. This avoids ever putting the Supabase service-role key into
   Vercel: Edge Functions get `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` injected automatically
   by Supabase, scoped to that project only.
-- That function checks for due reminders (`remind_at <= now()` and not yet notified) and habits
-  with a matching `reminder_time` that haven't been logged today, then sends a push via the
-  `web-push` library to every stored subscription for that user
+- That function checks for due reminders (`remind_at <= now()` and not yet notified), incomplete
+  todos with a reminder enabled (`remind_at <= now()` and not yet notified), and habits with a
+  matching `reminder_time` that haven't been logged today, then sends a push via the `web-push`
+  library to every stored subscription for that user
 
 **This was already set up for you (via MCPs), no action needed:**
 - `pg_cron` and `pg_net` extensions enabled on the Supabase project
@@ -208,7 +210,7 @@ app is a PWA with a custom service worker (`src/sw.ts`) that listens for `push` 
   `https://tjjvrqamitwtoslinrxy.supabase.co/functions/v1/send-notifications`
 - The `push_subscriptions` table (RLS-protected, one row per device) and new columns:
   `habits.reminder_enabled`, `habits.reminder_time`, `habits.last_notified_date`,
-  `reminders.notified_at`
+  `reminders.notified_at`, `todos.reminder_enabled`, `todos.remind_at`, `todos.notified_at`
 
 **What still requires manual action — there's no MCP tool that can write Vercel environment
 variables or Supabase Edge Function secrets, so these must be added by hand:**
@@ -240,8 +242,9 @@ injects both into every Edge Function automatically, scoped to this project.
 2. Open the app from the Home Screen icon (not from Safari)
 3. Go to **Settings** in the app's nav and tap **Enable notifications**, then accept the
    permission prompt
-4. Set a reminder time on a habit (Habits → edit a habit → toggle **Reminder**), or create a
-   Reminder for a few minutes out, and wait — it should arrive as a real lock-screen notification
+4. Set a reminder time on a habit (Habits → edit a habit → toggle **Reminder**), create a
+   Reminder for a few minutes out, or set a due date/time and toggle **Remind me** on a task
+   (Tasks → edit a task), and wait — it should arrive as a real lock-screen notification
 
 **If the Edge Function's project changes** (e.g. a different Supabase project), update the cron
 job's target URL with:
@@ -334,7 +337,7 @@ The `vercel.json` in this repo configures SPA routing (all paths → `index.html
 |---|---|
 | `habits` | Habit definitions (name, emoji, color, frequency, optional `reminder_time`/`reminder_enabled` for push reminders) |
 | `habit_logs` | Daily check-offs per habit |
-| `todos` | Tasks with priority, due date, notes |
+| `todos` | Tasks with priority, due date, notes, optional `reminder_enabled`/`remind_at` for push reminders; `notified_at` tracks whether a push was already sent |
 | `reminders` | Time-based reminders with optional repeat; `notified_at` tracks whether a push was already sent for the current `remind_at` |
 | `climbing_sessions` | Bouldering session records |
 | `climbing_attempts` | Individual attempts within a session |
@@ -345,7 +348,7 @@ The `vercel.json` in this repo configures SPA routing (all paths → `index.html
 | `google_drive_folders` | The Drive root folders a user has chosen to sync (Drive folder ID + name), plus `sync_status` / `sync_error` / `last_synced_at` for the recursive sync job. Deleting a row cascades to delete its synced `files` rows |
 | `stock_alerts` | Price thresholds per stock symbol |
 | `notifications` | In-app notification banners (e.g. triggered stock alerts) |
-| `push_subscriptions` | One row per subscribed browser/device (Web Push endpoint + keys), used by `/api/send-notifications` to deliver habit/reminder pushes |
+| `push_subscriptions` | One row per subscribed browser/device (Web Push endpoint + keys), used by `/api/send-notifications` to deliver habit/reminder/todo pushes |
 
 ### Storage
 
@@ -375,14 +378,14 @@ Storage objects are scoped to `(storage.foldername(name))[1] = auth.uid()::text`
 |---|---|---|
 | Dashboard | `/` | Today's habits, tasks, reminders, events |
 | Habits | `/habits` | Create/edit/delete, heatmap, streak, optional daily push reminder at a chosen time |
-| Todos | `/todos` | Filters: Today / Upcoming / All / Done. Merges local tasks with your Google Tasks "My Tasks" list (badged "Google"). Checking the box syncs completion back to Google, proxied server-side through `/api/google-tasks` so tokens never reach the browser. Create/edit/delete stays local-only |
+| Todos | `/todos` | Filters: Today / Upcoming / All / Done. Merges local tasks with your Google Tasks "My Tasks" list (badged "Google"). Checking the box syncs completion back to Google, proxied server-side through `/api/google-tasks` so tokens never reach the browser. Create/edit/delete stays local-only. Local tasks with a due date can toggle **Remind me** for a push notification at the due date/time |
 | Reminders | `/reminders` | Overdue highlighted, dismiss advances repeat, sends a push notification when due |
 | Climbing | `/climbing` | Log / History / Stats tabs |
 | Shopping | `/shopping` | Single flat list |
 | Calendar | `/calendar` | Upcoming events only (past hidden). Merges local events with real Google Calendar events (badged "Google"), proxied server-side through `/api/calendar-events` so tokens never reach the browser |
 | Files | `/files` | Folder-based file storage. Also lets you recursively sync Google Drive folders (and all their subfolders/files) via a folder-tree picker — synced folders appear alongside local ones (badged "Google"); files are downloaded and stored in Supabase Storage, so they're viewable/downloadable exactly like local files, not links to Drive. Proxied server-side through `/api/google-drive-browse`, `/api/google-drive-folders`, and `/api/google-drive-sync` so tokens never reach the browser |
 | Finance | `/finance` | USD/EUR/NIS converter (free, no-key [currency-api](https://github.com/fawazahmed0/currency-api)) + TENB stock quote, proxied server-side through `/api/stock-quote` (Finnhub, needs `FINNHUB_API_KEY`) so the key never reaches the browser |
-| Settings | `/settings` | Enable/disable push notifications for habits and reminders (see step 1g) |
+| Settings | `/settings` | Enable/disable push notifications for habits, reminders, and todos (see step 1g) |
 
 ---
 

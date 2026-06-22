@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogBody, DialogFooter } from '../../components/ui/dialog'
 import { today } from '../../utils'
 import { haptic } from '../../lib/haptics'
+import { Bell } from 'lucide-react'
 
 type Props = {
   open: boolean
@@ -24,18 +25,32 @@ export default function TodoForm({ open, onClose, onSave, todo, userId }: Props)
   const [dueDate, setDueDate] = useState(todo?.due_date ?? today())
   const [dueTime, setDueTime] = useState(todo?.due_time ?? '')
   const [priority, setPriority] = useState<'low' | 'medium' | 'high'>(todo?.priority ?? 'medium')
+  const [reminderEnabled, setReminderEnabled] = useState(todo?.reminder_enabled ?? false)
   const [saving, setSaving] = useState(false)
+
+  function toggleReminder() {
+    haptic('selection')
+    setReminderEnabled(r => {
+      const next = !r
+      if (next && !dueTime) setDueTime('09:00')
+      return next
+    })
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!title.trim()) return
     setSaving(true)
+    const remindAt = dueDate && reminderEnabled ? new Date(`${dueDate}T${dueTime || '09:00'}`).toISOString() : null
     const payload = {
       title: title.trim(),
       notes: notes.trim() || null,
       due_date: dueDate || null,
       due_time: dueDate ? dueTime || null : null,
       priority,
+      reminder_enabled: dueDate ? reminderEnabled : false,
+      remind_at: remindAt,
+      notified_at: null,
       user_id: userId,
     }
     if (todo) {
@@ -71,6 +86,20 @@ export default function TodoForm({ open, onClose, onSave, todo, userId }: Props)
                 <Input type="time" value={dueTime} disabled={!dueDate} onChange={e => setDueTime(e.target.value)} className="min-w-0" />
               </div>
             </div>
+            {dueDate && (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label className="flex items-center gap-1.5"><Bell className="h-3.5 w-3.5" />Remind me</Label>
+                  <button
+                    type="button"
+                    onClick={toggleReminder}
+                    className={`relative w-11 h-6 rounded-full transition-colors ${reminderEnabled ? 'bg-primary' : 'bg-muted'}`}
+                  >
+                    <span className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${reminderEnabled ? 'translate-x-5' : ''}`} />
+                  </button>
+                </div>
+              </div>
+            )}
             <div className="space-y-2">
               <Label>Priority</Label>
               <Select value={priority} onValueChange={(v: 'low' | 'medium' | 'high') => setPriority(v)}>

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Pencil, Trash2, CalendarDays, Check } from 'lucide-react'
+import { Pencil, Trash2, CalendarDays, Check, Bell } from 'lucide-react'
 import { supabase } from '../../supabase'
 import type { Todo } from '../../supabase'
 import { cn, PRIORITY_CONFIG, formatDate, formatTime } from '../../utils'
@@ -31,9 +31,14 @@ export default function TodoItem({ todo, onEdit, onDelete, onChange }: Props) {
   async function saveDateTime(nextDate: string, nextTime: string) {
     setDueDate(nextDate)
     setDueTime(nextTime)
+    const reminderEnabled = nextDate ? todo.reminder_enabled : false
+    const remindAt = reminderEnabled ? new Date(`${nextDate}T${nextTime || '09:00'}`).toISOString() : null
     await supabase.from('todos').update({
       due_date: nextDate || null,
       due_time: nextDate ? nextTime || null : null,
+      reminder_enabled: reminderEnabled,
+      remind_at: remindAt,
+      notified_at: null,
     }).eq('id', todo.id)
     onChange()
   }
@@ -71,6 +76,9 @@ export default function TodoItem({ todo, onEdit, onDelete, onChange }: Props) {
               <CalendarDays className="h-3 w-3" />
               {todo.due_date ? `${formatDate(todo.due_date)}${todo.due_time ? ` · ${formatTime(todo.due_time)}` : ''}` : 'Add date'}
             </button>
+          )}
+          {todo.reminder_enabled && todo.due_date && (
+            <Bell className="h-3 w-3 text-muted-foreground shrink-0" />
           )}
         </div>
         {todo.notes && <p className="text-sm text-muted-foreground mt-1 truncate">{todo.notes}</p>}
