@@ -146,41 +146,45 @@ export default function Dashboard() {
           to="/shopping"
           aria-label="Shopping List"
           title="Shopping List"
-          className="flex items-center justify-center p-3.5 bg-card border border-border rounded-xl active:scale-[0.98] transition-transform"
+          className="flex flex-col items-center justify-center gap-1.5 p-3.5 bg-card border border-border rounded-xl active:scale-[0.98] transition-transform"
         >
           <div className="w-9 h-9 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0">
             <ShoppingCart className="h-4 w-4" />
           </div>
+          <span className="text-xs font-medium text-muted-foreground">Shopping</span>
         </Link>
         <Link
           to="/climbing"
           aria-label="Climbing"
           title="Climbing"
-          className="flex items-center justify-center p-3.5 bg-card border border-border rounded-xl active:scale-[0.98] transition-transform"
+          className="flex flex-col items-center justify-center gap-1.5 p-3.5 bg-card border border-border rounded-xl active:scale-[0.98] transition-transform"
         >
           <div className="w-9 h-9 rounded-lg bg-orange-100 text-orange-700 flex items-center justify-center shrink-0">
             <Mountain className="h-4 w-4" />
           </div>
+          <span className="text-xs font-medium text-muted-foreground">Climbing</span>
         </Link>
         <Link
           to="/finance"
           aria-label="Finance"
           title="Finance"
-          className="flex items-center justify-center p-3.5 bg-card border border-border rounded-xl active:scale-[0.98] transition-transform"
+          className="flex flex-col items-center justify-center gap-1.5 p-3.5 bg-card border border-border rounded-xl active:scale-[0.98] transition-transform"
         >
           <div className="w-9 h-9 rounded-lg bg-amber-100 text-amber-700 flex items-center justify-center shrink-0">
             <DollarSign className="h-4 w-4" />
           </div>
+          <span className="text-xs font-medium text-muted-foreground">Finance</span>
         </Link>
         <Link
           to="/habits"
           aria-label="Habits"
           title="Habits"
-          className="flex items-center justify-center p-3.5 bg-card border border-border rounded-xl active:scale-[0.98] transition-transform"
+          className="flex flex-col items-center justify-center gap-1.5 p-3.5 bg-card border border-border rounded-xl active:scale-[0.98] transition-transform"
         >
           <div className="w-9 h-9 rounded-lg bg-purple-100 text-purple-700 flex items-center justify-center shrink-0">
             <TrendingUp className="h-4 w-4" />
           </div>
+          <span className="text-xs font-medium text-muted-foreground">Habits</span>
         </Link>
       </div>
 
