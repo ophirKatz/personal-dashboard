@@ -17,6 +17,7 @@ const Shopping = lazy(() => import('./pages/Shopping'))
 const Calendar = lazy(() => import('./pages/Calendar'))
 const Files = lazy(() => import('./pages/Files'))
 const Finance = lazy(() => import('./pages/Finance'))
+const Settings = lazy(() => import('./pages/Settings'))
 
 function PageFallback() {
   return (
@@ -77,6 +78,7 @@ export default function App() {
           <Route path="calendar" element={<Calendar />} />
           <Route path="files" element={<Files />} />
           <Route path="finance" element={<Finance />} />
+          <Route path="settings" element={<Settings />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>
       </Routes>

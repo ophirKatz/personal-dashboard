@@ -2,7 +2,7 @@ import { Outlet, NavLink, useNavigate } from 'react-router-dom'
 import { useState } from 'react'
 import {
   Home, CheckSquare, TrendingUp, Mountain, MoreHorizontal,
-  X, ShoppingCart, Bell, Calendar, Folder, LogOut, DollarSign,
+  X, ShoppingCart, Bell, Calendar, Folder, LogOut, DollarSign, Settings,
 } from 'lucide-react'
 import { supabase } from '../supabase'
 import { cn } from '../utils'
@@ -20,6 +20,7 @@ const moreNav = [
   { to: '/reminders', icon: Bell, label: 'Reminders' },
   { to: '/shopping', icon: ShoppingCart, label: 'Shopping' },
   { to: '/finance', icon: DollarSign, label: 'Finance' },
+  { to: '/settings', icon: Settings, label: 'Settings' },
 ]
 
 export default function Layout() {

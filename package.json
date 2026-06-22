@@ -27,7 +27,8 @@
     "react-pdf": "^10.4.1",
     "react-router-dom": "^6.28.2",
     "recharts": "^2.15.3",
-    "tailwind-merge": "^2.6.0"
+    "tailwind-merge": "^2.6.0",
+    "workbox-precaching": "^7.4.1"
   },
   "devDependencies": {
     "@types/react": "^18.3.23",

@@ -1,8 +1,8 @@
 import { useState } from 'react'
-import { Flame, Trash2, Pencil } from 'lucide-react'
+import { Flame, Trash2, Pencil, Bell } from 'lucide-react'
 import { supabase } from '../../supabase'
 import type { Habit, HabitLog } from '../../supabase'
-import { today } from '../../utils'
+import { today, formatTime, utcTimeToLocalTime } from '../../utils'
 import { haptic } from '../../lib/haptics'
 import HabitHeatmap from './HabitHeatmap'
 
@@ -87,6 +87,13 @@ export default function HabitCard({ habit, logs, onEdit, onDelete, onLogChange }
             <span>{streak} day streak</span>
             <span className="mx-1">·</span>
             <span>{habit.frequency === 'daily' ? 'Daily' : `${habit.times_per_week}×/week`}</span>
+            {habit.reminder_enabled && habit.reminder_time && (
+              <>
+                <span className="mx-1">·</span>
+                <Bell className="h-3.5 w-3.5" />
+                <span>{formatTime(utcTimeToLocalTime(habit.reminder_time.slice(0, 5)))}</span>
+              </>
+            )}
           </div>
         </div>
         <div className="flex items-center gap-1">

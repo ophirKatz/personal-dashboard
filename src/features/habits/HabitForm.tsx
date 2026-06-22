@@ -6,6 +6,8 @@ import { Input } from '../../components/ui/input'
 import { Label } from '../../components/ui/label'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogBody, DialogFooter } from '../../components/ui/dialog'
 import { haptic } from '../../lib/haptics'
+import { localTimeToUtcTime, utcTimeToLocalTime } from '../../utils'
+import { Bell } from 'lucide-react'
 
 const COLORS = [
   '#3b82f6', '#10b981', '#f59e0b', '#ef4444',
@@ -28,6 +30,10 @@ export default function HabitForm({ open, onClose, onSave, habit, userId }: Prop
   const [color, setColor] = useState(habit?.color ?? '#3b82f6')
   const [frequency, setFrequency] = useState<'daily' | 'weekly'>(habit?.frequency ?? 'daily')
   const [timesPerWeek, setTimesPerWeek] = useState(habit?.times_per_week ?? 3)
+  const [reminderEnabled, setReminderEnabled] = useState(habit?.reminder_enabled ?? false)
+  const [reminderTime, setReminderTime] = useState(
+    habit?.reminder_time ? utcTimeToLocalTime(habit.reminder_time.slice(0, 5)) : '09:00',
+  )
   const [saving, setSaving] = useState(false)
 
   async function handleSubmit(e: React.FormEvent) {
@@ -40,6 +46,9 @@ export default function HabitForm({ open, onClose, onSave, habit, userId }: Prop
       color,
       frequency,
       times_per_week: frequency === 'weekly' ? timesPerWeek : null,
+      reminder_enabled: reminderEnabled,
+      reminder_time: reminderEnabled ? localTimeToUtcTime(reminderTime) : null,
+      last_notified_date: null,
       user_id: userId,
     }
     if (habit) {
@@ -126,6 +135,21 @@ export default function HabitForm({ open, onClose, onSave, habit, userId }: Prop
                     <button type="button" onClick={() => setTimesPerWeek(Math.min(7, timesPerWeek + 1))} className="w-8 h-8 rounded-lg border flex items-center justify-center hover:bg-accent">+</button>
                   </div>
                 </div>
+              )}
+            </div>
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label className="flex items-center gap-1.5"><Bell className="h-3.5 w-3.5" />Reminder</Label>
+                <button
+                  type="button"
+                  onClick={() => { haptic('selection'); setReminderEnabled(r => !r) }}
+                  className={`relative w-11 h-6 rounded-full transition-colors ${reminderEnabled ? 'bg-primary' : 'bg-muted'}`}
+                >
+                  <span className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${reminderEnabled ? 'translate-x-5' : ''}`} />
+                </button>
+              </div>
+              {reminderEnabled && (
+                <Input type="time" value={reminderTime} onChange={e => setReminderTime(e.target.value)} />
               )}
             </div>
           </DialogBody>
