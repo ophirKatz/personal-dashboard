@@ -18,12 +18,17 @@ type SelectedFolder =
   | { source: 'local'; name: string }
   | { source: 'google'; folderId: string }
 
+function splitPath(path: string): string[] {
+  return path ? path.split('/') : []
+}
+
 export default function Files() {
   const [user, setUser] = useState<User | null>(null)
   const [files, setFiles] = useState<FileRecord[]>([])
   const [googleConnected, setGoogleConnected] = useState(true)
   const [googleFolders, setGoogleFolders] = useState<DriveFolder[]>([])
   const [selected, setSelected] = useState<SelectedFolder | null>(null)
+  const [driveSubPath, setDriveSubPath] = useState('')
   const [syncingFolderIds, setSyncingFolderIds] = useState<Set<string>>(new Set())
   const [pickerOpen, setPickerOpen] = useState(false)
   const [newFolder, setNewFolder] = useState('')
@@ -67,6 +72,7 @@ export default function Files() {
   }
 
   function openGoogleFolder(folder: DriveFolder) {
+    setDriveSubPath('')
     setSelected({ source: 'google', folderId: folder.folder_id })
   }
 
@@ -83,6 +89,7 @@ export default function Files() {
     if (!confirm(`Stop syncing "${folder.folder_name}"?`)) return
     await removeDriveFolder(folder.folder_id)
     setSelected(null)
+    setDriveSubPath('')
     load()
   }
 
@@ -146,13 +153,13 @@ export default function Files() {
     setNewFolder('')
   }
 
-  function FileRow({ file, showFolder }: { file: FileRecord; showFolder?: boolean }) {
+  function FileRow({ file, showFolder, hidePath }: { file: FileRecord; showFolder?: boolean; hidePath?: boolean }) {
     return (
       <div className="flex items-center gap-3 p-4 bg-card border border-border rounded-xl">
         <span className="text-2xl">{fileIcon(file.mime_type)}</span>
         <div className="flex-1 min-w-0">
           <p className="font-medium truncate">{file.name}</p>
-          {file.relative_path && <p className="text-xs text-muted-foreground truncate">{file.relative_path}</p>}
+          {!hidePath && file.relative_path && <p className="text-xs text-muted-foreground truncate">{file.relative_path}</p>}
           <p className="text-xs text-muted-foreground mt-0.5">
             {showFolder && <>{file.folder} · </>}
             {formatFileSize(file.size_bytes)} · {format(new Date(file.created_at), 'MMM d, yyyy')}
@@ -183,6 +190,23 @@ export default function Files() {
   const currentDriveFiles = selectedGoogleFolder
     ? files.filter(f => f.source === 'google_drive' && f.root_folder_id === selectedGoogleFolder.folder_id)
     : []
+
+  // Group files at the current drive sub-path into immediate subfolders vs. files in this directory.
+  const drivePrefix = driveSubPath ? `${driveSubPath}/` : ''
+  const driveSubfolderCounts = new Map<string, number>()
+  const driveFilesHere: FileRecord[] = []
+  for (const f of currentDriveFiles) {
+    const rp = f.relative_path ?? ''
+    if (rp === driveSubPath) {
+      driveFilesHere.push(f)
+    } else if (rp.startsWith(drivePrefix)) {
+      const next = rp.slice(drivePrefix.length).split('/')[0]
+      driveSubfolderCounts.set(next, (driveSubfolderCounts.get(next) ?? 0) + 1)
+    }
+  }
+  const driveSubfolders = [...driveSubfolderCounts.entries()]
+    .map(([name, count]) => ({ name, path: drivePrefix + name, count }))
+    .sort((a, b) => a.name.localeCompare(b.name))
 
   if (selected?.source === 'local') {
     return (
@@ -236,15 +260,37 @@ export default function Files() {
   if (selected?.source === 'google' && selectedGoogleFolder) {
     const folder = selectedGoogleFolder
     const syncing = folder.sync_status === 'syncing' || syncingFolderIds.has(folder.folder_id)
+    const segments = splitPath(driveSubPath)
+    const itemCount = driveSubfolders.length + driveFilesHere.length
     return (
       <div className="p-4 max-w-2xl mx-auto">
         <div className="flex items-center gap-3 mb-6">
-          <button onClick={() => setSelected(null)} className="p-2 rounded-lg hover:bg-accent">
+          <button onClick={() => { setSelected(null); setDriveSubPath('') }} className="p-2 rounded-lg hover:bg-accent">
             <X className="h-5 w-5" />
           </button>
           <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-1.5">
-              <h1 className="text-2xl font-bold truncate">{folder.folder_name}</h1>
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <button
+                onClick={() => setDriveSubPath('')}
+                className={`text-2xl font-bold truncate hover:underline ${driveSubPath ? 'text-muted-foreground' : ''}`}
+              >
+                {folder.folder_name}
+              </button>
+              {segments.map((seg, i) => {
+                const segPath = segments.slice(0, i + 1).join('/')
+                const isLast = i === segments.length - 1
+                return (
+                  <span key={segPath} className="flex items-center gap-1.5">
+                    <span className="text-muted-foreground">/</span>
+                    <button
+                      onClick={() => setDriveSubPath(segPath)}
+                      className={`text-2xl font-bold truncate hover:underline ${isLast ? '' : 'text-muted-foreground'}`}
+                    >
+                      {seg}
+                    </button>
+                  </span>
+                )
+              })}
               <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-blue-100 text-blue-700 shrink-0">Google</span>
             </div>
             <p className="text-sm text-muted-foreground">
@@ -252,7 +298,7 @@ export default function Files() {
                 ? 'Syncing…'
                 : folder.sync_status === 'error'
                   ? `Sync failed: ${folder.sync_error ?? 'unknown error'}`
-                  : `${currentDriveFiles.length} file${currentDriveFiles.length !== 1 ? 's' : ''}${folder.last_synced_at ? ` · synced ${formatDistanceToNow(new Date(folder.last_synced_at), { addSuffix: true })}` : ''}`}
+                  : `${itemCount} item${itemCount !== 1 ? 's' : ''}${folder.last_synced_at ? ` · synced ${formatDistanceToNow(new Date(folder.last_synced_at), { addSuffix: true })}` : ''}`}
             </p>
           </div>
           <button
@@ -270,7 +316,7 @@ export default function Files() {
           </button>
         </div>
 
-        {currentDriveFiles.length === 0 ? (
+        {itemCount === 0 ? (
           <div className="text-center py-16 text-muted-foreground">
             {syncing ? (
               <div className="w-6 h-6 mx-auto border-2 border-primary border-t-transparent rounded-full animate-spin" />
@@ -283,7 +329,20 @@ export default function Files() {
           </div>
         ) : (
           <div className="space-y-2">
-            {currentDriveFiles.map(file => <FileRow key={file.id} file={file} />)}
+            {driveSubfolders.map(sf => (
+              <button
+                key={sf.path}
+                onClick={() => setDriveSubPath(sf.path)}
+                className="w-full flex items-center gap-3 p-4 bg-card border border-border rounded-xl hover:bg-accent transition-colors text-left"
+              >
+                <FolderIcon className="h-6 w-6 text-blue-400 shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <p className="font-medium text-sm truncate">{sf.name}</p>
+                  <p className="text-xs text-muted-foreground">{sf.count} file{sf.count !== 1 ? 's' : ''}</p>
+                </div>
+              </button>
+            ))}
+            {driveFilesHere.map(file => <FileRow key={file.id} file={file} hidePath />)}
           </div>
         )}
 
