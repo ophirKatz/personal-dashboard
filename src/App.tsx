@@ -6,6 +6,7 @@ import Layout from './components/Layout'
 import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
 import { checkStockAlerts } from './features/notifications/notifications'
+import { upsertPrimaryGoogleAccount } from './lib/googleAccounts'
 
 // Lazy-loaded so their dependencies (recharts, pdfjs/react-pdf, etc.) stay out
 // of the bundle needed for the initial Home Screen load.
@@ -38,13 +39,12 @@ export default function App() {
       setUser(session?.user ?? null)
       // provider_refresh_token is only present right after the OAuth redirect,
       // never on later session reads, so it must be persisted here.
-      if (event === 'SIGNED_IN' && session?.provider_refresh_token && session.user) {
-        supabase.from('google_oauth_tokens').upsert({
-          user_id: session.user.id,
-          refresh_token: session.provider_refresh_token,
-          access_token: session.provider_token ?? null,
-          access_token_expires_at: new Date(Date.now() + 3500 * 1000).toISOString(),
-          updated_at: new Date().toISOString(),
+      if (event === 'SIGNED_IN' && session?.provider_refresh_token && session.user?.email) {
+        upsertPrimaryGoogleAccount({
+          userId: session.user.id,
+          email: session.user.email,
+          refreshToken: session.provider_refresh_token,
+          accessToken: session.provider_token ?? null,
         }).then()
       }
     })

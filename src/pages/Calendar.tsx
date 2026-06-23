@@ -13,7 +13,9 @@ import { today } from '../utils'
 import { format, parseISO, isToday, isTomorrow } from 'date-fns'
 import { refreshGoogleCalendarEvents } from '../features/calendar/googleCalendar'
 import { connectGoogle, isGoogleConnected } from '../lib/googleAuth'
+import { listGoogleAccounts, accountBadge, type GoogleAccount } from '../lib/googleAccounts'
 import MonthCalendar from '../features/calendar/MonthCalendar'
+import { Link } from 'react-router-dom'
 
 function EventForm({ open, onClose, onSave, event, userId }: {
   open: boolean; onClose: () => void; onSave: () => void; event?: CalendarEvent; userId: string
@@ -83,6 +85,7 @@ function EventForm({ open, onClose, onSave, event, userId }: {
 export default function Calendar() {
   const [user, setUser] = useState<User | null>(null)
   const [events, setEvents] = useState<CalendarEvent[]>([])
+  const [accounts, setAccounts] = useState<Map<string, GoogleAccount>>(new Map())
   const [googleConnected, setGoogleConnected] = useState(true)
   const [showForm, setShowForm] = useState(false)
   const [editing, setEditing] = useState<CalendarEvent | undefined>()
@@ -93,12 +96,14 @@ export default function Calendar() {
   }, [])
 
   async function load() {
-    const [eventsRes, connected] = await Promise.all([
+    const [eventsRes, connected, googleAccounts] = await Promise.all([
       supabase.from('events').select('*').gte('event_date', today()).order('event_date').order('event_time'),
       isGoogleConnected(),
+      listGoogleAccounts(),
     ])
     setEvents(eventsRes.data ?? [])
     setGoogleConnected(connected)
+    setAccounts(new Map(googleAccounts.map(a => [a.id, a])))
     setLoading(false)
   }
 
@@ -150,6 +155,16 @@ export default function Calendar() {
         </button>
       )}
 
+      {!loading && googleConnected && (
+        <Link
+          to="/settings"
+          className="flex items-center gap-1.5 mb-6 px-1 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
+        >
+          <Link2 className="h-3.5 w-3.5" />
+          Manage connected Google accounts
+        </Link>
+      )}
+
       <Tabs defaultValue="list">
         <TabsList className="mb-6">
           <TabsTrigger value="list">List</TabsTrigger>
@@ -183,9 +198,19 @@ export default function Calendar() {
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-1.5">
                             <p className="font-medium truncate">{event.title}</p>
-                            {event.source === 'google' && (
-                              <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-blue-100 text-blue-700 shrink-0">Google</span>
-                            )}
+                            {event.source === 'google' && (() => {
+                              const badge = accountBadge(event.google_account_id, accounts)
+                              return (
+                                <span
+                                  className="text-[10px] font-medium px-1.5 py-0.5 rounded-full shrink-0 inline-flex items-center gap-1 max-w-[9rem]"
+                                  style={{ backgroundColor: `${badge.color}1a`, color: badge.color }}
+                                  title={badge.email}
+                                >
+                                  <span className="h-1.5 w-1.5 rounded-full shrink-0" style={{ backgroundColor: badge.color }} />
+                                  <span className="truncate">{accounts.size > 1 ? badge.email.split('@')[0] : 'Google'}</span>
+                                </span>
+                              )
+                            })()}
                           </div>
                           {event.notes && <p className="text-sm text-muted-foreground mt-0.5 truncate">{event.notes}</p>}
                         </div>

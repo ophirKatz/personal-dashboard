@@ -6,13 +6,19 @@ import type { CalendarEvent } from '../../supabase'
 import { Button } from '../../components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogBody } from '../../components/ui/dialog'
 import { cn, formatTime } from '../../utils'
+import { listGoogleAccounts, accountBadge, type GoogleAccount } from '../../lib/googleAccounts'
 
 const WEEKDAY_LABELS = ['S', 'M', 'T', 'W', 'T', 'F', 'S']
 
 export default function MonthCalendar() {
   const [month, setMonth] = useState(() => startOfMonth(new Date()))
   const [events, setEvents] = useState<CalendarEvent[]>([])
+  const [accounts, setAccounts] = useState<Map<string, GoogleAccount>>(new Map())
   const [selectedDate, setSelectedDate] = useState<string | null>(null)
+
+  useEffect(() => {
+    listGoogleAccounts().then(googleAccounts => setAccounts(new Map(googleAccounts.map(a => [a.id, a]))))
+  }, [])
 
   useEffect(() => {
     const start = format(month, 'yyyy-MM-dd')
@@ -78,7 +84,11 @@ export default function MonthCalendar() {
               </span>
               <span className="flex gap-0.5 h-1.5">
                 {dayEvents.slice(0, 3).map((e, i) => (
-                  <span key={i} className={cn('h-1.5 w-1.5 rounded-full', e.source === 'google' ? 'bg-blue-500' : 'bg-primary')} />
+                  <span
+                    key={i}
+                    className={cn('h-1.5 w-1.5 rounded-full', e.source !== 'google' && 'bg-primary')}
+                    style={e.source === 'google' ? { backgroundColor: accountBadge(e.google_account_id, accounts).color } : undefined}
+                  />
                 ))}
               </span>
             </button>
@@ -99,9 +109,19 @@ export default function MonthCalendar() {
                 <div key={event.id} className="p-3 rounded-xl border border-border bg-card">
                   <div className="flex items-center gap-1.5">
                     <p className="font-medium">{event.title}</p>
-                    {event.source === 'google' && (
-                      <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-blue-100 text-blue-700 shrink-0">Google</span>
-                    )}
+                    {event.source === 'google' && (() => {
+                      const badge = accountBadge(event.google_account_id, accounts)
+                      return (
+                        <span
+                          className="text-[10px] font-medium px-1.5 py-0.5 rounded-full shrink-0 inline-flex items-center gap-1 max-w-[9rem]"
+                          style={{ backgroundColor: `${badge.color}1a`, color: badge.color }}
+                          title={badge.email}
+                        >
+                          <span className="h-1.5 w-1.5 rounded-full shrink-0" style={{ backgroundColor: badge.color }} />
+                          <span className="truncate">{accounts.size > 1 ? badge.email.split('@')[0] : 'Google'}</span>
+                        </span>
+                      )
+                    })()}
                   </div>
                   {event.event_time && (
                     <p className="text-xs text-muted-foreground mt-0.5">{formatTime(event.event_time)}</p>

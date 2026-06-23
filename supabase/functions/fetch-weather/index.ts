@@ -51,7 +51,7 @@ async function getAllUserIds(supabase: SupabaseClient): Promise<string[]> {
   const [todosRes, eventsRes, tokensRes] = await Promise.all([
     supabase.from('todos').select('user_id'),
     supabase.from('events').select('user_id'),
-    supabase.from('google_oauth_tokens').select('user_id'),
+    supabase.from('google_accounts').select('user_id'),
   ])
   for (const row of [...(todosRes.data ?? []), ...(eventsRes.data ?? []), ...(tokensRes.data ?? [])]) {
     ids.add((row as { user_id: string }).user_id)

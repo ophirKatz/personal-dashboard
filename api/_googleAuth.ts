@@ -2,6 +2,7 @@ import type { VercelRequest } from '@vercel/node'
 import { createClient, SupabaseClient } from '@supabase/supabase-js'
 
 type GoogleTokenRow = {
+  id: string
   refresh_token: string
   access_token: string | null
   access_token_expires_at: string | null
@@ -37,10 +38,14 @@ export async function authenticateGoogleRequest(req: VercelRequest): Promise<Aut
     return { ok: false, status: 401, error: 'UNAUTHORIZED' }
   }
 
+  // Tasks/Drive are scoped to one account per user — the first one ever
+  // connected (i.e. the account used to sign into the dashboard).
   const { data: tokenRow } = await supabase
-    .from('google_oauth_tokens')
-    .select('refresh_token, access_token, access_token_expires_at')
+    .from('google_accounts')
+    .select('id, refresh_token, access_token, access_token_expires_at')
     .eq('user_id', userData.user.id)
+    .order('created_at', { ascending: true })
+    .limit(1)
     .maybeSingle<GoogleTokenRow>()
 
   if (!tokenRow) {
@@ -77,9 +82,9 @@ export async function authenticateGoogleRequest(req: VercelRequest): Promise<Aut
     const newExpiresAt = new Date(Date.now() + (refreshed.expires_in ?? 3600) * 1000).toISOString()
 
     await supabase
-      .from('google_oauth_tokens')
+      .from('google_accounts')
       .update({ access_token: accessToken, access_token_expires_at: newExpiresAt, updated_at: new Date().toISOString() })
-      .eq('user_id', userData.user.id)
+      .eq('id', tokenRow.id)
   }
 
   return { ok: true, supabase, userId: userData.user.id, accessToken: accessToken! }

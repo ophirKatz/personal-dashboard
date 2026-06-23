@@ -90,6 +90,7 @@ export type CalendarEvent = {
   created_at: string
   source: 'local' | 'google'
   google_event_id: string | null
+  google_account_id: string | null
   html_link: string | null
 }
 

@@ -16,25 +16,30 @@ type GoogleTaskItem = {
 }
 
 async function getAllUserIds(supabase: SupabaseClient): Promise<string[]> {
-  const { data } = await supabase.from('google_oauth_tokens').select('user_id')
-  return (data ?? []).map(row => row.user_id as string)
+  const { data } = await supabase.from('google_accounts').select('user_id')
+  return [...new Set((data ?? []).map(row => row.user_id as string))]
 }
 
+// Tasks sync is scoped to one account per user — the first one ever connected
+// (i.e. the account used to sign into the dashboard), since "My Tasks" only
+// makes sense for a single Google identity today.
 async function getAccessToken(
   supabase: SupabaseClient,
   userId: string,
   clientId: string,
   clientSecret: string,
 ): Promise<string | null> {
-  const { data: tokenRow } = await supabase
-    .from('google_oauth_tokens')
-    .select('refresh_token, access_token, access_token_expires_at')
+  const { data: account } = await supabase
+    .from('google_accounts')
+    .select('id, refresh_token, access_token, access_token_expires_at')
     .eq('user_id', userId)
-    .maybeSingle<TokenRow>()
-  if (!tokenRow) return null
+    .order('created_at', { ascending: true })
+    .limit(1)
+    .maybeSingle<TokenRow & { id: string }>()
+  if (!account) return null
 
-  let accessToken = tokenRow.access_token
-  const expiresAt = tokenRow.access_token_expires_at ? new Date(tokenRow.access_token_expires_at).getTime() : 0
+  let accessToken = account.access_token
+  const expiresAt = account.access_token_expires_at ? new Date(account.access_token_expires_at).getTime() : 0
   if (accessToken && expiresAt - Date.now() >= 60_000) return accessToken
 
   const refreshRes = await fetch('https://oauth2.googleapis.com/token', {
@@ -43,7 +48,7 @@ async function getAccessToken(
     body: new URLSearchParams({
       client_id: clientId,
       client_secret: clientSecret,
-      refresh_token: tokenRow.refresh_token,
+      refresh_token: account.refresh_token,
       grant_type: 'refresh_token',
     }),
   })
@@ -53,9 +58,9 @@ async function getAccessToken(
   accessToken = refreshed.access_token
   const newExpiresAt = new Date(Date.now() + (refreshed.expires_in ?? 3600) * 1000).toISOString()
   await supabase
-    .from('google_oauth_tokens')
+    .from('google_accounts')
     .update({ access_token: accessToken, access_token_expires_at: newExpiresAt, updated_at: new Date().toISOString() })
-    .eq('user_id', userId)
+    .eq('id', account.id)
   return accessToken
 }
 
