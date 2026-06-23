@@ -1,30 +1,31 @@
-import type { VercelRequest, VercelResponse } from '@vercel/node'
-import { createClient } from '@supabase/supabase-js'
+import { createClient } from 'npm:@supabase/supabase-js@2'
 
 const TOKEN_URL = 'https://oauth2.googleapis.com/token'
 const USERINFO_URL = 'https://www.googleapis.com/oauth2/v2/userinfo'
 const ACCOUNT_COLOR_PALETTE = ['#3b82f6', '#ef4444', '#22c55e', '#f59e0b', '#a855f7', '#06b6d4']
 const STATE_TTL_MS = 10 * 60 * 1000
 
-export default async function handler(req: VercelRequest, res: VercelResponse) {
-  const supabaseUrl = process.env.VITE_SUPABASE_URL
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
-  const clientId = process.env.GOOGLE_CLIENT_ID
-  const clientSecret = process.env.GOOGLE_CLIENT_SECRET
-  if (!supabaseUrl || !serviceRoleKey || !clientId || !clientSecret) {
-    res.status(500).send('Missing server configuration.')
-    return
+function redirectTo(appUrl: string, status: string): Response {
+  return new Response(null, { status: 302, headers: { Location: `${appUrl}/settings?google_connect=${status}` } })
+}
+
+Deno.serve(async (req: Request) => {
+  const supabaseUrl = Deno.env.get('SUPABASE_URL')
+  const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
+  const clientId = Deno.env.get('GOOGLE_CLIENT_ID')
+  const clientSecret = Deno.env.get('GOOGLE_CLIENT_SECRET')
+  const appUrl = Deno.env.get('APP_URL')
+  if (!supabaseUrl || !serviceRoleKey || !clientId || !clientSecret || !appUrl) {
+    return new Response('Missing server configuration.', { status: 500 })
   }
 
-  const { code, state, error: oauthError } = req.query
-  if (typeof oauthError === 'string') {
-    res.redirect(302, '/settings?google_connect=denied')
-    return
-  }
-  if (typeof code !== 'string' || typeof state !== 'string') {
-    res.status(400).send('Missing code or state.')
-    return
-  }
+  const url = new URL(req.url)
+  const code = url.searchParams.get('code')
+  const state = url.searchParams.get('state')
+  const oauthError = url.searchParams.get('error')
+
+  if (oauthError) return redirectTo(appUrl, 'denied')
+  if (!code || !state) return new Response('Missing code or state.', { status: 400 })
 
   // Service role: this request is a plain redirect from Google, so there's
   // no Supabase session/JWT to scope an RLS client to.
@@ -38,13 +39,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     .maybeSingle()
 
   const isExpired = !stateRow || Date.now() - new Date(stateRow.created_at).getTime() > STATE_TTL_MS
-  if (!stateRow || isExpired) {
-    res.redirect(302, '/settings?google_connect=expired')
-    return
-  }
+  if (!stateRow || isExpired) return redirectTo(appUrl, 'expired')
 
-  const proto = (req.headers['x-forwarded-proto'] as string) ?? 'https'
-  const redirectUri = `${proto}://${req.headers.host}/api/google-connect-callback`
+  // Must exactly match the redirect_uri used in google-connect-start and the
+  // one registered in Google Cloud Console.
+  const redirectUri = `${supabaseUrl}/functions/v1/google-connect-callback`
 
   let tokenRes: Response
   try {
@@ -60,13 +59,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }),
     })
   } catch {
-    res.redirect(302, '/settings?google_connect=error')
-    return
+    return redirectTo(appUrl, 'error')
   }
-  if (!tokenRes.ok) {
-    res.redirect(302, '/settings?google_connect=error')
-    return
-  }
+  if (!tokenRes.ok) return redirectTo(appUrl, 'error')
 
   const tokens: { refresh_token?: string; access_token?: string; expires_in?: number } = await tokenRes.json()
   if (!tokens.refresh_token) {
@@ -74,20 +69,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // Asking for prompt=consent on every connect attempt should prevent this,
     // but if it still happens, the user needs to revoke access in their
     // Google Account settings first, then reconnect.
-    res.redirect(302, '/settings?google_connect=no_refresh_token')
-    return
+    return redirectTo(appUrl, 'no_refresh_token')
   }
 
   const userinfoRes = await fetch(USERINFO_URL, { headers: { Authorization: `Bearer ${tokens.access_token}` } })
-  if (!userinfoRes.ok) {
-    res.redirect(302, '/settings?google_connect=error')
-    return
-  }
+  if (!userinfoRes.ok) return redirectTo(appUrl, 'error')
   const userinfo: { email?: string } = await userinfoRes.json()
-  if (!userinfo.email) {
-    res.redirect(302, '/settings?google_connect=error')
-    return
-  }
+  if (!userinfo.email) return redirectTo(appUrl, 'error')
 
   const { data: existing } = await supabase
     .from('google_accounts')
@@ -118,5 +106,5 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     { onConflict: 'user_id,email' },
   )
 
-  res.redirect(302, '/settings?google_connect=success')
-}
+  return redirectTo(appUrl, 'success')
+})

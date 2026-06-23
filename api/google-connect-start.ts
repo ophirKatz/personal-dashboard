@@ -1,8 +1,12 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { createClient } from '@supabase/supabase-js'
 
-// Same scopes as the login flow (api/google-connect-callback exchanges them
-// the same way), so a secondary account can later be promoted to primary.
+// Same scopes as the login flow, so a secondary account can later be
+// promoted to primary. The callback itself runs as a Supabase Edge Function
+// (supabase/functions/google-connect-callback), not a Vercel function — it
+// needs to bypass RLS to write tokens for a user with no session/JWT (Google's
+// redirect carries none), and Supabase auto-injects the service-role key into
+// every Edge Function, so it never needs to be pasted into Vercel.
 const GOOGLE_SCOPES = 'https://www.googleapis.com/auth/calendar.readonly https://www.googleapis.com/auth/tasks https://www.googleapis.com/auth/drive.readonly'
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -47,8 +51,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return
   }
 
-  const proto = (req.headers['x-forwarded-proto'] as string) ?? 'https'
-  const redirectUri = `${proto}://${req.headers.host}/api/google-connect-callback`
+  // Must exactly match the redirect_uri the Edge Function callback uses when
+  // exchanging the code, and the URI registered in Google Cloud Console.
+  const redirectUri = `${supabaseUrl}/functions/v1/google-connect-callback`
 
   const params = new URLSearchParams({
     client_id: clientId,
