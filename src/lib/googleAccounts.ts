@@ -67,17 +67,21 @@ export async function upsertPrimaryGoogleAccount(params: {
 // Kicks off a standalone OAuth flow (separate from app login) so a second
 // Google account can be connected for Calendar without changing who's
 // signed into the dashboard.
-export async function connectGoogleAccount(): Promise<void> {
+// Returns whether the browser is being redirected to Google. Callers should
+// reset any "connecting" UI state when this resolves false, since no
+// navigation will happen in that case.
+export async function connectGoogleAccount(): Promise<boolean> {
   const { data: { session } } = await supabase.auth.getSession()
-  if (!session) return
+  if (!session) return false
 
   const res = await fetch('/api/google-connect-start', {
     headers: { Authorization: `Bearer ${session.access_token}` },
   })
-  if (!res.ok) return
+  if (!res.ok) return false
 
   const { url } = await res.json()
   window.location.href = url
+  return true
 }
 
 export async function disconnectGoogleAccount(id: string): Promise<void> {
