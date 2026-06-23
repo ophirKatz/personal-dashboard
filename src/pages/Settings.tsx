@@ -45,15 +45,28 @@ export default function Settings() {
 
   useEffect(() => {
     if (!connectStatus) return
+    setConnecting(false)
     const next = new URLSearchParams(searchParams)
     next.delete('google_connect')
     setSearchParams(next, { replace: true })
   }, [connectStatus])
 
+  // If the user backs out of the Google redirect (e.g. taps the browser back
+  // button) the page can be restored from the bfcache with `connecting` still
+  // true, since no remount or callback redirect ever happens in that case.
+  useEffect(() => {
+    function handlePageShow(event: PageTransitionEvent) {
+      if (event.persisted) setConnecting(false)
+    }
+    window.addEventListener('pageshow', handlePageShow)
+    return () => window.removeEventListener('pageshow', handlePageShow)
+  }, [])
+
   async function handleConnectGoogleAccount() {
     setConnecting(true)
     haptic('selection')
-    await connectGoogleAccount()
+    const redirected = await connectGoogleAccount()
+    if (!redirected) setConnecting(false)
   }
 
   async function handleDisconnectGoogleAccount(id: string) {
