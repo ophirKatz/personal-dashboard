@@ -51,6 +51,7 @@ This **cannot** be done via MCP and requires manual steps in the Supabase and Go
    - `https://<your-vercel-app>.vercel.app` ← add after Vercel deploy
 8. **Authorized redirect URIs** — add:
    - `https://tjjvrqamitwtoslinrxy.supabase.co/auth/v1/callback`
+   - `https://tjjvrqamitwtoslinrxy.supabase.co/functions/v1/google-connect-callback` ← needed for step 1k (connecting additional Google accounts)
 9. Click **Create**
 10. Copy the **Client ID** and **Client Secret**
 
@@ -480,6 +481,58 @@ immediately stops working (the Edge Functions return `401 UNAUTHORIZED`).
 
 ---
 
+## 1k. Multiple Google Calendar accounts
+
+The Calendar page can show events from more than one Google account at once — for example, a
+personal Gmail and a work account — merged into a single list/month view, each event badged and
+color-coded by which account it came from. **This applies only to Calendar.** Google Tasks and
+Google Drive still only ever sync the primary account (the one used to log into the dashboard).
+
+**How it works:** the account used to log into the dashboard (via Google Sign-In) is always the
+first/"primary" connected account. To connect additional accounts, go to **Settings → Connected
+Google accounts → Connect another Google account** — this kicks off a separate, standalone OAuth
+flow (`/api/google-connect-start`, a Vercel function → Google's consent screen →
+`supabase/functions/google-connect-callback`, a **Supabase Edge Function**) that does **not**
+touch your dashboard login session, so connecting a second account never logs you out or switches
+who you're signed in as. The callback runs as an Edge Function rather than a Vercel function
+specifically so it can use the auto-injected `SUPABASE_SERVICE_ROLE_KEY` without that key ever
+needing to be pasted into Vercel — Google's redirect carries no Supabase session/JWT, so something
+has to bypass RLS to write the new account's tokens, and Supabase's own injection is the least
+exposure for that. Each connected account gets an auto-assigned color (in connection order) used
+consistently across the Calendar list and month views. Disconnecting an account (the "×" next to
+it in Settings) stops syncing its events and deletes its previously synced events from the app.
+
+**This was already set up for you (via MCPs), no action needed:**
+- The `google_accounts` table (renamed from `google_oauth_tokens`) now supports multiple rows per
+  user, with a `color` column and a unique constraint on `(user_id, email)`
+- The new `google_oauth_states` table — short-lived CSRF/nonce rows used to bridge the stateless
+  OAuth callback back to the user who started it; rows expire and are unusable after ~10 minutes
+- `events.google_account_id`, identifying which connected account each synced event came from,
+  backfilled for any events that existed before this feature
+- The `fetch-google-calendar` Edge Function now loops over every connected account per user, not
+  just one
+- The `google-connect-callback` Edge Function itself, deployed (`verify_jwt: false`, since Google's
+  redirect carries no Supabase JWT) at
+  `https://tjjvrqamitwtoslinrxy.supabase.co/functions/v1/google-connect-callback`
+
+**What still requires manual action:**
+
+1. **Add the new redirect URI** in Google Cloud Console — see the updated step 1a above
+   (`https://tjjvrqamitwtoslinrxy.supabase.co/functions/v1/google-connect-callback`). Without
+   this, clicking "Connect another Google account" will fail at Google's consent screen with a
+   redirect URI mismatch error.
+2. **Add a new Supabase Edge Function secret**, `APP_URL` — in **Supabase Dashboard → your
+   project → Edge Functions → Manage secrets** (or `supabase secrets set`), set it to your
+   deployed app's URL, e.g. `https://<your-vercel-app>.vercel.app`. The callback needs this to
+   know where to redirect back to (`/settings?google_connect=...`) after finishing — it has no
+   incoming request from your app to infer the host from, since Google calls it directly.
+   `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` must also be set as Edge Function secrets (the
+   same ones already used in step 1h, but Edge Functions and Vercel keep separate copies).
+   `SUPABASE_SERVICE_ROLE_KEY` does **not** need to be set anywhere by hand — Supabase injects it
+   into every Edge Function automatically.
+
+---
+
 ## 2. Vercel — Environment Variables
 
 As part of the import in step 0 (or right after), set these environment variables in the Vercel dashboard:
@@ -556,9 +609,10 @@ The `vercel.json` in this repo configures SPA routing (all paths → `index.html
 | `climbing_sessions` | Bouldering session records |
 | `climbing_attempts` | Individual attempts within a session |
 | `shopping_items` | Flat shopping list items (single list per user) |
-| `events` | Calendar events (manually created, local to the app) |
+| `events` | Calendar events (manually created, local to the app, or synced from any connected Google account). `google_account_id` identifies which connected account a synced event came from (null for local events) |
 | `files` | File metadata (actual files in Storage). `source` distinguishes local uploads from recursively-synced Google Drive files; Drive rows also carry `root_folder_id`, `drive_file_id`, `relative_path` (subfolder path within the synced root), and `drive_modified_time` (used to skip re-downloading unchanged files) |
-| `google_oauth_tokens` | One row per user: Google OAuth refresh/access token used to read their Google Calendar, Google Tasks, and Google Drive |
+| `google_accounts` | One row per connected Google account (a user can have several — see step 1k); each row holds that account's OAuth refresh/access token, `email`, and an auto-assigned `color` used for Calendar badges. The oldest row per user (`created_at` ascending) is the "primary" account, used for Google Tasks and Google Drive, which stay single-account |
+| `google_oauth_states` | Short-lived nonce rows for the standalone "connect another account" OAuth flow (step 1k) — bridges the stateless Google redirect callback back to the user who started it. Rows are single-use and expire after a few minutes |
 | `google_drive_folders` | The Drive root folders a user has chosen to sync (Drive folder ID + name), plus `sync_status` / `sync_error` / `last_synced_at` for the recursive sync job. Deleting a row cascades to delete its synced `files` rows |
 | `stock_alerts` | Price thresholds per stock symbol |
 | `notifications` | In-app notification banners (e.g. triggered stock alerts) |
@@ -581,8 +635,10 @@ All tables use the same policy pattern:
 FOR ALL USING (auth.uid() = user_id)
 WITH CHECK (auth.uid() = user_id)
 ```
-(`google_oauth_tokens` uses `user_id` as its primary key instead of a separate `id` column,
-but the same ownership policy.)
+`google_oauth_states` uses the same owner policy — a user can only insert/read/delete their own
+nonce row. (The callback Edge Function uses the auto-injected service-role key since it has no
+user session to act as, but the policy still applies to the `/api/google-connect-start` insert,
+which runs as the user.)
 
 Storage objects are scoped to `(storage.foldername(name))[1] = auth.uid()::text`.
 
@@ -598,10 +654,10 @@ Storage objects are scoped to `(storage.foldername(name))[1] = auth.uid()::text`
 | Reminders | `/reminders` | Overdue highlighted, dismiss advances repeat, sends a push notification when due |
 | Climbing | `/climbing` | Log / History / Stats tabs |
 | Shopping | `/shopping` | Single flat list |
-| Calendar | `/calendar` | Upcoming events only (past hidden). Merges local events with real Google Calendar events (badged "Google"), proxied server-side through `/api/calendar-events` so tokens never reach the browser |
+| Calendar | `/calendar` | Upcoming events only (past hidden), plus a Month view. Merges local events with real Google Calendar events from every connected account, each color-coded by account (see step 1k); Calendar's per-account sync runs via the `fetch-google-calendar` Edge Function, not a Vercel function |
 | Files | `/files` | Folder-based file storage. Also lets you recursively sync Google Drive folders (and all their subfolders/files) via a folder-tree picker — synced folders appear alongside local ones (badged "Google"); files are downloaded and stored in Supabase Storage, so they're viewable/downloadable exactly like local files, not links to Drive. Proxied server-side through `/api/google-drive-browse`, `/api/google-drive-folders`, and `/api/google-drive-sync` so tokens never reach the browser |
 | Finance | `/finance` | USD/EUR/NIS converter (free, no-key [currency-api](https://github.com/fawazahmed0/currency-api)) + TENB stock quote, proxied server-side through `/api/stock-quote` (Finnhub, needs `FINNHUB_API_KEY`) so the key never reaches the browser |
-| Settings | `/settings` | Enable/disable push notifications for habits, reminders, and todos (see step 1g) |
+| Settings | `/settings` | Enable/disable push notifications for habits, reminders, and todos (see step 1g); manage connected Google accounts for Calendar (see step 1k) |
 
 ---
 
@@ -668,6 +724,28 @@ Common causes: unused imports (the tsconfig is set to `noUnusedLocals: false` to
 **`/api/google-drive-browse`, `/api/google-drive-folders`, or `/api/google-drive-sync` 404s in local dev:**
 - Same cause as the stock quote endpoint: `npm run dev` doesn't run serverless functions.
   Use `vercel dev` locally with `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET` set in `.env.local` to test it.
+
+**"Connect another Google account" fails / redirects to `/settings?google_connect=error`:**
+- Confirm the redirect URI `https://tjjvrqamitwtoslinrxy.supabase.co/functions/v1/google-connect-callback`
+  is added in Google Cloud Console (step 1a) — a mismatch shows as an error on Google's own
+  consent page, before it ever reaches the app
+- Confirm `APP_URL`, `GOOGLE_CLIENT_ID`, and `GOOGLE_CLIENT_SECRET` are set as **Supabase Edge
+  Function secrets** (step 1k) — without them, the `google-connect-callback` function returns
+  `500 Missing server configuration.` instead of redirecting. Check its logs (Dashboard → Edge
+  Functions → `google-connect-callback` → Logs) for the exact failure
+- `?google_connect=expired` means the OAuth flow took too long (the `google_oauth_states` nonce
+  row expired) — just click "Connect another Google account" again
+- `?google_connect=no_refresh_token` means Google didn't grant offline access, usually because the
+  account had already approved this app's scopes before without `prompt=consent` forcing a fresh
+  grant — revoke the app's access at [myaccount.google.com/permissions](https://myaccount.google.com/permissions)
+  and try connecting again
+
+**`/api/google-connect-start` 404s in local dev:**
+- Same cause as the stock quote endpoint: `npm run dev` doesn't run serverless functions.
+  Use `vercel dev` locally with `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET` set in `.env.local` to
+  test it. The callback itself (`google-connect-callback`) is a Supabase Edge Function reachable
+  directly at its Supabase URL — it isn't proxied through Vercel/local dev at all, so it works the
+  same in local dev as in production as long as it's deployed and its secrets are set (step 1k).
 
 **Stock quote returns 404 in local dev:**
 - `npm run dev` runs plain Vite, which doesn't execute serverless functions — `/api/stock-quote` will 404

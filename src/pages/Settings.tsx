@@ -1,11 +1,21 @@
 import { useEffect, useState } from 'react'
-import { Bell, BellOff, Sparkles } from 'lucide-react'
+import { useSearchParams } from 'react-router-dom'
+import { Bell, BellOff, Sparkles, Plus, X } from 'lucide-react'
 import { supabase } from '../supabase'
 import { Button } from '../components/ui/button'
 import { haptic } from '../lib/haptics'
 import { isPushSupported, getPushSubscription, enablePushNotifications, disablePushNotifications } from '../lib/push'
 import { getAutoGenerateFocusSummaries, setAutoGenerateFocusSummaries } from '../lib/userSettings'
+import { listGoogleAccounts, connectGoogleAccount, disconnectGoogleAccount, type GoogleAccount } from '../lib/googleAccounts'
 import VoiceShortcutsSection from '../features/voice/VoiceShortcutsSection'
+
+const GOOGLE_CONNECT_MESSAGES: Record<string, string> = {
+  success: 'Google account connected.',
+  denied: 'Connection was cancelled.',
+  expired: 'That connection link expired. Please try again.',
+  no_refresh_token: 'Google did not grant offline access. Please try again and accept all permissions.',
+  error: 'Something went wrong connecting that account. Please try again.',
+}
 
 export default function Settings() {
   const [supported, setSupported] = useState(true)
@@ -18,6 +28,41 @@ export default function Settings() {
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => setUserId(user?.id ?? null))
   }, [])
+
+  const [searchParams, setSearchParams] = useSearchParams()
+  const [googleAccounts, setGoogleAccounts] = useState<GoogleAccount[]>([])
+  const [googleAccountsLoading, setGoogleAccountsLoading] = useState(true)
+  const [connecting, setConnecting] = useState(false)
+  const [disconnectingId, setDisconnectingId] = useState<string | null>(null)
+  const connectStatus = searchParams.get('google_connect')
+
+  useEffect(() => {
+    listGoogleAccounts().then(accounts => {
+      setGoogleAccounts(accounts)
+      setGoogleAccountsLoading(false)
+    })
+  }, [])
+
+  useEffect(() => {
+    if (!connectStatus) return
+    const next = new URLSearchParams(searchParams)
+    next.delete('google_connect')
+    setSearchParams(next, { replace: true })
+  }, [connectStatus])
+
+  async function handleConnectGoogleAccount() {
+    setConnecting(true)
+    haptic('selection')
+    await connectGoogleAccount()
+  }
+
+  async function handleDisconnectGoogleAccount(id: string) {
+    setDisconnectingId(id)
+    haptic('selection')
+    await disconnectGoogleAccount(id)
+    setGoogleAccounts(accounts => accounts.filter(a => a.id !== id))
+    setDisconnectingId(null)
+  }
 
   const [autoGenerateFocus, setAutoGenerateFocus] = useState(true)
   const [focusLoading, setFocusLoading] = useState(true)
@@ -112,6 +157,49 @@ export default function Settings() {
             {error && <p className="text-sm text-destructive mt-2">{error}</p>}
           </>
         )}
+      </div>
+
+      <div className="bg-card border border-border rounded-2xl p-4 mt-4">
+        <p className="font-medium mb-1">Connected Google accounts</p>
+        <p className="text-sm text-muted-foreground mb-4">
+          Calendar events from every connected account are shown together, color-coded by account.
+        </p>
+
+        {connectStatus && (
+          <p className={`text-sm mb-3 ${connectStatus === 'success' ? 'text-primary' : 'text-destructive'}`}>
+            {GOOGLE_CONNECT_MESSAGES[connectStatus] ?? GOOGLE_CONNECT_MESSAGES.error}
+          </p>
+        )}
+
+        {googleAccountsLoading ? (
+          <div className="flex justify-center py-4">
+            <div className="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+          </div>
+        ) : (
+          <div className="space-y-2 mb-4">
+            {googleAccounts.map((account, i) => (
+              <div key={account.id} className="flex items-center gap-3 p-3 rounded-xl border border-border">
+                <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: account.color }} />
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium truncate">{account.email}</p>
+                  {i === 0 && <p className="text-xs text-muted-foreground">Primary · also used for Tasks &amp; Drive</p>}
+                </div>
+                <button
+                  onClick={() => handleDisconnectGoogleAccount(account.id)}
+                  disabled={disconnectingId === account.id}
+                  className="p-1.5 rounded-lg hover:bg-accent text-muted-foreground hover:text-destructive shrink-0"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <Button onClick={handleConnectGoogleAccount} disabled={connecting} variant="outline" className="w-full">
+          <Plus className="h-4 w-4 mr-1.5" />
+          {connecting ? 'Redirecting…' : 'Connect another Google account'}
+        </Button>
       </div>
 
       <div className="bg-card border border-border rounded-2xl p-4 mt-4">

@@ -14,6 +14,6 @@ export async function connectGoogle() {
 }
 
 export async function isGoogleConnected(): Promise<boolean> {
-  const { data, error } = await supabase.from('google_oauth_tokens').select('user_id').maybeSingle()
+  const { data, error } = await supabase.from('google_accounts').select('id').limit(1).maybeSingle()
   return !error && !!data
 }

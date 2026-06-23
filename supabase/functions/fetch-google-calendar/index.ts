@@ -6,7 +6,7 @@ const CALENDAR_BASE = 'https://www.googleapis.com/calendar/v3/calendars/primary/
 // table today (dashboard: 7d, calendar list: 30d, month view: up to 90d).
 const SYNC_DAYS = 90
 
-type TokenRow = { refresh_token: string; access_token: string | null; access_token_expires_at: string | null }
+type AccountRow = { id: string; user_id: string; refresh_token: string; access_token: string | null; access_token_expires_at: string | null }
 
 type GoogleEventItem = {
   id: string
@@ -17,26 +17,19 @@ type GoogleEventItem = {
   start: { date?: string; dateTime?: string }
 }
 
-async function getAllUserIds(supabase: SupabaseClient): Promise<string[]> {
-  const { data } = await supabase.from('google_oauth_tokens').select('user_id')
-  return (data ?? []).map(row => row.user_id as string)
+async function getAllAccounts(supabase: SupabaseClient): Promise<AccountRow[]> {
+  const { data } = await supabase.from('google_accounts').select('id, user_id, refresh_token, access_token, access_token_expires_at')
+  return (data ?? []) as AccountRow[]
 }
 
 async function getAccessToken(
   supabase: SupabaseClient,
-  userId: string,
+  account: AccountRow,
   clientId: string,
   clientSecret: string,
 ): Promise<string | null> {
-  const { data: tokenRow } = await supabase
-    .from('google_oauth_tokens')
-    .select('refresh_token, access_token, access_token_expires_at')
-    .eq('user_id', userId)
-    .maybeSingle<TokenRow>()
-  if (!tokenRow) return null
-
-  let accessToken = tokenRow.access_token
-  const expiresAt = tokenRow.access_token_expires_at ? new Date(tokenRow.access_token_expires_at).getTime() : 0
+  let accessToken = account.access_token
+  const expiresAt = account.access_token_expires_at ? new Date(account.access_token_expires_at).getTime() : 0
   if (accessToken && expiresAt - Date.now() >= 60_000) return accessToken
 
   const refreshRes = await fetch('https://oauth2.googleapis.com/token', {
@@ -45,7 +38,7 @@ async function getAccessToken(
     body: new URLSearchParams({
       client_id: clientId,
       client_secret: clientSecret,
-      refresh_token: tokenRow.refresh_token,
+      refresh_token: account.refresh_token,
       grant_type: 'refresh_token',
     }),
   })
@@ -55,14 +48,14 @@ async function getAccessToken(
   accessToken = refreshed.access_token
   const newExpiresAt = new Date(Date.now() + (refreshed.expires_in ?? 3600) * 1000).toISOString()
   await supabase
-    .from('google_oauth_tokens')
+    .from('google_accounts')
     .update({ access_token: accessToken, access_token_expires_at: newExpiresAt, updated_at: new Date().toISOString() })
-    .eq('user_id', userId)
+    .eq('id', account.id)
   return accessToken
 }
 
-async function syncCalendarForUser(supabase: SupabaseClient, userId: string, clientId: string, clientSecret: string) {
-  const accessToken = await getAccessToken(supabase, userId, clientId, clientSecret)
+async function syncCalendarForAccount(supabase: SupabaseClient, account: AccountRow, clientId: string, clientSecret: string) {
+  const accessToken = await getAccessToken(supabase, account, clientId, clientSecret)
   if (!accessToken) return
 
   const timeMin = new Date(new Date().toISOString().slice(0, 10)).toISOString()
@@ -93,29 +86,30 @@ async function syncCalendarForUser(supabase: SupabaseClient, userId: string, cli
   const { data: existingRows } = await supabase
     .from('events')
     .select('google_event_id')
-    .eq('user_id', userId)
-    .eq('source', 'google')
+    .eq('user_id', account.user_id)
+    .eq('google_account_id', account.id)
   const existingIds = new Set((existingRows ?? []).map(r => r.google_event_id as string))
 
   const rows = events.map(e => ({
-    user_id: userId,
+    user_id: account.user_id,
     title: e.title,
     event_date: e.eventDate,
     event_time: e.eventTime,
     notes: e.notes,
     source: 'google',
     google_event_id: e.id,
+    google_account_id: account.id,
     html_link: e.htmlLink,
   }))
 
   if (rows.length > 0) {
-    await supabase.from('events').upsert(rows, { onConflict: 'user_id,google_event_id' })
+    await supabase.from('events').upsert(rows, { onConflict: 'user_id,google_account_id,google_event_id' })
   }
 
   const currentIds = new Set(events.map(e => e.id))
   const staleIds = [...existingIds].filter(id => !currentIds.has(id))
   if (staleIds.length > 0) {
-    await supabase.from('events').delete().eq('user_id', userId).eq('source', 'google').in('google_event_id', staleIds)
+    await supabase.from('events').delete().eq('user_id', account.user_id).eq('google_account_id', account.id).in('google_event_id', staleIds)
   }
 }
 
@@ -135,8 +129,8 @@ Deno.serve(async (req: Request) => {
   const isCron = Boolean(cronSecret) && authHeader === `Bearer ${cronSecret}`
 
   if (isCron) {
-    const userIds = await getAllUserIds(supabase)
-    const results = await Promise.allSettled(userIds.map(userId => syncCalendarForUser(supabase, userId, clientId, clientSecret)))
+    const accounts = await getAllAccounts(supabase)
+    const results = await Promise.allSettled(accounts.map(account => syncCalendarForAccount(supabase, account, clientId, clientSecret)))
     const errors = results.filter(r => r.status === 'rejected').length
     return new Response(JSON.stringify({ processed: results.length, errors }), { status: 200 })
   }
@@ -151,7 +145,8 @@ Deno.serve(async (req: Request) => {
   }
 
   try {
-    await syncCalendarForUser(supabase, userData.user.id, clientId, clientSecret)
+    const accounts = (await getAllAccounts(supabase)).filter(a => a.user_id === userData.user.id)
+    await Promise.all(accounts.map(account => syncCalendarForAccount(supabase, account, clientId, clientSecret)))
     return new Response(JSON.stringify({ ok: true }), { status: 200 })
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Unknown error'
