@@ -1,6 +1,13 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { authenticateGoogleRequest } from './_googleAuth.js'
 
+// A sync call only ever runs for ~8s before returning a cursor (or finishing),
+// refreshing sync_heartbeat_at each time. If a folder is still "syncing" long
+// after its last heartbeat, the client that was driving it (tab closed, crashed,
+// lost connection) is gone for good — there's nothing left to finish the sync,
+// so flip it to an error state and let the user retry.
+const STALE_SYNC_MS = 2 * 60 * 1000
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   const auth = await authenticateGoogleRequest(req)
   if (!auth.ok) {
@@ -11,7 +18,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method === 'GET') {
     const { data, error } = await auth.supabase
       .from('google_drive_folders')
-      .select('id, folder_id, folder_name, created_at, sync_status, sync_error, last_synced_at')
+      .select('id, folder_id, folder_name, created_at, sync_status, sync_error, last_synced_at, sync_heartbeat_at')
       .order('created_at')
 
     if (error) {
@@ -19,7 +26,24 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return
     }
 
-    res.status(200).json({ folders: data ?? [] })
+    const staleIds = (data ?? [])
+      .filter(f => f.sync_status === 'syncing' && (!f.sync_heartbeat_at || Date.now() - new Date(f.sync_heartbeat_at).getTime() > STALE_SYNC_MS))
+      .map(f => f.id)
+
+    if (staleIds.length > 0) {
+      await auth.supabase
+        .from('google_drive_folders')
+        .update({ sync_status: 'error', sync_error: 'SYNC_TIMEOUT' })
+        .in('id', staleIds)
+      for (const f of data ?? []) {
+        if (staleIds.includes(f.id)) {
+          f.sync_status = 'error'
+          f.sync_error = 'SYNC_TIMEOUT'
+        }
+      }
+    }
+
+    res.status(200).json({ folders: (data ?? []).map(({ sync_heartbeat_at, ...f }) => f) })
     return
   }
 
