@@ -3,7 +3,7 @@ import { Plus, Bell, BellOff, Pencil, Trash2, RefreshCw } from 'lucide-react'
 import { supabase } from '../supabase'
 import type { Reminder } from '../supabase'
 import type { User } from '@supabase/supabase-js'
-import ReminderForm from '../features/reminders/ReminderForm'
+import ReminderDrawer from '../features/reminders/ReminderDrawer'
 import { Button } from '../components/ui/button'
 import { cn, formatDateTime, advanceRepeat } from '../utils'
 import { isBefore } from 'date-fns'
@@ -48,16 +48,11 @@ export default function Reminders() {
 
   return (
     <div className="p-4 max-w-2xl mx-auto">
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-2xl font-bold">Reminders</h1>
-          {overdue.length > 0 && (
-            <p className="text-sm text-destructive font-medium">{overdue.length} overdue</p>
-          )}
-        </div>
-        <Button onClick={() => { setEditing(undefined); setShowForm(true) }} size="icon" className="rounded-xl h-11 w-11">
-          <Plus className="h-5 w-5" />
-        </Button>
+      <div className="mb-6">
+        <h1 className="text-2xl font-bold">Reminders</h1>
+        {overdue.length > 0 && (
+          <p className="text-sm text-destructive font-medium">{overdue.length} overdue</p>
+        )}
       </div>
 
       {loading ? (
@@ -87,8 +82,18 @@ export default function Reminders() {
         </div>
       )}
 
+      {user && (
+        <Button
+          onClick={() => { setEditing(undefined); setShowForm(true) }}
+          size="icon"
+          className="fixed bottom-20 md:bottom-8 right-4 md:right-8 z-30 h-14 w-14 rounded-full shadow-lg"
+        >
+          <Plus className="h-6 w-6" />
+        </Button>
+      )}
+
       {user && showForm && (
-        <ReminderForm open={showForm} onClose={() => setShowForm(false)} onSave={load} reminder={editing} userId={user.id} />
+        <ReminderDrawer open={showForm} onClose={() => setShowForm(false)} onSave={load} reminder={editing} userId={user.id} />
       )}
     </div>
   )
