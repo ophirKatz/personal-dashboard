@@ -29,7 +29,10 @@ const DrawerContent = React.forwardRef<
     <DialogPrimitive.Content
       ref={ref}
       className={cn(
-        'fixed inset-x-0 bottom-0 z-50 mx-auto w-full max-w-2xl bg-background shadow-2xl ring-1 ring-border/50 duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:slide-out-to-bottom data-[state=open]:slide-in-from-bottom rounded-t-3xl pb-[max(1.25rem,env(safe-area-inset-bottom))]',
+        // overflow-x-hidden mirrors DialogContent: a stray overflowing
+        // child (e.g. a native date/time control) gets clipped to the
+        // sheet's rounded edge instead of bleeding past the screen
+        'fixed inset-x-0 bottom-0 z-50 mx-auto w-full max-w-2xl overflow-x-hidden bg-background shadow-2xl ring-1 ring-border/50 duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:slide-out-to-bottom data-[state=open]:slide-in-from-bottom rounded-t-3xl pb-[max(1.25rem,env(safe-area-inset-bottom))]',
         className,
       )}
       {...props}
