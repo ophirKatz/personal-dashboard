@@ -60,34 +60,35 @@ export default function ReminderDrawer({ open, onClose, onSave, reminder, userId
               autoFocus
               className="h-12 rounded-xl text-base"
             />
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <label className="flex items-center gap-1 px-1 text-xs font-medium text-muted-foreground">
-                  <CalendarClock className="h-3.5 w-3.5" />
-                  Date &amp; time
-                </label>
-                <Input
-                  type="datetime-local"
-                  value={remindAt}
-                  onChange={e => setRemindAt(e.target.value)}
-                  className="h-11 rounded-xl"
-                />
-              </div>
-              <div className="space-y-1.5">
-                <label className="flex items-center gap-1 px-1 text-xs font-medium text-muted-foreground">
-                  <RefreshCw className="h-3.5 w-3.5" />
-                  Repeat
-                </label>
-                <Select value={repeat} onValueChange={setRepeat}>
-                  <SelectTrigger className="h-11 rounded-xl"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">No repeat</SelectItem>
-                    <SelectItem value="daily">Daily</SelectItem>
-                    <SelectItem value="weekly">Weekly</SelectItem>
-                    <SelectItem value="monthly">Monthly</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+            {/* Stacked full-width: a combined datetime-local control needs
+                more room than a 50% column gives it, which made it overflow
+                its grid cell and visually overlap the Repeat field next to it. */}
+            <div className="space-y-1.5">
+              <label className="flex items-center gap-1 px-1 text-xs font-medium text-muted-foreground">
+                <CalendarClock className="h-3.5 w-3.5" />
+                Date &amp; time
+              </label>
+              <Input
+                type="datetime-local"
+                value={remindAt}
+                onChange={e => setRemindAt(e.target.value)}
+                className="h-11 rounded-xl"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label className="flex items-center gap-1 px-1 text-xs font-medium text-muted-foreground">
+                <RefreshCw className="h-3.5 w-3.5" />
+                Repeat
+              </label>
+              <Select value={repeat} onValueChange={setRepeat}>
+                <SelectTrigger className="h-11 rounded-xl"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">No repeat</SelectItem>
+                  <SelectItem value="daily">Daily</SelectItem>
+                  <SelectItem value="weekly">Weekly</SelectItem>
+                  <SelectItem value="monthly">Monthly</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
             <Button type="submit" disabled={saving || !title.trim()} className="h-12 w-full rounded-xl text-base font-semibold">
               {saving ? 'Saving…' : reminder ? 'Save' : 'Add reminder'}

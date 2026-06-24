@@ -12,7 +12,10 @@ const Fab = React.forwardRef<HTMLButtonElement, React.ButtonHTMLAttributes<HTMLB
       <button
         ref={ref}
         className={cn(
-          'fixed bottom-20 md:bottom-8 right-5 md:right-8 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-xl transition-transform active:scale-95 hover:bg-primary/90',
+          // bottom offset clears the mobile tab bar using its live measured
+          // height (see Layout.tsx) plus a gap, so it can never drift back
+          // under/into the bar the way a hardcoded offset previously did
+          'fixed bottom-[calc(var(--tabbar-height,5rem)_+_1rem)] md:bottom-8 right-5 md:right-8 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-xl transition-transform active:scale-95 hover:bg-primary/90',
           className,
         )}
         {...props}
