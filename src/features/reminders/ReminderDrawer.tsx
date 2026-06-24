@@ -3,9 +3,8 @@ import { supabase } from '../../supabase'
 import type { Reminder } from '../../supabase'
 import { Button } from '../../components/ui/button'
 import { Input } from '../../components/ui/input'
-import { Label } from '../../components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogBody, DialogFooter } from '../../components/ui/dialog'
+import { Drawer, DrawerContent, DrawerBody } from '../../components/ui/drawer'
 import { format } from 'date-fns'
 import { haptic } from '../../lib/haptics'
 
@@ -17,7 +16,7 @@ type Props = {
   userId: string
 }
 
-export default function ReminderForm({ open, onClose, onSave, reminder, userId }: Props) {
+export default function ReminderDrawer({ open, onClose, onSave, reminder, userId }: Props) {
   const defaultDt = reminder ? reminder.remind_at.slice(0, 16) : format(new Date(), "yyyy-MM-dd'T'HH:mm")
   const [title, setTitle] = useState(reminder?.title ?? '')
   const [remindAt, setRemindAt] = useState(defaultDt)
@@ -46,25 +45,21 @@ export default function ReminderForm({ open, onClose, onSave, reminder, userId }
   }
 
   return (
-    <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>{reminder ? 'Edit Reminder' : 'New Reminder'}</DialogTitle>
-        </DialogHeader>
+    <Drawer open={open} onOpenChange={(v) => !v && onClose()}>
+      <DrawerContent>
         <form onSubmit={handleSubmit}>
-          <DialogBody className="space-y-4">
-            <div className="space-y-2">
-              <Label>Title</Label>
-              <Input value={title} onChange={e => setTitle(e.target.value)} placeholder="What to remember?" autoFocus />
-            </div>
-            <div className="space-y-2">
-              <Label>Date & Time</Label>
-              <Input type="datetime-local" value={remindAt} onChange={e => setRemindAt(e.target.value)} />
-            </div>
-            <div className="space-y-2">
-              <Label>Repeat</Label>
+          <DrawerBody className="space-y-3">
+            <Input
+              value={title}
+              onChange={e => setTitle(e.target.value)}
+              placeholder="What to remember?"
+              autoFocus
+              className="text-base h-12"
+            />
+            <div className="flex items-center gap-2">
+              <Input type="datetime-local" value={remindAt} onChange={e => setRemindAt(e.target.value)} className="flex-1 min-w-0" />
               <Select value={repeat} onValueChange={setRepeat}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectTrigger className="w-32 shrink-0"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="none">No repeat</SelectItem>
                   <SelectItem value="daily">Daily</SelectItem>
@@ -73,15 +68,12 @@ export default function ReminderForm({ open, onClose, onSave, reminder, userId }
                 </SelectContent>
               </Select>
             </div>
-          </DialogBody>
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
-            <Button type="submit" disabled={saving || !title.trim()}>
-              {saving ? 'Saving…' : reminder ? 'Save' : 'Create'}
+            <Button type="submit" disabled={saving || !title.trim()} className="w-full">
+              {saving ? 'Saving…' : reminder ? 'Save' : 'Add reminder'}
             </Button>
-          </DialogFooter>
+          </DrawerBody>
         </form>
-      </DialogContent>
-    </Dialog>
+      </DrawerContent>
+    </Drawer>
   )
 }

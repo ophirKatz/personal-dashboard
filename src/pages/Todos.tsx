@@ -4,12 +4,11 @@ import { supabase } from '../supabase'
 import type { Todo } from '../supabase'
 import type { User } from '@supabase/supabase-js'
 import TodoItem from '../features/todos/TodoItem'
-import TodoForm from '../features/todos/TodoForm'
+import TaskDrawer from '../features/todos/TaskDrawer'
 import GoogleTaskItem from '../features/todos/GoogleTaskItem'
 import { refreshGoogleTasks, deleteGoogleTask } from '../features/todos/googleTasks'
 import { connectGoogle, isGoogleConnected } from '../lib/googleAuth'
 import { Button } from '../components/ui/button'
-import { Input } from '../components/ui/input'
 import { today } from '../utils'
 
 type Filter = 'today' | 'upcoming' | 'all' | 'completed'
@@ -29,7 +28,6 @@ export default function Todos() {
   const [showForm, setShowForm] = useState(false)
   const [editingTodo, setEditingTodo] = useState<Todo | undefined>()
   const [loading, setLoading] = useState(true)
-  const [newTitle, setNewTitle] = useState('')
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => setUser(user))
@@ -60,15 +58,6 @@ export default function Todos() {
     load()
   }
 
-  async function addTodo(e: React.FormEvent) {
-    e.preventDefault()
-    if (!newTitle.trim() || !user) return
-    const { data } = await supabase.from('todos').insert({
-      title: newTitle.trim(), user_id: user.id,
-    }).select().single()
-    if (data) { setTodos(prev => [data, ...prev]); setNewTitle('') }
-  }
-
   const t = today()
 
   const filtered = todos.filter(todo => {
@@ -80,26 +69,9 @@ export default function Todos() {
     return true
   })
 
-  const sorted = [...filtered].sort((a, b) => {
-    if (filter !== 'completed') {
-      const priorityRank = { high: 0, medium: 1, low: 2 }
-      const pa = priorityRank[a.priority]
-      const pb = priorityRank[b.priority]
-      if (pa !== pb) return pa - pb
-    }
-    return 0
-  })
-
   return (
     <div className="p-4 max-w-2xl mx-auto">
       <h1 className="text-2xl font-bold mb-6">Tasks</h1>
-
-      <form onSubmit={addTodo} className="flex gap-2 mb-5">
-        <Input value={newTitle} onChange={e => setNewTitle(e.target.value)} placeholder="Add task…" className="flex-1" />
-        <Button type="submit" size="icon" disabled={!newTitle.trim()}>
-          <Plus className="h-4 w-4" />
-        </Button>
-      </form>
 
       {/* Filter tabs */}
       <div className="flex gap-1 bg-muted p-1 rounded-xl mb-5 overflow-x-auto">
@@ -130,7 +102,7 @@ export default function Todos() {
         <div className="flex justify-center py-12">
           <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
         </div>
-      ) : sorted.length === 0 ? (
+      ) : filtered.length === 0 ? (
         <div className="text-center py-16 text-muted-foreground">
           <div className="text-4xl mb-3">✅</div>
           <p className="font-medium">No tasks here</p>
@@ -138,7 +110,7 @@ export default function Todos() {
         </div>
       ) : (
         <div className="space-y-2">
-          {sorted.map(todo => todo.source === 'local' ? (
+          {filtered.map(todo => todo.source === 'local' ? (
             <TodoItem
               key={todo.id}
               todo={todo}
@@ -158,8 +130,18 @@ export default function Todos() {
         </div>
       )}
 
+      {user && (
+        <Button
+          onClick={() => { setEditingTodo(undefined); setShowForm(true) }}
+          size="icon"
+          className="fixed bottom-20 md:bottom-8 right-4 md:right-8 z-30 h-14 w-14 rounded-full shadow-lg"
+        >
+          <Plus className="h-6 w-6" />
+        </Button>
+      )}
+
       {user && showForm && (
-        <TodoForm
+        <TaskDrawer
           open={showForm}
           onClose={() => setShowForm(false)}
           onSave={load}

@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Pencil, Trash2, CalendarDays, Check, Bell } from 'lucide-react'
 import { supabase } from '../../supabase'
 import type { Todo } from '../../supabase'
-import { cn, PRIORITY_CONFIG, formatDate, formatTime } from '../../utils'
+import { cn, formatDate, formatTime } from '../../utils'
 import { Checkbox } from '../../components/ui/checkbox'
 import { Input } from '../../components/ui/input'
 import { haptic } from '../../lib/haptics'
@@ -47,8 +47,6 @@ export default function TodoItem({ todo, onEdit, onDelete, onChange }: Props) {
     onDelete()
   }
 
-  const priority = PRIORITY_CONFIG[todo.priority]
-
   return (
     <div className={cn('flex items-start gap-3 p-4 bg-card border border-border rounded-xl transition-opacity', todo.completed && 'opacity-60')}>
       <Checkbox
@@ -59,9 +57,6 @@ export default function TodoItem({ todo, onEdit, onDelete, onChange }: Props) {
       <div className="flex-1 min-w-0">
         <p className={cn('font-medium', todo.completed && 'line-through text-muted-foreground')}>{todo.title}</p>
         <div className="flex items-center gap-2 mt-1 flex-wrap">
-          <span className={cn('text-xs font-medium px-2 py-0.5 rounded-full', priority.className)}>
-            {priority.label}
-          </span>
           {editingDate ? (
             <div className="flex items-center gap-1.5">
               <Input type="date" value={dueDate} onChange={e => saveDateTime(e.target.value, dueTime)} className="h-7 text-xs px-2 w-auto" />

@@ -63,12 +63,6 @@ export function utcTimeToLocalTime(utcTime: string): string {
   return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
 }
 
-export const PRIORITY_CONFIG = {
-  low: { label: 'Low', className: 'bg-blue-100 text-blue-700' },
-  medium: { label: 'Medium', className: 'bg-amber-100 text-amber-700' },
-  high: { label: 'High', className: 'bg-red-100 text-red-700' },
-} as const
-
 export function formatFileSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
