@@ -1,11 +1,11 @@
 import { useEffect, useRef, useState } from 'react'
-import { Plus, Trash2, RotateCcw, ImagePlus } from 'lucide-react'
+import { Plus, Pencil, Trash2, RotateCcw, ImagePlus } from 'lucide-react'
 import { supabase } from '../supabase'
 import type { ShoppingItem } from '../supabase'
 import type { User } from '@supabase/supabase-js'
-import { Button } from '../components/ui/button'
-import { Input } from '../components/ui/input'
 import { Checkbox } from '../components/ui/checkbox'
+import { Fab } from '../components/ui/fab'
+import ShoppingItemDrawer from '../features/shopping/ShoppingItemDrawer'
 
 const ALLOWED_IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif'])
 
@@ -21,10 +21,11 @@ function readFileAsBase64(file: File): Promise<string> {
 export default function Shopping() {
   const [user, setUser] = useState<User | null>(null)
   const [items, setItems] = useState<ShoppingItem[]>([])
-  const [newItemName, setNewItemName] = useState('')
   const [loading, setLoading] = useState(true)
   const [importing, setImporting] = useState(false)
   const [importError, setImportError] = useState<string | null>(null)
+  const [showForm, setShowForm] = useState(false)
+  const [editingItem, setEditingItem] = useState<ShoppingItem | undefined>()
   const imageInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -38,15 +39,6 @@ export default function Shopping() {
   }
 
   useEffect(() => { loadItems() }, [])
-
-  async function addItem(e: React.FormEvent) {
-    e.preventDefault()
-    if (!newItemName.trim() || !user) return
-    const { data } = await supabase.from('shopping_items').insert({
-      name: newItemName.trim(), user_id: user.id,
-    }).select().single()
-    if (data) { setItems(prev => [...prev, data]); setNewItemName('') }
-  }
 
   async function toggleItem(item: ShoppingItem) {
     await supabase.from('shopping_items').update({ checked: !item.checked }).eq('id', item.id)
@@ -134,13 +126,6 @@ export default function Shopping() {
         </div>
       )}
 
-      <form onSubmit={addItem} className="flex gap-2 mb-5">
-        <Input value={newItemName} onChange={e => setNewItemName(e.target.value)} placeholder="Add item…" className="flex-1" />
-        <Button type="submit" size="icon" disabled={!newItemName.trim()}>
-          <Plus className="h-4 w-4" />
-        </Button>
-      </form>
-
       {loading ? (
         <div className="flex justify-center py-12"><div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" /></div>
       ) : (
@@ -149,7 +134,10 @@ export default function Shopping() {
             <div key={item.id} className={`flex items-center gap-3 p-3.5 bg-card border border-border rounded-xl transition-opacity ${item.checked ? 'opacity-50' : ''}`}>
               <Checkbox checked={item.checked} onCheckedChange={() => toggleItem(item)} />
               <span className={`flex-1 ${item.checked ? 'line-through text-muted-foreground' : ''}`}>{item.name}</span>
-              <button onClick={() => deleteItem(item.id)} className="text-muted-foreground hover:text-destructive p-1">
+              <button onClick={() => { setEditingItem(item); setShowForm(true) }} className="p-1.5 rounded-lg hover:bg-accent text-muted-foreground">
+                <Pencil className="h-4 w-4" />
+              </button>
+              <button onClick={() => deleteItem(item.id)} className="p-1.5 rounded-lg hover:bg-accent text-muted-foreground hover:text-destructive">
                 <Trash2 className="h-4 w-4" />
               </button>
             </div>
@@ -157,10 +145,26 @@ export default function Shopping() {
           {items.length === 0 && (
             <div className="text-center py-16 text-muted-foreground">
               <div className="text-4xl mb-3">🛒</div>
-              <p className="font-medium">No items yet — add one above</p>
+              <p className="font-medium">No items yet — tap + to add one</p>
             </div>
           )}
         </div>
+      )}
+
+      {user && (
+        <Fab onClick={() => { setEditingItem(undefined); setShowForm(true) }} aria-label="Add item">
+          <Plus className="h-6 w-6" />
+        </Fab>
+      )}
+
+      {user && showForm && (
+        <ShoppingItemDrawer
+          open={showForm}
+          onClose={() => setShowForm(false)}
+          onSave={loadItems}
+          item={editingItem}
+          userId={user.id}
+        />
       )}
     </div>
   )
