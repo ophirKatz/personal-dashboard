@@ -8,7 +8,12 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
     <input
       type={type}
       className={cn(
-        'flex h-10 w-full rounded-lg border border-input bg-background px-3 py-2 text-base sm:text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50',
+        // native date/time controls have a browser-defined intrinsic min
+        // width (especially on iOS Safari) that can exceed the box's own
+        // width and push past its container; max-w-full+min-w-0 force it to
+        // shrink to whatever space is actually available instead of
+        // overflowing the screen
+        'flex h-10 w-full min-w-0 max-w-full rounded-lg border border-input bg-background px-3 py-2 text-base sm:text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50',
         className,
       )}
       ref={ref}

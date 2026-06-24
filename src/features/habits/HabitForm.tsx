@@ -7,7 +7,7 @@ import { Label } from '../../components/ui/label'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogBody, DialogFooter } from '../../components/ui/dialog'
 import { haptic } from '../../lib/haptics'
 import { localTimeToUtcTime, utcTimeToLocalTime } from '../../utils'
-import { Bell } from 'lucide-react'
+import { Bell, Clock } from 'lucide-react'
 
 const COLORS = [
   '#3b82f6', '#10b981', '#f59e0b', '#ef4444',
@@ -149,7 +149,18 @@ export default function HabitForm({ open, onClose, onSave, habit, userId }: Prop
                 </button>
               </div>
               {reminderEnabled && (
-                <Input type="time" value={reminderTime} onChange={e => setReminderTime(e.target.value)} />
+                <div className="space-y-1.5 min-w-0">
+                  <Label className="flex items-center gap-1 text-xs">
+                    <Clock className="h-3.5 w-3.5" />
+                    Time
+                  </Label>
+                  <Input
+                    type="time"
+                    value={reminderTime}
+                    onChange={e => setReminderTime(e.target.value)}
+                    className="h-11 rounded-xl min-w-0"
+                  />
+                </div>
               )}
             </div>
           </DialogBody>
