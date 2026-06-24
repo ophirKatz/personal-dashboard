@@ -4,7 +4,7 @@ import { supabase } from '../supabase'
 import type { Reminder } from '../supabase'
 import type { User } from '@supabase/supabase-js'
 import ReminderDrawer from '../features/reminders/ReminderDrawer'
-import { Button } from '../components/ui/button'
+import { Fab } from '../components/ui/fab'
 import { cn, formatDateTime, advanceRepeat } from '../utils'
 import { isBefore } from 'date-fns'
 
@@ -83,13 +83,9 @@ export default function Reminders() {
       )}
 
       {user && (
-        <Button
-          onClick={() => { setEditing(undefined); setShowForm(true) }}
-          size="icon"
-          className="fixed bottom-20 md:bottom-8 right-4 md:right-8 z-30 h-14 w-14 rounded-full shadow-lg"
-        >
+        <Fab onClick={() => { setEditing(undefined); setShowForm(true) }} aria-label="Add reminder">
           <Plus className="h-6 w-6" />
-        </Button>
+        </Fab>
       )}
 
       {user && showForm && (

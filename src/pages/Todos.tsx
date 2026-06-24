@@ -8,7 +8,7 @@ import TaskDrawer from '../features/todos/TaskDrawer'
 import GoogleTaskItem from '../features/todos/GoogleTaskItem'
 import { refreshGoogleTasks, deleteGoogleTask } from '../features/todos/googleTasks'
 import { connectGoogle, isGoogleConnected } from '../lib/googleAuth'
-import { Button } from '../components/ui/button'
+import { Fab } from '../components/ui/fab'
 import { today } from '../utils'
 
 type Filter = 'today' | 'upcoming' | 'all' | 'completed'
@@ -131,13 +131,9 @@ export default function Todos() {
       )}
 
       {user && (
-        <Button
-          onClick={() => { setEditingTodo(undefined); setShowForm(true) }}
-          size="icon"
-          className="fixed bottom-20 md:bottom-8 right-4 md:right-8 z-30 h-14 w-14 rounded-full shadow-lg"
-        >
+        <Fab onClick={() => { setEditingTodo(undefined); setShowForm(true) }} aria-label="Add task">
           <Plus className="h-6 w-6" />
-        </Button>
+        </Fab>
       )}
 
       {user && showForm && (

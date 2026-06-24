@@ -1,5 +1,6 @@
 import * as React from 'react'
 import * as DialogPrimitive from '@radix-ui/react-dialog'
+import { X } from 'lucide-react'
 import { cn } from '../../utils'
 
 const Drawer = DialogPrimitive.Root
@@ -28,7 +29,7 @@ const DrawerContent = React.forwardRef<
     <DialogPrimitive.Content
       ref={ref}
       className={cn(
-        'fixed inset-x-0 bottom-0 z-50 mx-auto w-full max-w-2xl bg-background shadow-lg duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:slide-out-to-bottom data-[state=open]:slide-in-from-bottom rounded-t-2xl pb-[max(1rem,env(safe-area-inset-bottom))]',
+        'fixed inset-x-0 bottom-0 z-50 mx-auto w-full max-w-2xl bg-background shadow-2xl ring-1 ring-border/50 duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:slide-out-to-bottom data-[state=open]:slide-in-from-bottom rounded-t-3xl pb-[max(1.25rem,env(safe-area-inset-bottom))]',
         className,
       )}
       {...props}
@@ -40,8 +41,25 @@ const DrawerContent = React.forwardRef<
 ))
 DrawerContent.displayName = DialogPrimitive.Content.displayName
 
-const DrawerBody = ({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) => (
-  <div className={cn('p-4', className)} {...props} />
+const DrawerHeader = ({ className, children, ...props }: React.HTMLAttributes<HTMLDivElement>) => (
+  <div className={cn('flex items-center justify-between px-5 pt-2 pb-1', className)} {...props}>
+    {children}
+    <DrawerClose className="rounded-full p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground transition-colors">
+      <X className="h-4 w-4" />
+    </DrawerClose>
+  </div>
 )
 
-export { Drawer, DrawerTrigger, DrawerContent, DrawerClose, DrawerBody }
+const DrawerTitle = React.forwardRef<
+  React.ElementRef<typeof DialogPrimitive.Title>,
+  React.ComponentPropsWithoutRef<typeof DialogPrimitive.Title>
+>(({ className, ...props }, ref) => (
+  <DialogPrimitive.Title ref={ref} className={cn('text-sm font-semibold text-muted-foreground', className)} {...props} />
+))
+DrawerTitle.displayName = DialogPrimitive.Title.displayName
+
+const DrawerBody = ({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) => (
+  <div className={cn('px-5 pb-5 pt-2', className)} {...props} />
+)
+
+export { Drawer, DrawerTrigger, DrawerContent, DrawerClose, DrawerHeader, DrawerTitle, DrawerBody }

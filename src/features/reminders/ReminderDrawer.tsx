@@ -1,10 +1,11 @@
 import { useState } from 'react'
+import { CalendarClock, RefreshCw } from 'lucide-react'
 import { supabase } from '../../supabase'
 import type { Reminder } from '../../supabase'
 import { Button } from '../../components/ui/button'
 import { Input } from '../../components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select'
-import { Drawer, DrawerContent, DrawerBody } from '../../components/ui/drawer'
+import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerBody } from '../../components/ui/drawer'
 import { format } from 'date-fns'
 import { haptic } from '../../lib/haptics'
 
@@ -47,28 +48,48 @@ export default function ReminderDrawer({ open, onClose, onSave, reminder, userId
   return (
     <Drawer open={open} onOpenChange={(v) => !v && onClose()}>
       <DrawerContent>
+        <DrawerHeader>
+          <DrawerTitle>{reminder ? 'Edit reminder' : 'New reminder'}</DrawerTitle>
+        </DrawerHeader>
         <form onSubmit={handleSubmit}>
-          <DrawerBody className="space-y-3">
+          <DrawerBody className="space-y-4">
             <Input
               value={title}
               onChange={e => setTitle(e.target.value)}
               placeholder="What to remember?"
               autoFocus
-              className="text-base h-12"
+              className="h-12 rounded-xl text-base"
             />
-            <div className="flex items-center gap-2">
-              <Input type="datetime-local" value={remindAt} onChange={e => setRemindAt(e.target.value)} className="flex-1 min-w-0" />
-              <Select value={repeat} onValueChange={setRepeat}>
-                <SelectTrigger className="w-32 shrink-0"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">No repeat</SelectItem>
-                  <SelectItem value="daily">Daily</SelectItem>
-                  <SelectItem value="weekly">Weekly</SelectItem>
-                  <SelectItem value="monthly">Monthly</SelectItem>
-                </SelectContent>
-              </Select>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <label className="flex items-center gap-1 px-1 text-xs font-medium text-muted-foreground">
+                  <CalendarClock className="h-3.5 w-3.5" />
+                  Date &amp; time
+                </label>
+                <Input
+                  type="datetime-local"
+                  value={remindAt}
+                  onChange={e => setRemindAt(e.target.value)}
+                  className="h-11 rounded-xl"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="flex items-center gap-1 px-1 text-xs font-medium text-muted-foreground">
+                  <RefreshCw className="h-3.5 w-3.5" />
+                  Repeat
+                </label>
+                <Select value={repeat} onValueChange={setRepeat}>
+                  <SelectTrigger className="h-11 rounded-xl"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">No repeat</SelectItem>
+                    <SelectItem value="daily">Daily</SelectItem>
+                    <SelectItem value="weekly">Weekly</SelectItem>
+                    <SelectItem value="monthly">Monthly</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
-            <Button type="submit" disabled={saving || !title.trim()} className="w-full">
+            <Button type="submit" disabled={saving || !title.trim()} className="h-12 w-full rounded-xl text-base font-semibold">
               {saving ? 'Saving…' : reminder ? 'Save' : 'Add reminder'}
             </Button>
           </DrawerBody>
