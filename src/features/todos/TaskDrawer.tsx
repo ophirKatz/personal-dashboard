@@ -81,7 +81,7 @@ export default function TaskDrawer({ open, onClose, onSave, todo, userId }: Prop
               className="h-12 rounded-xl text-base"
             />
             <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5">
+              <div className="space-y-1.5 min-w-0">
                 <label className="flex items-center gap-1 px-1 text-xs font-medium text-muted-foreground">
                   <CalendarDays className="h-3.5 w-3.5" />
                   Date
@@ -91,11 +91,11 @@ export default function TaskDrawer({ open, onClose, onSave, todo, userId }: Prop
                   value={dueDate}
                   min={isGoogleTask ? undefined : today()}
                   onChange={e => setDueDate(e.target.value)}
-                  className="h-11 rounded-xl"
+                  className="h-11 rounded-xl min-w-0"
                 />
               </div>
               {!isGoogleTask && (
-                <div className="space-y-1.5">
+                <div className="space-y-1.5 min-w-0">
                   <label className="flex items-center gap-1 px-1 text-xs font-medium text-muted-foreground">
                     <Clock className="h-3.5 w-3.5" />
                     Time
@@ -105,7 +105,7 @@ export default function TaskDrawer({ open, onClose, onSave, todo, userId }: Prop
                     value={dueTime}
                     disabled={!dueDate}
                     onChange={e => setDueTime(e.target.value)}
-                    className="h-11 rounded-xl"
+                    className="h-11 rounded-xl min-w-0"
                   />
                 </div>
               )}

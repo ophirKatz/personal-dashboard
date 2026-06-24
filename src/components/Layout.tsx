@@ -1,5 +1,5 @@
 import { Outlet, NavLink, useNavigate } from 'react-router-dom'
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import {
   Home, CheckSquare, TrendingUp, Mountain, MoreHorizontal,
   X, ShoppingCart, Bell, Calendar, Folder, LogOut, DollarSign, Settings,
@@ -26,6 +26,22 @@ const moreNav = [
 export default function Layout() {
   const [showMore, setShowMore] = useState(false)
   const navigate = useNavigate()
+  const tabBarRef = useRef<HTMLElement>(null)
+
+  // The FAB needs to float above this bar, so publish its real measured
+  // height (incl. safe-area inset) as a CSS var instead of hardcoding a
+  // pixel guess that drifts out of sync whenever this bar's layout changes.
+  useEffect(() => {
+    const tabBar = tabBarRef.current
+    if (!tabBar) return
+    const updateHeight = () => {
+      document.documentElement.style.setProperty('--tabbar-height', `${tabBar.offsetHeight}px`)
+    }
+    updateHeight()
+    const observer = new ResizeObserver(updateHeight)
+    observer.observe(tabBar)
+    return () => observer.disconnect()
+  }, [])
 
   async function handleSignOut() {
     await supabase.auth.signOut()
@@ -76,7 +92,10 @@ export default function Layout() {
       </main>
 
       {/* Mobile bottom nav */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-background/95 backdrop-blur border-t border-border flex items-center justify-around px-1 pt-1 pb-safe z-40">
+      <nav
+        ref={tabBarRef}
+        className="md:hidden fixed bottom-0 left-0 right-0 bg-background/95 backdrop-blur border-t border-border flex items-center justify-around px-1 pt-1 pb-safe z-40"
+      >
         {primaryNav.map(({ to, icon: Icon, label }) => (
           <NavLink
             key={to}
