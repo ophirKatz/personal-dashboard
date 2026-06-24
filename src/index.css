@@ -51,3 +51,10 @@
     font-size: 16px !important;
   }
 }
+
+/* WebKit/Chrome center the value inside date/time inputs via this
+   pseudo-element regardless of the input's own text-align, making them
+   look misaligned next to regular left-aligned text fields. */
+input[type="time"]::-webkit-date-and-time-value {
+  text-align: left;
+}
