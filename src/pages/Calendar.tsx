@@ -23,6 +23,7 @@ function EventForm({ open, onClose, onSave, event, userId }: {
   const [title, setTitle] = useState(event?.title ?? '')
   const [eventDate, setEventDate] = useState(event?.event_date ?? today())
   const [eventTime, setEventTime] = useState(event?.event_time ?? '')
+  const [endTime, setEndTime] = useState(event?.event_end_time ?? '')
   const [notes, setNotes] = useState(event?.notes ?? '')
   const [saving, setSaving] = useState(false)
 
@@ -34,6 +35,8 @@ function EventForm({ open, onClose, onSave, event, userId }: {
       title: title.trim(),
       event_date: eventDate,
       event_time: eventTime || null,
+      event_end_date: endTime ? eventDate : null,
+      event_end_time: endTime || null,
       notes: notes.trim() || null,
       user_id: userId,
     }
@@ -57,14 +60,18 @@ function EventForm({ open, onClose, onSave, event, userId }: {
               <Label>Title</Label>
               <Input value={title} onChange={e => setTitle(e.target.value)} placeholder="Event name" autoFocus />
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div className="space-y-2 min-w-0">
                 <Label>Date</Label>
                 <Input type="date" value={eventDate} onChange={e => setEventDate(e.target.value)} className="min-w-0" />
               </div>
               <div className="space-y-2 min-w-0">
-                <Label>Time (optional)</Label>
+                <Label>Start time (optional)</Label>
                 <Input type="time" value={eventTime} onChange={e => setEventTime(e.target.value)} className="min-w-0" />
+              </div>
+              <div className="space-y-2 min-w-0">
+                <Label>End time (optional)</Label>
+                <Input type="time" value={endTime} onChange={e => setEndTime(e.target.value)} className="min-w-0" />
               </div>
             </div>
             <div className="space-y-2">
@@ -136,6 +143,28 @@ export default function Calendar() {
     return format(d, 'EEEE, MMMM d')
   }
 
+  function formatDuration(minutes: number) {
+    const h = Math.floor(minutes / 60)
+    const m = minutes % 60
+    if (h === 0) return `${m}m`
+    if (m === 0) return `${h}h`
+    return `${h}h ${m}m`
+  }
+
+  function eventTimeInfo(event: CalendarEvent) {
+    if (!event.event_time) return null
+    const start = new Date(`2000-01-01T${event.event_time}`)
+    if (!event.event_end_time) return { start: format(start, 'h:mm a'), end: null, duration: null }
+    const dayOffset = event.event_end_date && event.event_end_date !== event.event_date ? 1 : 0
+    const end = new Date(`2000-01-0${1 + dayOffset}T${event.event_end_time}`)
+    const minutes = Math.round((end.getTime() - start.getTime()) / 60_000)
+    return {
+      start: format(start, 'h:mm a'),
+      end: minutes > 0 ? format(end, 'h:mm a') : null,
+      duration: minutes > 0 ? formatDuration(minutes) : null,
+    }
+  }
+
   return (
     <div className="p-4 max-w-2xl mx-auto">
       <div className="flex items-center justify-between mb-6">
@@ -190,11 +219,16 @@ export default function Calendar() {
                   <div className="space-y-2">
                     {dateEvents.map(event => (
                       <div key={event.id} className="flex items-start gap-3 p-4 bg-card border border-border rounded-xl">
-                        {event.event_time && (
-                          <div className="text-xs font-medium text-muted-foreground pt-0.5 w-12 shrink-0">
-                            {format(new Date(`2000-01-01T${event.event_time}`), 'h:mm a')}
-                          </div>
-                        )}
+                        {event.event_time && (() => {
+                          const info = eventTimeInfo(event)!
+                          return (
+                            <div className="text-xs font-medium text-muted-foreground pt-0.5 w-16 shrink-0">
+                              <div>{info.start}</div>
+                              {info.end && <div className="text-[10px] font-normal text-muted-foreground/70 mt-0.5">– {info.end}</div>}
+                              {info.duration && <div className="text-[10px] font-normal text-muted-foreground/70">{info.duration}</div>}
+                            </div>
+                          )
+                        })()}
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-1.5">
                             <p className="font-medium truncate">{event.title}</p>

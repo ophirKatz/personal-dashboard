@@ -86,6 +86,8 @@ export type CalendarEvent = {
   title: string
   event_date: string
   event_time: string | null
+  event_end_date: string | null
+  event_end_time: string | null
   notes: string | null
   created_at: string
   source: 'local' | 'google'
