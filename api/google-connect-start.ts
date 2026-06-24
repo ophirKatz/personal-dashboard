@@ -15,9 +15,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return
   }
 
-  const supabaseUrl = process.env.VITE_SUPABASE_URL
-  const supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY
-  const clientId = process.env.GOOGLE_CLIENT_ID
+  const supabaseUrl = process.env.VITE_SUPABASE_URL?.trim()
+  const supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY?.trim()
+  const clientId = process.env.GOOGLE_CLIENT_ID?.trim()
   if (!supabaseUrl || !supabaseAnonKey || !clientId) {
     res.status(500).json({ error: 'MISSING_CONFIG' })
     return

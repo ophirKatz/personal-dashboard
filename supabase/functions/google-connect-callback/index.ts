@@ -10,11 +10,11 @@ function redirectTo(appUrl: string, status: string): Response {
 }
 
 Deno.serve(async (req: Request) => {
-  const supabaseUrl = Deno.env.get('SUPABASE_URL')
-  const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
-  const clientId = Deno.env.get('GOOGLE_CLIENT_ID')
-  const clientSecret = Deno.env.get('GOOGLE_CLIENT_SECRET')
-  const appUrl = Deno.env.get('APP_URL')
+  const supabaseUrl = Deno.env.get('SUPABASE_URL')?.trim()
+  const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')?.trim()
+  const clientId = Deno.env.get('GOOGLE_CLIENT_ID')?.trim()
+  const clientSecret = Deno.env.get('GOOGLE_CLIENT_SECRET')?.trim()
+  const appUrl = Deno.env.get('APP_URL')?.trim()
   if (!supabaseUrl || !serviceRoleKey || !clientId || !clientSecret || !appUrl) {
     return new Response('Missing server configuration.', { status: 500 })
   }
