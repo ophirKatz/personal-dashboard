@@ -54,7 +54,28 @@
 
 /* WebKit/Chrome center the value inside date/time inputs via this
    pseudo-element regardless of the input's own text-align, making them
-   look misaligned next to regular left-aligned text fields. */
-input[type="time"]::-webkit-date-and-time-value {
+   look misaligned next to regular left-aligned text fields. Previously
+   only input[type="time"] was covered, leaving date/datetime-local
+   fields centered next to a left-aligned time field in the same row. */
+input[type="date"]::-webkit-date-and-time-value,
+input[type="time"]::-webkit-date-and-time-value,
+input[type="datetime-local"]::-webkit-date-and-time-value {
   text-align: left;
+}
+
+/* iOS Safari renders date/time inputs as a native widget with its own
+   enforced minimum intrinsic width that ignores explicit CSS width
+   (including 100%/max-width), so a field in a 50% grid column or a
+   full-width column narrower than that floor gets rendered wider than
+   its box and visually bleeds into the next field or past the
+   container's edge - the min-w-0/max-w-full/overflow-x-hidden guards
+   elsewhere in the codebase only constrain the layout box, not this
+   widget-level floor. Turning off the native widget appearance makes
+   the control lay out like a normal text box (sized by our own CSS)
+   while keeping native tap-to-open-picker behavior. */
+input[type="date"],
+input[type="time"],
+input[type="datetime-local"] {
+  -webkit-appearance: none;
+  appearance: none;
 }
