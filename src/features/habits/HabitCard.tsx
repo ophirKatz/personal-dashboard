@@ -4,6 +4,7 @@ import { supabase } from '../../supabase'
 import type { Habit, HabitLog } from '../../supabase'
 import { today, formatTime, utcTimeToLocalTime } from '../../utils'
 import { haptic } from '../../lib/haptics'
+import { celebrateFromElement } from '../../lib/confetti'
 import HabitHeatmap from './HabitHeatmap'
 
 type Props = {
@@ -43,8 +44,9 @@ export default function HabitCard({ habit, logs, onEdit, onDelete, onLogChange }
   const streak = computeStreak(logs, habit.frequency)
   const logDates = logs.map(l => l.logged_date)
 
-  async function toggleToday() {
+  async function toggleToday(e: React.MouseEvent<HTMLButtonElement>) {
     haptic(todayLogged ? 'light' : 'success')
+    if (!todayLogged) celebrateFromElement(e.currentTarget)
     if (todayLogged) {
       await supabase
         .from('habit_logs')
