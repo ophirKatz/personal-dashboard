@@ -3,7 +3,7 @@ import { BarChart, Bar, XAxis, YAxis, Tooltip, LineChart, Line, Legend, Responsi
 import { supabase } from '../../supabase'
 import type { ClimbingAttempt, ClimbingSession } from '../../supabase'
 import { CLIMBING_GRADES } from '../../utils'
-import { subMonths, parseISO, format } from 'date-fns'
+import { subMonths, parseISO, format, startOfWeek, addWeeks } from 'date-fns'
 
 type Period = '1m' | '6m' | '1y' | 'all'
 
@@ -58,31 +58,36 @@ export default function ClimbingStats() {
     sends: filteredSends.filter(a => a.grade === g).length,
   })).filter(d => d.sends > 0)
 
-  // Progression: sends per grade per month
-  const monthsInPeriod = (() => {
-    const months: string[] = []
+  // Progression: sends per grade per week
+  const weeksInPeriod = (() => {
+    const weeks: Date[] = []
     const now = new Date()
     const start = cutoff ?? (filteredSessions.length > 0
       ? parseISO(filteredSessions[filteredSessions.length - 1].session_date)
       : subMonths(now, 6))
-    const d = new Date(start.getFullYear(), start.getMonth(), 1)
-    while (d <= now) {
-      months.push(format(d, 'yyyy-MM'))
-      d.setMonth(d.getMonth() + 1)
+    let d = startOfWeek(start)
+    const end = startOfWeek(now)
+    while (d <= end) {
+      weeks.push(d)
+      d = addWeeks(d, 1)
     }
-    return months
+    return weeks
   })()
 
   const topGrades = CLIMBING_GRADES.filter(g =>
     filteredSends.some(a => a.grade === g)
   ).slice(-5)
 
-  const progressionData = monthsInPeriod.map(month => {
-    const monthSessions = filteredSessions.filter(s => s.session_date.startsWith(month))
-    const monthSessionIds = new Set(monthSessions.map(s => s.id))
-    const monthSends = filteredSends.filter(a => monthSessionIds.has(a.session_id))
-    const point: Record<string, number | string> = { month: format(parseISO(month + '-01'), 'MMM yy') }
-    topGrades.forEach(g => { point[g] = monthSends.filter(a => a.grade === g).length })
+  const progressionData = weeksInPeriod.map(weekStart => {
+    const weekEnd = addWeeks(weekStart, 1)
+    const weekSessions = filteredSessions.filter(s => {
+      const date = parseISO(s.session_date)
+      return date >= weekStart && date < weekEnd
+    })
+    const weekSessionIds = new Set(weekSessions.map(s => s.id))
+    const weekSends = filteredSends.filter(a => weekSessionIds.has(a.session_id))
+    const point: Record<string, number | string> = { week: format(weekStart, 'MMM d') }
+    topGrades.forEach(g => { point[g] = weekSends.filter(a => a.grade === g).length })
     return point
   })
 
@@ -121,12 +126,12 @@ export default function ClimbingStats() {
           </div>
 
           {/* Progression per grade */}
-          {topGrades.length > 0 && monthsInPeriod.length > 1 && (
+          {topGrades.length > 0 && weeksInPeriod.length > 1 && (
             <div>
               <h3 className="text-sm font-semibold mb-3">Progression Over Time</h3>
-              <ResponsiveContainer width="100%" height={220}>
-                <LineChart data={progressionData} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
-                  <XAxis dataKey="month" tick={{ fontSize: 10 }} />
+              <ResponsiveContainer width="100%" height={260}>
+                <LineChart data={progressionData} margin={{ top: 0, right: 0, left: -20, bottom: 20 }}>
+                  <XAxis dataKey="week" tick={{ fontSize: 10 }} interval={0} angle={-45} textAnchor="end" height={50} />
                   <YAxis allowDecimals={false} tick={{ fontSize: 11 }} />
                   <Tooltip />
                   <Legend wrapperStyle={{ fontSize: 11 }} />
