@@ -291,6 +291,10 @@ and cached in a new `focus_summaries` table.
   own summary for the active tab.
 - Both the cron job and the DB triggers authenticate to the function the same way
   `send-due-notifications` does — via the `cron_secret` already stored in Supabase Vault.
+- The daily refresh and the triggered refresh are gated by two independent toggles in
+  Settings — `auto_generate_focus_summaries_daily` (checked by the edge function before the cron
+  sweep) and `auto_generate_focus_summaries_on_change` (checked by the `notify_focus_refresh`
+  trigger function) — so you can disable one without the other.
 
 **This was already set up for you (via MCPs), no action needed:**
 - The `focus_summaries` table (RLS: read-only for the owning user; all writes go through the edge
@@ -657,7 +661,7 @@ Storage objects are scoped to `(storage.foldername(name))[1] = auth.uid()::text`
 | Calendar | `/calendar` | Upcoming events only (past hidden), plus a Month view. Merges local events with real Google Calendar events from every connected account, each color-coded by account (see step 1k); Calendar's per-account sync runs via the `fetch-google-calendar` Edge Function, not a Vercel function |
 | Files | `/files` | Folder-based file storage. Also lets you recursively sync Google Drive folders (and all their subfolders/files) via a folder-tree picker — synced folders appear alongside local ones (badged "Google"); files are downloaded and stored in Supabase Storage, so they're viewable/downloadable exactly like local files, not links to Drive. Proxied server-side through `/api/google-drive-browse`, `/api/google-drive-folders`, and `/api/google-drive-sync` so tokens never reach the browser |
 | Finance | `/finance` | USD/EUR/NIS converter (free, no-key [currency-api](https://github.com/fawazahmed0/currency-api)) + TENB stock quote, proxied server-side through `/api/stock-quote` (Finnhub, needs `FINNHUB_API_KEY`) so the key never reaches the browser |
-| Settings | `/settings` | Enable/disable push notifications for habits, reminders, and todos (see step 1g); manage connected Google accounts for Calendar (see step 1k) |
+| Settings | `/settings` | Enable/disable push notifications for habits, reminders, and todos (see step 1g); manage connected Google accounts for Calendar (see step 1k); independently toggle the Focus section's daily and on-change auto-refresh (see step 1h) |
 
 ---
 
