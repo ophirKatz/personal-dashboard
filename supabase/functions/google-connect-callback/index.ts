@@ -24,7 +24,10 @@ Deno.serve(async (req: Request) => {
   const state = url.searchParams.get('state')
   const oauthError = url.searchParams.get('error')
 
-  if (oauthError) return redirectTo(appUrl, 'denied')
+  if (oauthError) {
+    console.log(`google-connect-callback: denied, oauth error=${oauthError}`)
+    return redirectTo(appUrl, 'denied')
+  }
   if (!code || !state) return new Response('Missing code or state.', { status: 400 })
 
   // Service role: this request is a plain redirect from Google, so there's
@@ -39,7 +42,11 @@ Deno.serve(async (req: Request) => {
     .maybeSingle()
 
   const isExpired = !stateRow || Date.now() - new Date(stateRow.created_at).getTime() > STATE_TTL_MS
-  if (!stateRow || isExpired) return redirectTo(appUrl, 'expired')
+  if (!stateRow || isExpired) {
+    const ageMs = stateRow ? Date.now() - new Date(stateRow.created_at).getTime() : null
+    console.log(`google-connect-callback: expired, stateFound=${!!stateRow}, ageMs=${ageMs}`)
+    return redirectTo(appUrl, 'expired')
+  }
 
   // Must exactly match the redirect_uri used in google-connect-start and the
   // one registered in Google Cloud Console.
@@ -58,10 +65,14 @@ Deno.serve(async (req: Request) => {
         grant_type: 'authorization_code',
       }),
     })
-  } catch {
+  } catch (err) {
+    console.error(`google-connect-callback: token exchange request failed: ${err}`)
     return redirectTo(appUrl, 'error')
   }
-  if (!tokenRes.ok) return redirectTo(appUrl, 'error')
+  if (!tokenRes.ok) {
+    console.error(`google-connect-callback: token exchange returned ${tokenRes.status}: ${await tokenRes.text()}`)
+    return redirectTo(appUrl, 'error')
+  }
 
   const tokens: { refresh_token?: string; access_token?: string; expires_in?: number } = await tokenRes.json()
   if (!tokens.refresh_token) {
@@ -69,13 +80,20 @@ Deno.serve(async (req: Request) => {
     // Asking for prompt=consent on every connect attempt should prevent this,
     // but if it still happens, the user needs to revoke access in their
     // Google Account settings first, then reconnect.
+    console.log(`google-connect-callback: no_refresh_token for user_id=${stateRow.user_id}`)
     return redirectTo(appUrl, 'no_refresh_token')
   }
 
   const userinfoRes = await fetch(USERINFO_URL, { headers: { Authorization: `Bearer ${tokens.access_token}` } })
-  if (!userinfoRes.ok) return redirectTo(appUrl, 'error')
+  if (!userinfoRes.ok) {
+    console.error(`google-connect-callback: userinfo fetch returned ${userinfoRes.status}: ${await userinfoRes.text()}`)
+    return redirectTo(appUrl, 'error')
+  }
   const userinfo: { email?: string } = await userinfoRes.json()
-  if (!userinfo.email) return redirectTo(appUrl, 'error')
+  if (!userinfo.email) {
+    console.error('google-connect-callback: userinfo response had no email')
+    return redirectTo(appUrl, 'error')
+  }
 
   const { data: existing } = await supabase
     .from('google_accounts')
@@ -106,5 +124,6 @@ Deno.serve(async (req: Request) => {
     { onConflict: 'user_id,email' },
   )
 
+  console.log(`google-connect-callback: success for user_id=${stateRow.user_id}, email=${userinfo.email}`)
   return redirectTo(appUrl, 'success')
 })

@@ -39,6 +39,7 @@ export default function Settings() {
   const [googleAccountsLoading, setGoogleAccountsLoading] = useState(true)
   const [connecting, setConnecting] = useState(false)
   const [disconnectingId, setDisconnectingId] = useState<string | null>(null)
+  const [connectMessage, setConnectMessage] = useState<string | null>(null)
   const connectStatus = searchParams.get('google_connect')
 
   useEffect(() => {
@@ -51,6 +52,7 @@ export default function Settings() {
   useEffect(() => {
     if (!connectStatus) return
     setConnecting(false)
+    setConnectMessage(connectStatus)
     const next = new URLSearchParams(searchParams)
     next.delete('google_connect')
     setSearchParams(next, { replace: true })
@@ -69,6 +71,7 @@ export default function Settings() {
 
   async function handleConnectGoogleAccount() {
     setConnecting(true)
+    setConnectMessage(null)
     haptic('selection')
     const redirected = await connectGoogleAccount()
     if (!redirected) setConnecting(false)
@@ -200,9 +203,9 @@ export default function Settings() {
           Calendar events from every connected account are shown together, color-coded by account.
         </p>
 
-        {connectStatus && (
-          <p className={`text-sm mb-3 ${connectStatus === 'success' ? 'text-primary' : 'text-destructive'}`}>
-            {GOOGLE_CONNECT_MESSAGES[connectStatus] ?? GOOGLE_CONNECT_MESSAGES.error}
+        {connectMessage && (
+          <p className={`text-sm mb-3 ${connectMessage === 'success' ? 'text-primary' : 'text-destructive'}`}>
+            {GOOGLE_CONNECT_MESSAGES[connectMessage] ?? GOOGLE_CONNECT_MESSAGES.error}
           </p>
         )}
 
