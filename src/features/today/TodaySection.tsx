@@ -3,6 +3,7 @@ import { CheckCircle2, ChevronRight, Clock } from 'lucide-react'
 import type { Habit, HabitLog, Todo } from '../../supabase'
 import { formatTime } from '../../utils'
 import WeatherWidget from '../weather/WeatherWidget'
+import { celebrateFromElement } from '../../lib/confetti'
 
 export type TodayEvent = {
   id: string
@@ -48,7 +49,10 @@ export default function TodaySection({ habits, todayLogs, onToggleHabit, todos, 
               return (
                 <button
                   key={habit.id}
-                  onClick={() => onToggleHabit(habit)}
+                  onClick={e => {
+                    if (!done) celebrateFromElement(e.currentTarget)
+                    onToggleHabit(habit)
+                  }}
                   className="flex flex-col items-center gap-1 shrink-0 relative"
                 >
                   <div
