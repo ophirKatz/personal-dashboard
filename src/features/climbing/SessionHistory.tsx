@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react'
-import { ChevronDown, ChevronUp } from 'lucide-react'
+import { ChevronDown, ChevronUp, Pencil, Trash2 } from 'lucide-react'
 import { supabase } from '../../supabase'
 import type { ClimbingSession, ClimbingAttempt } from '../../supabase'
 import { formatDate } from '../../utils'
+import { haptic } from '../../lib/haptics'
+import EditSessionDrawer from './EditSessionDrawer'
 
 type SessionWithAttempts = ClimbingSession & { attempts: ClimbingAttempt[] }
 
@@ -10,30 +12,30 @@ export default function SessionHistory() {
   const [sessions, setSessions] = useState<SessionWithAttempts[]>([])
   const [loading, setLoading] = useState(true)
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
+  const [editingSession, setEditingSession] = useState<SessionWithAttempts | null>(null)
 
-  useEffect(() => {
-    async function load() {
-      const { data: sessionsData } = await supabase
-        .from('climbing_sessions')
-        .select('*')
-        .order('session_date', { ascending: false })
-        .limit(50)
+  async function load() {
+    const { data: sessionsData } = await supabase
+      .from('climbing_sessions')
+      .select('*')
+      .order('session_date', { ascending: false })
+      .limit(50)
 
-      if (!sessionsData?.length) { setLoading(false); return }
+    if (!sessionsData?.length) { setSessions([]); setLoading(false); return }
 
-      const { data: attemptsData } = await supabase
-        .from('climbing_attempts')
-        .select('*')
-        .in('session_id', sessionsData.map(s => s.id))
+    const { data: attemptsData } = await supabase
+      .from('climbing_attempts')
+      .select('*')
+      .in('session_id', sessionsData.map(s => s.id))
 
-      setSessions(sessionsData.map(s => ({
-        ...s,
-        attempts: (attemptsData ?? []).filter(a => a.session_id === s.id),
-      })))
-      setLoading(false)
-    }
-    load()
-  }, [])
+    setSessions(sessionsData.map(s => ({
+      ...s,
+      attempts: (attemptsData ?? []).filter(a => a.session_id === s.id),
+    })))
+    setLoading(false)
+  }
+
+  useEffect(() => { load() }, [])
 
   function toggleExpand(id: string) {
     setExpanded(prev => {
@@ -41,6 +43,13 @@ export default function SessionHistory() {
       next.has(id) ? next.delete(id) : next.add(id)
       return next
     })
+  }
+
+  async function deleteSession(session: SessionWithAttempts) {
+    if (!confirm('Delete this session and all its attempts?')) return
+    haptic('warning')
+    await supabase.from('climbing_sessions').delete().eq('id', session.id)
+    load()
   }
 
   if (loading) return <div className="flex justify-center py-12"><div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" /></div>
@@ -66,11 +75,11 @@ export default function SessionHistory() {
 
         return (
           <div key={session.id} className="bg-card border border-border rounded-xl overflow-hidden">
-            <button
-              className="w-full flex items-center gap-3 p-4 text-left"
-              onClick={() => toggleExpand(session.id)}
-            >
-              <div className="flex-1">
+            <div className="w-full flex items-center gap-3 p-4">
+              <button
+                className="flex-1 text-left"
+                onClick={() => toggleExpand(session.id)}
+              >
                 <div className="font-medium">{formatDate(session.session_date)}</div>
                 <div className="text-sm text-muted-foreground mt-0.5">
                   {session.attempts.length} attempts · {sends.length} sent · {projects.length} project
@@ -85,9 +94,19 @@ export default function SessionHistory() {
                   </div>
                 )}
                 {session.notes && <p className="text-xs text-muted-foreground mt-1 italic">"{session.notes}"</p>}
+              </button>
+              <div className="flex items-center gap-1 shrink-0">
+                <button onClick={() => setEditingSession(session)} className="p-1.5 rounded-lg hover:bg-accent text-muted-foreground">
+                  <Pencil className="h-4 w-4" />
+                </button>
+                <button onClick={() => deleteSession(session)} className="p-1.5 rounded-lg hover:bg-accent text-muted-foreground hover:text-destructive">
+                  <Trash2 className="h-4 w-4" />
+                </button>
+                <button onClick={() => toggleExpand(session.id)} className="p-1.5 text-muted-foreground">
+                  {isOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                </button>
               </div>
-              {isOpen ? <ChevronUp className="h-4 w-4 text-muted-foreground shrink-0" /> : <ChevronDown className="h-4 w-4 text-muted-foreground shrink-0" />}
-            </button>
+            </div>
             {isOpen && (
               <div className="border-t border-border px-4 pb-4 pt-3 space-y-1.5">
                 {session.attempts.map(a => (
@@ -103,6 +122,15 @@ export default function SessionHistory() {
           </div>
         )
       })}
+
+      {editingSession && (
+        <EditSessionDrawer
+          open
+          onClose={() => setEditingSession(null)}
+          onSaved={load}
+          session={editingSession}
+        />
+      )}
     </div>
   )
 }
