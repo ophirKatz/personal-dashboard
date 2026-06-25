@@ -29,7 +29,7 @@ async function getAutoGenerateEnabledUserIds(supabase: SupabaseClient): Promise<
   const { data: disabledRows } = await supabase
     .from('user_settings')
     .select('user_id')
-    .eq('auto_generate_focus_summaries', false)
+    .eq('auto_generate_focus_summaries_daily', false)
   const disabled = new Set((disabledRows ?? []).map(row => (row as { user_id: string }).user_id))
 
   return [...ids].filter(id => !disabled.has(id))

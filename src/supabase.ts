@@ -135,7 +135,8 @@ export type GoogleDriveFolder = {
 
 export type UserSettings = {
   user_id: string
-  auto_generate_focus_summaries: boolean
+  auto_generate_focus_summaries_daily: boolean
+  auto_generate_focus_summaries_on_change: boolean
   updated_at: string
 }
 

@@ -5,7 +5,12 @@ import { supabase } from '../supabase'
 import { Button } from '../components/ui/button'
 import { haptic } from '../lib/haptics'
 import { isPushSupported, getPushSubscription, enablePushNotifications, disablePushNotifications } from '../lib/push'
-import { getAutoGenerateFocusSummaries, setAutoGenerateFocusSummaries } from '../lib/userSettings'
+import {
+  getAutoGenerateFocusSummariesDaily,
+  setAutoGenerateFocusSummariesDaily,
+  getAutoGenerateFocusSummariesOnChange,
+  setAutoGenerateFocusSummariesOnChange,
+} from '../lib/userSettings'
 import { listGoogleAccounts, connectGoogleAccount, disconnectGoogleAccount, type GoogleAccount } from '../lib/googleAccounts'
 import VoiceShortcutsSection from '../features/voice/VoiceShortcutsSection'
 
@@ -77,9 +82,13 @@ export default function Settings() {
     setDisconnectingId(null)
   }
 
-  const [autoGenerateFocus, setAutoGenerateFocus] = useState(true)
-  const [focusLoading, setFocusLoading] = useState(true)
-  const [focusBusy, setFocusBusy] = useState(false)
+  const [autoGenerateFocusDaily, setAutoGenerateFocusDaily] = useState(true)
+  const [focusDailyLoading, setFocusDailyLoading] = useState(true)
+  const [focusDailyBusy, setFocusDailyBusy] = useState(false)
+
+  const [autoGenerateFocusOnChange, setAutoGenerateFocusOnChange] = useState(true)
+  const [focusOnChangeLoading, setFocusOnChangeLoading] = useState(true)
+  const [focusOnChangeBusy, setFocusOnChangeBusy] = useState(false)
 
   useEffect(() => {
     if (!isPushSupported()) {
@@ -94,19 +103,32 @@ export default function Settings() {
   }, [])
 
   useEffect(() => {
-    getAutoGenerateFocusSummaries().then(enabled => {
-      setAutoGenerateFocus(enabled)
-      setFocusLoading(false)
+    getAutoGenerateFocusSummariesDaily().then(enabled => {
+      setAutoGenerateFocusDaily(enabled)
+      setFocusDailyLoading(false)
+    })
+    getAutoGenerateFocusSummariesOnChange().then(enabled => {
+      setAutoGenerateFocusOnChange(enabled)
+      setFocusOnChangeLoading(false)
     })
   }, [])
 
-  async function toggleAutoGenerateFocus() {
-    setFocusBusy(true)
+  async function toggleAutoGenerateFocusDaily() {
+    setFocusDailyBusy(true)
     haptic('selection')
-    const next = !autoGenerateFocus
-    await setAutoGenerateFocusSummaries(next)
-    setAutoGenerateFocus(next)
-    setFocusBusy(false)
+    const next = !autoGenerateFocusDaily
+    await setAutoGenerateFocusSummariesDaily(next)
+    setAutoGenerateFocusDaily(next)
+    setFocusDailyBusy(false)
+  }
+
+  async function toggleAutoGenerateFocusOnChange() {
+    setFocusOnChangeBusy(true)
+    haptic('selection')
+    const next = !autoGenerateFocusOnChange
+    await setAutoGenerateFocusSummariesOnChange(next)
+    setAutoGenerateFocusOnChange(next)
+    setFocusOnChangeBusy(false)
   }
 
   async function toggle() {
@@ -221,20 +243,45 @@ export default function Settings() {
             <Sparkles className="h-5 w-5 text-muted-foreground" />
           </div>
           <div className="flex-1 min-w-0">
-            <p className="font-medium">Auto-generate focus summaries</p>
+            <p className="font-medium">Daily focus refresh</p>
             <p className="text-sm text-muted-foreground">
-              Automatically refresh the Focus section's AI summary when todos or events change, and
-              once daily. Turn off to save API usage — you can still refresh it manually anytime.
+              Automatically refresh the Focus section's AI summary once daily. Turn off to save API
+              usage — you can still refresh it manually anytime.
             </p>
           </div>
-          {!focusLoading && (
+          {!focusDailyLoading && (
             <button
               type="button"
-              onClick={toggleAutoGenerateFocus}
-              disabled={focusBusy}
-              className={`relative w-11 h-6 rounded-full transition-colors shrink-0 ${autoGenerateFocus ? 'bg-primary' : 'bg-muted'}`}
+              onClick={toggleAutoGenerateFocusDaily}
+              disabled={focusDailyBusy}
+              className={`relative w-11 h-6 rounded-full transition-colors shrink-0 ${autoGenerateFocusDaily ? 'bg-primary' : 'bg-muted'}`}
             >
-              <span className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${autoGenerateFocus ? 'translate-x-5' : ''}`} />
+              <span className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${autoGenerateFocusDaily ? 'translate-x-5' : ''}`} />
+            </button>
+          )}
+        </div>
+      </div>
+
+      <div className="bg-card border border-border rounded-2xl p-4 mt-4">
+        <div className="flex items-center gap-3">
+          <div className="p-2.5 rounded-xl bg-muted">
+            <Sparkles className="h-5 w-5 text-muted-foreground" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="font-medium">Refresh on todo/event changes</p>
+            <p className="text-sm text-muted-foreground">
+              Automatically refresh the Focus section's AI summary when todos or events change. Turn
+              off to save API usage — you can still refresh it manually anytime.
+            </p>
+          </div>
+          {!focusOnChangeLoading && (
+            <button
+              type="button"
+              onClick={toggleAutoGenerateFocusOnChange}
+              disabled={focusOnChangeBusy}
+              className={`relative w-11 h-6 rounded-full transition-colors shrink-0 ${autoGenerateFocusOnChange ? 'bg-primary' : 'bg-muted'}`}
+            >
+              <span className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${autoGenerateFocusOnChange ? 'translate-x-5' : ''}`} />
             </button>
           )}
         </div>

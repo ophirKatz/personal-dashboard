@@ -3,7 +3,7 @@ import { RefreshCw, Sparkles } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import { supabase } from '../../supabase'
 import type { FocusSummary } from '../../supabase'
-import { getAutoGenerateFocusSummaries } from '../../lib/userSettings'
+import { getAutoGenerateFocusSummariesOnChange } from '../../lib/userSettings'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '../../components/ui/tabs'
 
 type Period = 'today' | 'week'
@@ -27,7 +27,7 @@ export default function FocusSection() {
 
   useEffect(() => {
     load()
-    getAutoGenerateFocusSummaries().then(setAutoGenerate)
+    getAutoGenerateFocusSummariesOnChange().then(setAutoGenerate)
   }, [])
 
   async function refresh(period: Period) {
