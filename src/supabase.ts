@@ -17,6 +17,8 @@ export type Habit = {
   reminder_time: string | null
   last_notified_date: string | null
   created_at: string
+  debt: number
+  debt_checked_date: string | null
 }
 
 export type HabitLog = {
@@ -25,6 +27,7 @@ export type HabitLog = {
   user_id: string
   logged_date: string
   created_at: string
+  paid_debt: boolean
 }
 
 export type Todo = {
@@ -43,6 +46,7 @@ export type Todo = {
   notified_at: string | null
   source: 'local' | 'google'
   google_task_id: string | null
+  source_event_id: string | null
 }
 
 export type Reminder = {

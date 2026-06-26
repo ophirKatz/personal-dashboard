@@ -51,15 +51,26 @@ export default function Dashboard() {
   }, [])
 
   async function toggleHabit(habit: Habit) {
-    const logged = todayLogs.some(l => l.habit_id === habit.id)
-    if (logged) {
+    const log = todayLogs.find(l => l.habit_id === habit.id)
+    if (log) {
       await supabase.from('habit_logs').delete().eq('habit_id', habit.id).eq('logged_date', today())
+      if (log.paid_debt) {
+        await supabase.from('habits').update({ debt: habit.debt + 1 }).eq('id', habit.id)
+      }
     } else {
+      const paidDebt = habit.debt > 0
       const { data: { user } } = await supabase.auth.getUser()
-      await supabase.from('habit_logs').insert({ habit_id: habit.id, user_id: user!.id, logged_date: today() })
+      await supabase.from('habit_logs').insert({ habit_id: habit.id, user_id: user!.id, logged_date: today(), paid_debt: paidDebt })
+      if (paidDebt) {
+        await supabase.from('habits').update({ debt: habit.debt - 1 }).eq('id', habit.id)
+      }
     }
-    const { data } = await supabase.from('habit_logs').select('*').eq('logged_date', today())
-    setTodayLogs(data ?? [])
+    const [{ data: logsData }, { data: habitsData }] = await Promise.all([
+      supabase.from('habit_logs').select('*').eq('logged_date', today()),
+      supabase.from('habits').select('*').order('created_at'),
+    ])
+    setTodayLogs(logsData ?? [])
+    setHabits(habitsData ?? [])
   }
 
   async function dismissNotification(id: string) {

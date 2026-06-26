@@ -48,18 +48,27 @@ export default function HabitCard({ habit, logs, onEdit, onDelete, onLogChange }
     haptic(todayLogged ? 'light' : 'success')
     if (!todayLogged) celebrateFromElement(e.currentTarget)
     if (todayLogged) {
+      const log = logs.find(l => l.logged_date === today())
       await supabase
         .from('habit_logs')
         .delete()
         .eq('habit_id', habit.id)
         .eq('logged_date', today())
+      if (log?.paid_debt) {
+        await supabase.from('habits').update({ debt: habit.debt + 1 }).eq('id', habit.id)
+      }
     } else {
+      const paidDebt = habit.debt > 0
       const { data: { user } } = await supabase.auth.getUser()
       await supabase.from('habit_logs').insert({
         habit_id: habit.id,
         user_id: user!.id,
         logged_date: today(),
+        paid_debt: paidDebt,
       })
+      if (paidDebt) {
+        await supabase.from('habits').update({ debt: habit.debt - 1 }).eq('id', habit.id)
+      }
     }
     onLogChange()
   }
@@ -94,6 +103,12 @@ export default function HabitCard({ habit, logs, onEdit, onDelete, onLogChange }
                 <span className="mx-1">·</span>
                 <Bell className="h-3.5 w-3.5" />
                 <span>{formatTime(utcTimeToLocalTime(habit.reminder_time.slice(0, 5)))}</span>
+              </>
+            )}
+            {habit.debt > 0 && (
+              <>
+                <span className="mx-1">·</span>
+                <span className="text-destructive font-medium">{habit.debt} owed</span>
               </>
             )}
           </div>

@@ -537,6 +537,49 @@ it in Settings) stops syncing its events and deletes its previously synced event
 
 ---
 
+## 1l. Climbing-session auto-tasks and habit debt tracking
+
+Two small quality-of-life additions, both fully server-side — no new secrets, no manual steps.
+
+**Climbing-session auto-tasks:** every time the calendar sync runs and finds an event whose title
+contains "אימון" or "טיפוס" (Hebrew for "training"/"climbing"), it creates a "Log a climb" task due
+15 minutes after that event ends, with a push reminder enabled for that time. This runs inside the
+existing `fetch-google-calendar` Edge Function, right after it upserts the synced events, so it
+needs no separate cron job. Each task is deduped against the calendar event via the new
+`todos.source_event_id` column, so re-syncing the same event (it runs every 15 minutes) never
+creates duplicate tasks. If the event has no end time (an all-day entry), the task is just due on
+the event's end date with no specific time and no reminder.
+
+**Habit debt:** daily habits now accrue "debt" — one point for every calendar day (Asia/Jerusalem)
+they're not logged. Debt is shown next to the habit (Habits page) and as a running total on the
+Dashboard's Today card. Marking a habit complete pays down debt 1-for-1 (un-marking it the same day
+restores the debt it paid, so toggling doesn't let you grind the counter down for free); debt does
+not reset completion requirements, it's purely informational — e.g. missing a push-up day once just
+shows "1 owed" next to the habit, it doesn't change what counts as "done" today.
+- A new `accrue-habit-debt` Edge Function checks, for every daily habit, whether yesterday
+  (Asia/Jerusalem calendar date) has a `habit_logs` row; if not, it increments that habit's `debt`
+  by 1. It records the date it last checked in `habits.debt_checked_date` so re-running it for the
+  same day is a no-op (idempotent), matching the pattern used elsewhere in this codebase
+  (`habits.last_notified_date`).
+- **Daily 7am check:** a `pg_cron` job (`accrue-habit-debt-daily`) calls the function every day at
+  4am UTC — same ≈7am Asia/Jerusalem during daylight saving / ≈6am in winter caveat as the Focus
+  summaries cron in step 1h, since `pg_cron` has no timezone-aware scheduling.
+- The cron job authenticates the same way every other cron-triggered function in this app does —
+  via the `cron_secret` already stored in Supabase Vault. No new secret was needed.
+
+**This was already set up for you (via MCPs), no action needed:**
+- `habits.debt` (integer, defaults to 0) and `habits.debt_checked_date` (date, nullable)
+- `habit_logs.paid_debt` (boolean) — tracks whether a given day's log paid down debt, so un-marking
+  it can correctly restore that debt
+- `todos.source_event_id` (text, nullable) — links an auto-created "Log a climb" task back to the
+  calendar event that spawned it
+- The `accrue-habit-debt` Edge Function, deployed at
+  `https://tjjvrqamitwtoslinrxy.supabase.co/functions/v1/accrue-habit-debt`
+- The `accrue-habit-debt-daily` cron job
+- The updated `fetch-google-calendar` Edge Function (climbing-session task creation)
+
+---
+
 ## 2. Vercel — Environment Variables
 
 As part of the import in step 0 (or right after), set these environment variables in the Vercel dashboard:
@@ -606,9 +649,9 @@ The `vercel.json` in this repo configures SPA routing (all paths → `index.html
 
 | Table | Description |
 |---|---|
-| `habits` | Habit definitions (name, emoji, color, frequency, optional `reminder_time`/`reminder_enabled` for push reminders) |
-| `habit_logs` | Daily check-offs per habit |
-| `todos` | Tasks with priority, due date, notes, optional `reminder_enabled`/`remind_at` for push reminders; `notified_at` tracks whether a push was already sent. `source` distinguishes local tasks from synced Google Tasks; Google rows carry `google_task_id` and get their `due_date` synced from Google on every `/api/google-tasks` fetch, which is what lets push notifications and due-date-aware features see them |
+| `habits` | Habit definitions (name, emoji, color, frequency, optional `reminder_time`/`reminder_enabled` for push reminders). `debt` tracks accumulated missed days for daily habits (see step 1l); `debt_checked_date` is the idempotency marker for the daily `accrue-habit-debt` cron |
+| `habit_logs` | Daily check-offs per habit. `paid_debt` marks whether that day's check-off paid down the habit's debt counter (see step 1l), so un-marking it can restore the debt correctly |
+| `todos` | Tasks with priority, due date, notes, optional `reminder_enabled`/`remind_at` for push reminders; `notified_at` tracks whether a push was already sent. `source` distinguishes local tasks from synced Google Tasks; Google rows carry `google_task_id` and get their `due_date` synced from Google on every `/api/google-tasks` fetch, which is what lets push notifications and due-date-aware features see them. `source_event_id` links an auto-created "Log a climb" task back to the calendar event that spawned it (see step 1l) |
 | `reminders` | Time-based reminders with optional repeat; `notified_at` tracks whether a push was already sent for the current `remind_at` |
 | `climbing_sessions` | Bouldering session records |
 | `climbing_attempts` | Individual attempts within a session |
@@ -653,7 +696,7 @@ Storage objects are scoped to `(storage.foldername(name))[1] = auth.uid()::text`
 | Module | Route | Notes |
 |---|---|---|
 | Dashboard | `/` | Today's habits, tasks, reminders, and an AI-generated Focus section (Today / This Week tabs) summarizing relevant todos and calendar events, cached and refreshed daily at 7am, on relevant todo/event changes, and via a manual refresh icon (see step 1h) |
-| Habits | `/habits` | Create/edit/delete, heatmap, streak, optional daily push reminder at a chosen time |
+| Habits | `/habits` | Create/edit/delete, heatmap, streak, optional daily push reminder at a chosen time. Daily habits accrue "debt" for missed days, shown next to the habit and paid down 1-for-1 when completed (see step 1l) |
 | Todos | `/todos` | Filters: Today / Upcoming / All / Done. Merges local tasks with your Google Tasks "My Tasks" list (badged "Google"). Checking the box syncs completion back to Google, proxied server-side through `/api/google-tasks` so tokens never reach the browser. Create/edit/delete stays local-only. Local tasks with a due date can toggle **Remind me** for a push notification at the due date/time. Google Tasks get their due date synced into the database on every fetch and automatically send a push notification on their due date (no toggle needed, since Google Tasks have no time-of-day) |
 | Reminders | `/reminders` | Overdue highlighted, dismiss advances repeat, sends a push notification when due |
 | Climbing | `/climbing` | Log / History / Stats tabs |
