@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { supabase } from '../../supabase'
 import type { ShoppingItem } from '../../supabase'
 import { Button } from '../../components/ui/button'
@@ -17,6 +17,7 @@ type Props = {
 export default function ShoppingItemDrawer({ open, onClose, onSave, item, userId }: Props) {
   const [name, setName] = useState(item?.name ?? '')
   const [saving, setSaving] = useState(false)
+  const inputRef = useRef<HTMLInputElement>(null)
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -30,7 +31,12 @@ export default function ShoppingItemDrawer({ open, onClose, onSave, item, userId
     haptic('success')
     setSaving(false)
     onSave()
-    onClose()
+    if (item) {
+      onClose()
+    } else {
+      setName('')
+      inputRef.current?.focus()
+    }
   }
 
   return (
@@ -42,6 +48,7 @@ export default function ShoppingItemDrawer({ open, onClose, onSave, item, userId
         <form onSubmit={handleSubmit}>
           <DrawerBody className="space-y-4">
             <Input
+              ref={inputRef}
               value={name}
               onChange={e => setName(e.target.value)}
               placeholder="What do you need?"
