@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react'
-import { ChevronDown, ChevronUp, Pencil, Trash2 } from 'lucide-react'
+import { ChevronDown, ChevronUp, Pencil, Share2, Trash2 } from 'lucide-react'
 import { supabase } from '../../supabase'
 import type { ClimbingSession, ClimbingAttempt } from '../../supabase'
 import { formatDate } from '../../utils'
 import { haptic } from '../../lib/haptics'
 import EditSessionDrawer from './EditSessionDrawer'
+import { shareSessionToWhatsApp } from './shareSession'
 
 type SessionWithAttempts = ClimbingSession & { attempts: ClimbingAttempt[] }
 
@@ -96,6 +97,13 @@ export default function SessionHistory() {
                 {session.notes && <p className="text-xs text-muted-foreground mt-1 italic">"{session.notes}"</p>}
               </button>
               <div className="flex items-center gap-1 shrink-0">
+                <button
+                  onClick={() => { haptic('selection'); shareSessionToWhatsApp(session) }}
+                  className="p-1.5 rounded-lg hover:bg-accent text-muted-foreground"
+                  aria-label="Share to WhatsApp"
+                >
+                  <Share2 className="h-4 w-4" />
+                </button>
                 <button onClick={() => setEditingSession(session)} className="p-1.5 rounded-lg hover:bg-accent text-muted-foreground">
                   <Pencil className="h-4 w-4" />
                 </button>
