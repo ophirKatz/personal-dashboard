@@ -29,6 +29,7 @@ const PRIORITY_DOT = {
 
 export default function TodaySection({ habits, todayLogs, onToggleHabit, todos, onCompleteTodo, events }: Props) {
   const doneCount = habits.filter(h => todayLogs.some(l => l.habit_id === h.id)).length
+  const totalDebt = habits.reduce((sum, h) => sum + h.debt, 0)
 
   return (
     <div className="bg-card border border-border rounded-xl p-3.5 space-y-4">
@@ -41,7 +42,10 @@ export default function TodaySection({ habits, todayLogs, onToggleHabit, todos, 
         <div className="space-y-2">
           <div className="flex items-center justify-between">
             <span className="text-xs font-medium text-muted-foreground">Habits</span>
-            <span className="text-xs text-muted-foreground">{doneCount}/{habits.length}</span>
+            <div className="flex items-center gap-2">
+              {totalDebt > 0 && <span className="text-xs font-medium text-destructive">{totalDebt} owed</span>}
+              <span className="text-xs text-muted-foreground">{doneCount}/{habits.length}</span>
+            </div>
           </div>
           <div className="flex gap-3 overflow-x-auto pb-1 -mx-1 px-1">
             {habits.map(habit => {
@@ -63,6 +67,11 @@ export default function TodaySection({ habits, todayLogs, onToggleHabit, todos, 
                   </div>
                   {done && (
                     <CheckCircle2 className="h-3.5 w-3.5 text-primary absolute -top-1 -right-1 bg-background rounded-full" />
+                  )}
+                  {habit.debt > 0 && (
+                    <span className="h-4 min-w-4 px-0.5 rounded-full bg-destructive text-destructive-foreground text-[9px] font-bold absolute -top-1 -left-1 flex items-center justify-center">
+                      {habit.debt}
+                    </span>
                   )}
                   <span className="text-[10px] text-muted-foreground max-w-[48px] truncate">{habit.name}</span>
                 </button>

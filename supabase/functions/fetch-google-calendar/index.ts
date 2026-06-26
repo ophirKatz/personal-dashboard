@@ -18,6 +18,42 @@ type GoogleEventItem = {
   end: { date?: string; dateTime?: string }
 }
 
+// Calendar event titles that mark a climbing session — Hebrew for "training" and "climbing".
+const CLIMBING_TITLE_KEYWORDS = ['אימון', 'טיפוס']
+
+function isClimbingSessionTitle(title: string): boolean {
+  return CLIMBING_TITLE_KEYWORDS.some(keyword => title.includes(keyword))
+}
+
+// Event end times are plain wall-clock strings (no offset) in the calendar's own
+// timezone, which for this single-user app is always Asia/Jerusalem — same
+// assumption the rest of the app makes (due_date/due_time are parsed as local time).
+function addMinutesToWallClock(dateStr: string, timeStr: string, minutes: number): { date: string; time: string } {
+  const d = new Date(`${dateStr}T${timeStr}Z`)
+  d.setUTCMinutes(d.getUTCMinutes() + minutes)
+  return { date: d.toISOString().slice(0, 10), time: d.toISOString().slice(11, 19) }
+}
+
+// Converts an Asia/Jerusalem wall-clock date+time into the actual UTC instant,
+// without assuming a fixed offset (so it's correct across DST transitions).
+function jerusalemWallClockToUtcIso(dateStr: string, timeStr: string): string {
+  const guess = new Date(`${dateStr}T${timeStr}Z`)
+  const fmt = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'Asia/Jerusalem',
+    hour12: false,
+    year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', second: '2-digit',
+  })
+  const parts: Record<string, string> = {}
+  for (const p of fmt.formatToParts(guess)) parts[p.type] = p.value
+  const wallClockOfGuessAsUtc = Date.UTC(
+    Number(parts.year), Number(parts.month) - 1, Number(parts.day),
+    Number(parts.hour) === 24 ? 0 : Number(parts.hour), Number(parts.minute), Number(parts.second),
+  )
+  const offsetMs = wallClockOfGuessAsUtc - guess.getTime()
+  return new Date(guess.getTime() - offsetMs).toISOString()
+}
+
 async function getAllAccounts(supabase: SupabaseClient): Promise<AccountRow[]> {
   const { data } = await supabase.from('google_accounts').select('id, user_id, refresh_token, access_token, access_token_expires_at')
   return (data ?? []) as AccountRow[]
@@ -115,6 +151,63 @@ async function syncCalendarForAccount(supabase: SupabaseClient, account: Account
   const staleIds = [...existingIds].filter(id => !currentIds.has(id))
   if (staleIds.length > 0) {
     await supabase.from('events').delete().eq('user_id', account.user_id).eq('google_account_id', account.id).in('google_event_id', staleIds)
+  }
+
+  await createClimbingLogTasks(supabase, account.user_id, events)
+}
+
+// Every climbing session synced from the calendar gets a matching "Log a climb"
+// task, due 15 minutes after the session ends, so logging the climb is never
+// forgotten. Deduped per event via todos.source_event_id since this sync runs
+// on a recurring schedule.
+async function createClimbingLogTasks(
+  supabase: SupabaseClient,
+  userId: string,
+  events: { id: string; title: string; eventDate: string; eventEndDate: string | null; eventEndTime: string | null }[],
+) {
+  const climbingEvents = events.filter(e => isClimbingSessionTitle(e.title))
+  if (climbingEvents.length === 0) return
+
+  const { data: existingTasks } = await supabase
+    .from('todos')
+    .select('source_event_id')
+    .eq('user_id', userId)
+    .in('source_event_id', climbingEvents.map(e => e.id))
+  const alreadyCreated = new Set((existingTasks ?? []).map(t => t.source_event_id as string))
+
+  const newTasks = climbingEvents
+    .filter(e => !alreadyCreated.has(e.id))
+    .map(e => {
+      const endDate = e.eventEndDate ?? e.eventDate
+      if (!e.eventEndTime) {
+        return {
+          user_id: userId,
+          title: 'Log a climb',
+          notes: `Auto-created from calendar event "${e.title}"`,
+          due_date: endDate,
+          due_time: null,
+          reminder_enabled: false,
+          remind_at: null,
+          source: 'local',
+          source_event_id: e.id,
+        }
+      }
+      const due = addMinutesToWallClock(endDate, e.eventEndTime, 15)
+      return {
+        user_id: userId,
+        title: 'Log a climb',
+        notes: `Auto-created from calendar event "${e.title}"`,
+        due_date: due.date,
+        due_time: due.time,
+        reminder_enabled: true,
+        remind_at: jerusalemWallClockToUtcIso(due.date, due.time),
+        source: 'local',
+        source_event_id: e.id,
+      }
+    })
+
+  if (newTasks.length > 0) {
+    await supabase.from('todos').insert(newTasks)
   }
 }
 
