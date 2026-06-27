@@ -29,6 +29,13 @@ export default function SessionForm({ userId, onSaved }: Props) {
     setAttempts(prev => prev.filter((_, i) => i !== index))
   }
 
+  function toggleAttemptResult(index: number) {
+    haptic('light')
+    setAttempts(prev =>
+      prev.map((a, i) => (i === index ? { ...a, result: a.result === 'sent' ? 'project' : 'sent' } : a)),
+    )
+  }
+
   async function handleSave() {
     if (attempts.length === 0) return
     setSaving(true)
@@ -74,9 +81,12 @@ export default function SessionForm({ userId, onSaved }: Props) {
           <div className="space-y-1.5 max-h-48 overflow-y-auto">
             {attempts.map((a, i) => (
               <div key={i} className="flex items-center gap-3 px-3 py-2 bg-card border border-border rounded-lg">
-                <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-green-100 text-green-700">
-                  SENT
-                </span>
+                <button
+                  onClick={() => toggleAttemptResult(i)}
+                  className={`text-xs font-bold px-2 py-0.5 rounded-full ${a.result === 'sent' ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}`}
+                >
+                  {a.result === 'sent' ? 'SENT' : 'PROJ'}
+                </button>
                 <span className="font-medium text-sm">{a.grade}</span>
                 <button onClick={() => removeAttempt(i)} className="ml-auto text-muted-foreground hover:text-destructive">
                   <X className="h-4 w-4" />
