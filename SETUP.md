@@ -551,8 +551,9 @@ creates duplicate tasks. If the event has no end time (an all-day entry), the ta
 the event's end date with no specific time and no reminder.
 
 **Habit debt:** daily habits now accrue "debt" — one point for every calendar day (Asia/Jerusalem)
-they're not logged. Debt is shown next to the habit (Habits page) and as a running total on the
-Dashboard's Today card. Marking a habit complete pays down debt 1-for-1 (un-marking it the same day
+they're not logged. Debt is shown per habit — next to it on the Habits page, and as a badge on its
+avatar on the Dashboard's Today card; there's no cross-habit aggregate. Marking a habit complete
+pays down debt 1-for-1 (un-marking it the same day
 restores the debt it paid, so toggling doesn't let you grind the counter down for free); debt does
 not reset completion requirements, it's purely informational — e.g. missing a push-up day once just
 shows "1 owed" next to the habit, it doesn't change what counts as "done" today. If debt remains

@@ -52,7 +52,6 @@ export default function TodaySection({ habits, todayLogs, onToggleHabit, todos, 
   }, [])
 
   const doneCount = habits.filter(h => todayLogs.some(l => l.habit_id === h.id)).length
-  const totalDebt = habits.reduce((sum, h) => sum + h.debt, 0)
 
   const nextUp = [
     ...events.filter(e => e.time).map(e => ({ kind: 'event' as const, label: e.title, minutes: minutesUntil(e.time!, now) })),
@@ -148,10 +147,7 @@ export default function TodaySection({ habits, todayLogs, onToggleHabit, todos, 
         <div className="space-y-2 border-t border-border pt-3">
           <div className="flex items-center justify-between">
             <span className="text-xs font-medium text-muted-foreground">Habits</span>
-            <div className="flex items-center gap-2">
-              {totalDebt > 0 && <span className="text-xs font-medium text-destructive">{totalDebt} owed</span>}
-              <span className="text-xs text-muted-foreground">{doneCount}/{habits.length}</span>
-            </div>
+            <span className="text-xs text-muted-foreground">{doneCount}/{habits.length}</span>
           </div>
           <div className="flex gap-3 overflow-x-auto -mt-2 pt-2 pb-1 -mx-1 px-1">
             {habits.map(habit => {
