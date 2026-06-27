@@ -16,6 +16,16 @@ function weatherIcon(code: number | null, isDay: boolean | null) {
   return Cloud
 }
 
+function temperatureStyle(celsius: number) {
+  if (celsius < 0) return { color: 'text-blue-600', emoji: '🥶' }
+  if (celsius < 10) return { color: 'text-sky-500', emoji: '❄️' }
+  if (celsius < 18) return { color: 'text-cyan-600', emoji: '😌' }
+  if (celsius < 24) return { color: 'text-emerald-600', emoji: '🙂' }
+  if (celsius < 30) return { color: 'text-amber-500', emoji: '☀️' }
+  if (celsius < 35) return { color: 'text-orange-500', emoji: '🥵' }
+  return { color: 'text-red-600', emoji: '🔥' }
+}
+
 export default function WeatherWidget() {
   const [weather, setWeather] = useState<WeatherCache | null>(null)
   const [loading, setLoading] = useState(true)
@@ -58,11 +68,14 @@ export default function WeatherWidget() {
   }
 
   const Icon = weatherIcon(weather.weather_code, weather.is_day)
+  const { color, emoji } = temperatureStyle(weather.temperature)
 
   return (
     <div className="flex items-center gap-1.5">
       <Icon className="h-4 w-4 text-muted-foreground shrink-0" />
-      <span className="text-sm font-medium">{Math.round(weather.temperature)}°C</span>
+      <span className={`text-sm font-medium ${color}`}>
+        {emoji} {Math.round(weather.temperature)}°C
+      </span>
       <button
         onClick={refresh}
         disabled={refreshing}

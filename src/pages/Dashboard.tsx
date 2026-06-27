@@ -10,6 +10,7 @@ import { toggleGoogleTask } from '../features/todos/googleTasks'
 import FocusSection from '../features/focus/FocusSection'
 import TodaySection from '../features/today/TodaySection'
 import type { TodayEvent } from '../features/today/TodaySection'
+import { getShowFocusSection } from '../lib/userSettings'
 
 const USER_NAME = 'Ophir'
 
@@ -20,6 +21,7 @@ export default function Dashboard() {
   const [events, setEvents] = useState<CalendarEvent[]>([])
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [loading, setLoading] = useState(true)
+  const [showFocusSection, setShowFocusSection] = useState(true)
 
   async function loadLocalData() {
     const t = today()
@@ -45,6 +47,7 @@ export default function Dashboard() {
     loadLocalData().then(() => {
       refreshGoogleCalendarEvents().then(loadLocalData)
     })
+    getShowFocusSection().then(setShowFocusSection)
   }, [])
 
   async function toggleHabit(habit: Habit) {
@@ -187,7 +190,7 @@ export default function Dashboard() {
       )}
 
       {/* Focus */}
-      {!loading && <FocusSection />}
+      {!loading && showFocusSection && <FocusSection />}
 
       {loading && (
         <div className="flex justify-center pt-6">

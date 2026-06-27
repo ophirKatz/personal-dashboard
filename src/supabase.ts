@@ -133,6 +133,7 @@ export type UserSettings = {
   user_id: string
   auto_generate_focus_summaries_daily: boolean
   auto_generate_focus_summaries_on_change: boolean
+  show_focus_section: boolean
   updated_at: string
 }
 
