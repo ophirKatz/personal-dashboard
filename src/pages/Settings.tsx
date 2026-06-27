@@ -10,6 +10,8 @@ import {
   setAutoGenerateFocusSummariesDaily,
   getAutoGenerateFocusSummariesOnChange,
   setAutoGenerateFocusSummariesOnChange,
+  getShowFocusSection,
+  setShowFocusSection,
 } from '../lib/userSettings'
 import { listGoogleAccounts, connectGoogleAccount, disconnectGoogleAccount, type GoogleAccount } from '../lib/googleAccounts'
 import VoiceShortcutsSection from '../features/voice/VoiceShortcutsSection'
@@ -93,6 +95,10 @@ export default function Settings() {
   const [focusOnChangeLoading, setFocusOnChangeLoading] = useState(true)
   const [focusOnChangeBusy, setFocusOnChangeBusy] = useState(false)
 
+  const [showFocusSection, setShowFocusSectionState] = useState(true)
+  const [showFocusSectionLoading, setShowFocusSectionLoading] = useState(true)
+  const [showFocusSectionBusy, setShowFocusSectionBusy] = useState(false)
+
   useEffect(() => {
     if (!isPushSupported()) {
       setSupported(false)
@@ -114,6 +120,10 @@ export default function Settings() {
       setAutoGenerateFocusOnChange(enabled)
       setFocusOnChangeLoading(false)
     })
+    getShowFocusSection().then(show => {
+      setShowFocusSectionState(show)
+      setShowFocusSectionLoading(false)
+    })
   }, [])
 
   async function toggleAutoGenerateFocusDaily() {
@@ -132,6 +142,15 @@ export default function Settings() {
     await setAutoGenerateFocusSummariesOnChange(next)
     setAutoGenerateFocusOnChange(next)
     setFocusOnChangeBusy(false)
+  }
+
+  async function toggleShowFocusSection() {
+    setShowFocusSectionBusy(true)
+    haptic('selection')
+    const next = !showFocusSection
+    await setShowFocusSection(next)
+    setShowFocusSectionState(next)
+    setShowFocusSectionBusy(false)
   }
 
   async function toggle() {
@@ -165,6 +184,7 @@ export default function Settings() {
         <h1 className="text-2xl font-bold">Settings</h1>
       </div>
 
+      <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">Notifications</h2>
       <div className="bg-card border border-border rounded-2xl p-4">
         <div className="flex items-center gap-3">
           <div className="p-2.5 rounded-xl bg-muted">
@@ -197,7 +217,8 @@ export default function Settings() {
         )}
       </div>
 
-      <div className="bg-card border border-border rounded-2xl p-4 mt-4">
+      <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2 mt-6">Accounts</h2>
+      <div className="bg-card border border-border rounded-2xl p-4">
         <p className="font-medium mb-1">Connected Google accounts</p>
         <p className="text-sm text-muted-foreground mb-4">
           Calendar events from every connected account are shown together, color-coded by account.
@@ -240,7 +261,33 @@ export default function Settings() {
         </Button>
       </div>
 
-      <div className="bg-card border border-border rounded-2xl p-4 mt-4">
+      <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2 mt-6">Home page</h2>
+      <div className="bg-card border border-border rounded-2xl p-4">
+        <div className="flex items-center gap-3">
+          <div className="p-2.5 rounded-xl bg-muted">
+            <Sparkles className="h-5 w-5 text-muted-foreground" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="font-medium">Show Focus section</p>
+            <p className="text-sm text-muted-foreground">
+              Show the AI-generated Focus summary card on the home page.
+            </p>
+          </div>
+          {!showFocusSectionLoading && (
+            <button
+              type="button"
+              onClick={toggleShowFocusSection}
+              disabled={showFocusSectionBusy}
+              className={`relative w-11 h-6 rounded-full transition-colors shrink-0 ${showFocusSection ? 'bg-primary' : 'bg-muted'}`}
+            >
+              <span className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${showFocusSection ? 'translate-x-5' : ''}`} />
+            </button>
+          )}
+        </div>
+      </div>
+
+      <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2 mt-6">Focus summaries</h2>
+      <div className="bg-card border border-border rounded-2xl p-4">
         <div className="flex items-center gap-3">
           <div className="p-2.5 rounded-xl bg-muted">
             <Sparkles className="h-5 w-5 text-muted-foreground" />
@@ -290,7 +337,12 @@ export default function Settings() {
         </div>
       </div>
 
-      {userId && <VoiceShortcutsSection userId={userId} />}
+      {userId && (
+        <>
+          <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2 mt-6">Voice shortcuts</h2>
+          <VoiceShortcutsSection userId={userId} />
+        </>
+      )}
     </div>
   )
 }

@@ -21,3 +21,14 @@ export async function setAutoGenerateFocusSummariesOnChange(enabled: boolean): P
   if (!user) return
   await supabase.from('user_settings').upsert({ user_id: user.id, auto_generate_focus_summaries_on_change: enabled })
 }
+
+export async function getShowFocusSection(): Promise<boolean> {
+  const { data } = await supabase.from('user_settings').select('show_focus_section').maybeSingle()
+  return data?.show_focus_section ?? true
+}
+
+export async function setShowFocusSection(show: boolean): Promise<void> {
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return
+  await supabase.from('user_settings').upsert({ user_id: user.id, show_focus_section: show })
+}
