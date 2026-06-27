@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { CalendarDays, Clock } from 'lucide-react'
+import { CalendarClock, CalendarDays } from 'lucide-react'
 import { supabase } from '../../supabase'
 import type { Todo } from '../../supabase'
 import { Button } from '../../components/ui/button'
@@ -27,7 +27,7 @@ export default function TaskDrawer({ open, onClose, onSave, todo, userId }: Prop
   const isGoogleTask = todo?.source === 'google'
   const [title, setTitle] = useState(todo?.title ?? '')
   const [dueDate, setDueDate] = useState(todo?.due_date ?? today())
-  const [dueTime, setDueTime] = useState(todo?.due_time ?? (isGoogleTask ? '' : nextRoundHour()))
+  const [dueAt, setDueAt] = useState(`${todo?.due_date ?? today()}T${todo?.due_time ?? nextRoundHour()}`)
   const [saving, setSaving] = useState(false)
 
   async function handleSubmit(e: React.FormEvent) {
@@ -42,11 +42,12 @@ export default function TaskDrawer({ open, onClose, onSave, todo, userId }: Prop
         due_date: dueDate || null,
       })
     } else {
-      const remindAt = dueDate && dueTime ? new Date(`${dueDate}T${dueTime}`).toISOString() : null
+      const [nextDate, nextTime] = dueAt ? dueAt.split('T') : [null, null]
+      const remindAt = dueAt ? new Date(dueAt).toISOString() : null
       const payload = {
         title: title.trim(),
-        due_date: dueDate || null,
-        due_time: dueDate ? dueTime || null : null,
+        due_date: nextDate,
+        due_time: nextTime,
         reminder_enabled: !!remindAt,
         remind_at: remindAt,
         notified_at: todo && remindAt === todo.remind_at ? todo.notified_at : null,
@@ -80,8 +81,8 @@ export default function TaskDrawer({ open, onClose, onSave, todo, userId }: Prop
               autoFocus
               className="h-12 rounded-xl text-base"
             />
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5 min-w-0">
+            {isGoogleTask ? (
+              <div className="space-y-1.5">
                 <label className="flex items-center gap-1 px-1 text-xs font-medium text-muted-foreground">
                   <CalendarDays className="h-3.5 w-3.5" />
                   Date
@@ -89,27 +90,25 @@ export default function TaskDrawer({ open, onClose, onSave, todo, userId }: Prop
                 <Input
                   type="date"
                   value={dueDate}
-                  min={isGoogleTask ? undefined : today()}
                   onChange={e => setDueDate(e.target.value)}
-                  className="h-11 rounded-xl min-w-0"
+                  className="h-11 rounded-xl"
                 />
               </div>
-              {!isGoogleTask && (
-                <div className="space-y-1.5 min-w-0">
-                  <label className="flex items-center gap-1 px-1 text-xs font-medium text-muted-foreground">
-                    <Clock className="h-3.5 w-3.5" />
-                    Time
-                  </label>
-                  <Input
-                    type="time"
-                    value={dueTime}
-                    disabled={!dueDate}
-                    onChange={e => setDueTime(e.target.value)}
-                    className="h-11 rounded-xl min-w-0"
-                  />
-                </div>
-              )}
-            </div>
+            ) : (
+              <div className="space-y-1.5">
+                <label className="flex items-center gap-1 px-1 text-xs font-medium text-muted-foreground">
+                  <CalendarClock className="h-3.5 w-3.5" />
+                  Date &amp; time
+                </label>
+                <Input
+                  type="datetime-local"
+                  value={dueAt}
+                  min={`${today()}T00:00`}
+                  onChange={e => setDueAt(e.target.value)}
+                  className="h-11 rounded-xl"
+                />
+              </div>
+            )}
             <Button type="submit" disabled={saving || !title.trim()} className="h-12 w-full rounded-xl text-base font-semibold">
               {saving ? 'Saving…' : todo ? 'Save' : 'Add task'}
             </Button>
