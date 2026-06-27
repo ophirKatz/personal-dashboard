@@ -78,6 +78,7 @@ export default function TaskDrawer({ open, onClose, onSave, todo, userId }: Prop
               onChange={e => setTitle(e.target.value)}
               placeholder="What needs doing?"
               autoFocus
+              dir="auto"
               className="h-12 rounded-xl text-base"
             />
             <div className="grid grid-cols-2 gap-3">
