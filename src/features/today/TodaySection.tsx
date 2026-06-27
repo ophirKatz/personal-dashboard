@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { CheckCircle2, ChevronRight, Clock } from 'lucide-react'
+import { AlertCircle, CheckCircle2, ChevronRight, Clock } from 'lucide-react'
 import type { Habit, HabitLog, Todo } from '../../supabase'
 import { formatTime } from '../../utils'
 import WeatherWidget from '../weather/WeatherWidget'
@@ -126,18 +126,26 @@ export default function TodaySection({ habits, todayLogs, onToggleHabit, todos, 
           <p className="text-sm text-muted-foreground">Nothing due today</p>
         ) : (
           <div className="space-y-1.5">
-            {sortedTodos.slice(0, 3).map(todo => (
-              <div key={todo.id} className="flex items-center gap-2">
-                <button
-                  onClick={() => onCompleteTodo(todo.id)}
-                  className="w-4 h-4 rounded-full border-2 border-primary shrink-0 hover:bg-primary/10"
-                  title="Mark complete"
-                />
-                <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${PRIORITY_DOT[todo.priority]}`} />
-                <span className="text-sm truncate flex-1">{todo.title}</span>
-                {todo.due_time && <span className="text-xs text-muted-foreground shrink-0">{formatTime(todo.due_time)}</span>}
-              </div>
-            ))}
+            {sortedTodos.slice(0, 3).map(todo => {
+              const overdue = !!todo.due_time && minutesUntil(todo.due_time, now) < 0
+              return (
+                <div key={todo.id} className="flex items-center gap-2">
+                  <button
+                    onClick={() => onCompleteTodo(todo.id)}
+                    className={`w-4 h-4 rounded-full border-2 shrink-0 hover:bg-primary/10 ${overdue ? 'border-destructive' : 'border-primary'}`}
+                    title="Mark complete"
+                  />
+                  <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${PRIORITY_DOT[todo.priority]}`} />
+                  <span className={`text-sm truncate flex-1 ${overdue ? 'text-destructive' : ''}`}>{todo.title}</span>
+                  {todo.due_time && (
+                    <span className={`flex items-center gap-1 text-xs shrink-0 ${overdue ? 'text-destructive font-medium' : 'text-muted-foreground'}`}>
+                      {overdue && <AlertCircle className="h-3 w-3" />}
+                      {formatTime(todo.due_time)}
+                    </span>
+                  )}
+                </div>
+              )
+            })}
             {todos.length > 3 && <p className="text-xs text-muted-foreground">+{todos.length - 3} more</p>}
           </div>
         )}
