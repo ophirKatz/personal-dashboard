@@ -39,11 +39,19 @@ export function formatDateTime(dateStr: string): string {
   return format(date, 'MMM d, h:mm a')
 }
 
-export function advanceRepeat(dateStr: string, repeat: 'daily' | 'weekly' | 'monthly'): string {
-  const date = new Date(dateStr)
-  if (repeat === 'daily') return dfnsAddDays(date, 1).toISOString()
-  if (repeat === 'weekly') return addWeeks(date, 1).toISOString()
-  return dfnsAddMonths(date, 1).toISOString()
+export type RecurrenceUnit = 'day' | 'week' | 'month'
+
+export function advanceRecurrence(dateStr: string, interval: number, unit: RecurrenceUnit): string {
+  const date = parseISO(dateStr)
+  const next = unit === 'day' ? dfnsAddDays(date, interval)
+    : unit === 'week' ? addWeeks(date, interval)
+    : dfnsAddMonths(date, interval)
+  return format(next, 'yyyy-MM-dd')
+}
+
+export function formatRecurrence(interval: number, unit: RecurrenceUnit): string {
+  if (interval === 1) return unit === 'day' ? 'Daily' : unit === 'week' ? 'Weekly' : 'Monthly'
+  return `Every ${interval} ${unit}s`
 }
 
 // Habit reminder times are stored as UTC time-of-day (no date), so they survive

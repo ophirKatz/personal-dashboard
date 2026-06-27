@@ -47,16 +47,8 @@ export type Todo = {
   source: 'local' | 'google'
   google_task_id: string | null
   source_event_id: string | null
-}
-
-export type Reminder = {
-  id: string
-  user_id: string
-  title: string
-  remind_at: string
-  repeat: 'daily' | 'weekly' | 'monthly' | null
-  notified_at: string | null
-  created_at: string
+  recurrence_interval: number | null
+  recurrence_unit: 'day' | 'week' | 'month' | null
 }
 
 export type ClimbingSession = {

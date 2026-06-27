@@ -14,7 +14,7 @@ export default defineConfig({
       manifest: {
         name: 'Personal Dashboard',
         short_name: 'Dashboard',
-        description: 'Track todos, habits, climbing sessions and reminders.',
+        description: 'Track todos, habits, and climbing sessions.',
         theme_color: '#2563eb',
         background_color: '#ffffff',
         display: 'standalone',

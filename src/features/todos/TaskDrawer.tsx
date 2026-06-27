@@ -1,11 +1,13 @@
 import { useState } from 'react'
-import { CalendarClock, CalendarDays } from 'lucide-react'
+import { CalendarClock, CalendarDays, RefreshCw } from 'lucide-react'
 import { supabase } from '../../supabase'
 import type { Todo } from '../../supabase'
 import { Button } from '../../components/ui/button'
 import { Input } from '../../components/ui/input'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select'
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerBody } from '../../components/ui/drawer'
 import { today } from '../../utils'
+import type { RecurrenceUnit } from '../../utils'
 import { haptic } from '../../lib/haptics'
 import { updateGoogleTask } from './googleTasks'
 
@@ -17,10 +19,20 @@ type Props = {
   userId: string
 }
 
+type RecurrenceType = 'none' | 'daily' | 'weekly' | 'monthly' | 'custom'
+
 function nextRoundHour(): string {
   const d = new Date()
   d.setHours(d.getHours() + 1, 0, 0, 0)
   return `${String(d.getHours()).padStart(2, '0')}:00`
+}
+
+function recurrenceTypeOf(todo: Todo | undefined): RecurrenceType {
+  if (!todo?.recurrence_interval || !todo?.recurrence_unit) return 'none'
+  if (todo.recurrence_interval === 1 && todo.recurrence_unit === 'day') return 'daily'
+  if (todo.recurrence_interval === 1 && todo.recurrence_unit === 'week') return 'weekly'
+  if (todo.recurrence_interval === 1 && todo.recurrence_unit === 'month') return 'monthly'
+  return 'custom'
 }
 
 export default function TaskDrawer({ open, onClose, onSave, todo, userId }: Props) {
@@ -28,6 +40,13 @@ export default function TaskDrawer({ open, onClose, onSave, todo, userId }: Prop
   const [title, setTitle] = useState(todo?.title ?? '')
   const [dueDate, setDueDate] = useState(todo?.due_date ?? today())
   const [dueAt, setDueAt] = useState(`${todo?.due_date ?? today()}T${todo?.due_time ?? nextRoundHour()}`)
+  const [recurrenceType, setRecurrenceType] = useState<RecurrenceType>(recurrenceTypeOf(todo))
+  const [customInterval, setCustomInterval] = useState(
+    recurrenceTypeOf(todo) === 'custom' ? todo!.recurrence_interval! : 1,
+  )
+  const [customUnit, setCustomUnit] = useState<RecurrenceUnit>(
+    recurrenceTypeOf(todo) === 'custom' ? todo!.recurrence_unit! : 'day',
+  )
   const [saving, setSaving] = useState(false)
 
   async function handleSubmit(e: React.FormEvent) {
@@ -44,6 +63,12 @@ export default function TaskDrawer({ open, onClose, onSave, todo, userId }: Prop
     } else {
       const [nextDate, nextTime] = dueAt ? dueAt.split('T') : [null, null]
       const remindAt = dueAt ? new Date(dueAt).toISOString() : null
+      const recurrence = nextDate && recurrenceType !== 'none'
+        ? recurrenceType === 'daily' ? { interval: 1, unit: 'day' as const }
+          : recurrenceType === 'weekly' ? { interval: 1, unit: 'week' as const }
+          : recurrenceType === 'monthly' ? { interval: 1, unit: 'month' as const }
+          : { interval: customInterval, unit: customUnit }
+        : null
       const payload = {
         title: title.trim(),
         due_date: nextDate,
@@ -52,6 +77,8 @@ export default function TaskDrawer({ open, onClose, onSave, todo, userId }: Prop
         remind_at: remindAt,
         notified_at: todo && remindAt === todo.remind_at ? todo.notified_at : null,
         user_id: userId,
+        recurrence_interval: recurrence?.interval ?? null,
+        recurrence_unit: recurrence?.unit ?? null,
       }
       if (todo) {
         await supabase.from('todos').update(payload).eq('id', todo.id)
@@ -108,6 +135,44 @@ export default function TaskDrawer({ open, onClose, onSave, todo, userId }: Prop
                   onChange={e => setDueAt(e.target.value)}
                   className="h-11 rounded-xl"
                 />
+              </div>
+            )}
+            {!isGoogleTask && dueAt && (
+              <div className="space-y-1.5">
+                <label className="flex items-center gap-1 px-1 text-xs font-medium text-muted-foreground">
+                  <RefreshCw className="h-3.5 w-3.5" />
+                  Repeat
+                </label>
+                <Select value={recurrenceType} onValueChange={v => setRecurrenceType(v as RecurrenceType)}>
+                  <SelectTrigger className="h-11 rounded-xl"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Does not repeat</SelectItem>
+                    <SelectItem value="daily">Daily</SelectItem>
+                    <SelectItem value="weekly">Weekly</SelectItem>
+                    <SelectItem value="monthly">Monthly</SelectItem>
+                    <SelectItem value="custom">Custom</SelectItem>
+                  </SelectContent>
+                </Select>
+                {recurrenceType === 'custom' && (
+                  <div className="flex items-center gap-2 pt-1">
+                    <span className="text-sm text-muted-foreground shrink-0">Every</span>
+                    <Input
+                      type="number"
+                      min={1}
+                      value={customInterval}
+                      onChange={e => setCustomInterval(Math.max(1, Number(e.target.value) || 1))}
+                      className="h-11 rounded-xl w-20"
+                    />
+                    <Select value={customUnit} onValueChange={v => setCustomUnit(v as RecurrenceUnit)}>
+                      <SelectTrigger className="h-11 rounded-xl flex-1"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="day">Day(s)</SelectItem>
+                        <SelectItem value="week">Week(s)</SelectItem>
+                        <SelectItem value="month">Month(s)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
               </div>
             )}
             <Button type="submit" disabled={saving || !title.trim()} className="h-12 w-full rounded-xl text-base font-semibold">

@@ -2,7 +2,7 @@ import { Outlet, NavLink, useNavigate } from 'react-router-dom'
 import { useEffect, useRef, useState } from 'react'
 import {
   Home, CheckSquare, TrendingUp, Mountain, MoreHorizontal,
-  X, ShoppingCart, Bell, Calendar, Folder, LogOut, DollarSign, Settings,
+  X, ShoppingCart, Calendar, Folder, LogOut, DollarSign, Settings,
 } from 'lucide-react'
 import { supabase } from '../supabase'
 import { cn } from '../utils'
@@ -17,7 +17,6 @@ const primaryNav = [
 const moreNav = [
   { to: '/habits', icon: TrendingUp, label: 'Habits' },
   { to: '/climbing', icon: Mountain, label: 'Climbing' },
-  { to: '/reminders', icon: Bell, label: 'Reminders' },
   { to: '/shopping', icon: ShoppingCart, label: 'Shopping' },
   { to: '/finance', icon: DollarSign, label: 'Finance' },
   { to: '/settings', icon: Settings, label: 'Settings' },
