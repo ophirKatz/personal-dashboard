@@ -145,7 +145,14 @@ export default function Dashboard() {
   const t = today()
   const todayEvents: TodayEvent[] = sortedEvents
     .filter(event => event.event_date === t)
-    .map(event => ({ id: event.id, title: event.title, time: event.event_time, source: event.source }))
+    .map(event => ({
+      id: event.id,
+      title: event.title,
+      time: event.event_time,
+      endTime: event.event_end_time,
+      endDate: event.event_end_date,
+      source: event.source,
+    }))
 
   return (
     <div className="p-4 max-w-2xl mx-auto space-y-5">
