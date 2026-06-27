@@ -10,8 +10,8 @@ type QuickItem = {
 }
 
 const QUICK_ITEMS: QuickItem[] = [
-  { key: 'nis-usd', label: 'NIS → USD', fetcher: async () => `$${(await fetchRate('ils', 'usd')).toFixed(4)}` },
-  { key: 'nis-eur', label: 'NIS → EUR', fetcher: async () => `€${(await fetchRate('ils', 'eur')).toFixed(4)}` },
+  { key: 'usd-nis', label: 'USD → NIS', fetcher: async () => `₪${(await fetchRate('usd', 'ils')).toFixed(4)}` },
+  { key: 'eur-nis', label: 'EUR → NIS', fetcher: async () => `₪${(await fetchRate('eur', 'ils')).toFixed(4)}` },
   { key: 'tenb', label: 'TENB', fetcher: async () => `$${(await fetchQuote('TENB')).current.toFixed(2)}` },
 ]
 
