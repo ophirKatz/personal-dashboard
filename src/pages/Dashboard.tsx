@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
+import type { MouseEvent, KeyboardEvent } from 'react'
 import { Bell, ShoppingCart, Mountain, DollarSign, TrendingUp, X } from 'lucide-react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import type { User } from '@supabase/supabase-js'
 import { supabase } from '../supabase'
 import type { Habit, HabitLog, Todo, CalendarEvent, Notification } from '../supabase'
@@ -32,9 +33,26 @@ export default function Dashboard() {
   const [showLogSession, setShowLogSession] = useState(false)
   const [showFinanceRates, setShowFinanceRates] = useState(false)
 
+  const navigate = useNavigate()
   const shoppingLongPress = useLongPress(() => setShowAddItem(true))
   const climbingLongPress = useLongPress(() => setShowLogSession(true))
   const financeLongPress = useLongPress(() => setShowFinanceRates(true))
+
+  function quickLinkClick(longPress: { onClick: (e: MouseEvent) => void }, path: string) {
+    return (e: MouseEvent<HTMLDivElement>) => {
+      longPress.onClick(e)
+      if (!e.defaultPrevented) navigate(path)
+    }
+  }
+
+  function quickLinkKeyDown(path: string) {
+    return (e: KeyboardEvent<HTMLDivElement>) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault()
+        navigate(path)
+      }
+    }
+  }
 
   async function loadLocalData() {
     const t = today()
@@ -145,42 +163,51 @@ export default function Dashboard() {
 
       {/* Quick links - static, no data dependency, always shown immediately */}
       <div className="grid grid-cols-4 gap-3">
-        <Link
-          to="/shopping"
+        <div
+          role="link"
+          tabIndex={0}
           aria-label="Shopping List"
           title="Long press to add an item"
-          className="flex flex-col items-center justify-center gap-1.5 p-3.5 bg-card border border-border rounded-xl active:scale-[0.98] transition-transform select-none"
+          className="flex flex-col items-center justify-center gap-1.5 p-3.5 bg-card border border-border rounded-xl active:scale-[0.98] transition-transform select-none cursor-pointer"
           {...shoppingLongPress}
+          onClick={quickLinkClick(shoppingLongPress, '/shopping')}
+          onKeyDown={quickLinkKeyDown('/shopping')}
         >
-          <div className="w-9 h-9 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0">
+          <div className="w-9 h-9 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0 select-none">
             <ShoppingCart className="h-4 w-4" />
           </div>
-          <span className="text-xs font-medium text-muted-foreground">Shopping</span>
-        </Link>
-        <Link
-          to="/climbing"
+          <span className="text-xs font-medium text-muted-foreground select-none">Shopping</span>
+        </div>
+        <div
+          role="link"
+          tabIndex={0}
           aria-label="Climbing"
           title="Long press to log a session"
-          className="flex flex-col items-center justify-center gap-1.5 p-3.5 bg-card border border-border rounded-xl active:scale-[0.98] transition-transform select-none"
+          className="flex flex-col items-center justify-center gap-1.5 p-3.5 bg-card border border-border rounded-xl active:scale-[0.98] transition-transform select-none cursor-pointer"
           {...climbingLongPress}
+          onClick={quickLinkClick(climbingLongPress, '/climbing')}
+          onKeyDown={quickLinkKeyDown('/climbing')}
         >
-          <div className="w-9 h-9 rounded-lg bg-orange-100 text-orange-700 flex items-center justify-center shrink-0">
+          <div className="w-9 h-9 rounded-lg bg-orange-100 text-orange-700 flex items-center justify-center shrink-0 select-none">
             <Mountain className="h-4 w-4" />
           </div>
-          <span className="text-xs font-medium text-muted-foreground">Climbing</span>
-        </Link>
-        <Link
-          to="/finance"
+          <span className="text-xs font-medium text-muted-foreground select-none">Climbing</span>
+        </div>
+        <div
+          role="link"
+          tabIndex={0}
           aria-label="Finance"
           title="Long press for quick rates"
-          className="flex flex-col items-center justify-center gap-1.5 p-3.5 bg-card border border-border rounded-xl active:scale-[0.98] transition-transform select-none"
+          className="flex flex-col items-center justify-center gap-1.5 p-3.5 bg-card border border-border rounded-xl active:scale-[0.98] transition-transform select-none cursor-pointer"
           {...financeLongPress}
+          onClick={quickLinkClick(financeLongPress, '/finance')}
+          onKeyDown={quickLinkKeyDown('/finance')}
         >
-          <div className="w-9 h-9 rounded-lg bg-amber-100 text-amber-700 flex items-center justify-center shrink-0">
+          <div className="w-9 h-9 rounded-lg bg-amber-100 text-amber-700 flex items-center justify-center shrink-0 select-none">
             <DollarSign className="h-4 w-4" />
           </div>
-          <span className="text-xs font-medium text-muted-foreground">Finance</span>
-        </Link>
+          <span className="text-xs font-medium text-muted-foreground select-none">Finance</span>
+        </div>
         <Link
           to="/habits"
           aria-label="Habits"
