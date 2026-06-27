@@ -156,6 +156,8 @@ export default function TodaySection({ habits, todayLogs, onToggleHabit, todos, 
           <div className="flex gap-3 overflow-x-auto -mt-2 pt-2 pb-1 -mx-1 px-1">
             {habits.map(habit => {
               const done = todayLogs.some(l => l.habit_id === habit.id)
+              const fullyDone = done && habit.debt === 0
+              const partiallyDone = done && habit.debt > 0
               return (
                 <button
                   key={habit.id}
@@ -163,15 +165,18 @@ export default function TodaySection({ habits, todayLogs, onToggleHabit, todos, 
                     if (!done) celebrateFromElement(e.currentTarget)
                     onToggleHabit(habit)
                   }}
+                  title={partiallyDone ? `Logged today — ${habit.debt} owed still` : undefined}
                   className="flex flex-col items-center gap-1 shrink-0 relative"
                 >
                   <div
-                    className="w-11 h-11 rounded-xl flex items-center justify-center text-xl transition-all active:scale-95"
-                    style={{ backgroundColor: done ? habit.color : 'hsl(var(--muted))', opacity: done ? 1 : 0.5 }}
+                    className={`w-11 h-11 rounded-xl flex items-center justify-center text-xl transition-all active:scale-95 ${
+                      partiallyDone ? 'border-2 border-dashed border-destructive' : ''
+                    }`}
+                    style={{ backgroundColor: done ? habit.color : 'hsl(var(--muted))', opacity: fullyDone ? 1 : done ? 0.75 : 0.5 }}
                   >
                     {habit.emoji}
                   </div>
-                  {done && (
+                  {fullyDone && (
                     <CheckCircle2 className="h-3.5 w-3.5 text-primary absolute -top-1 -right-1 bg-background rounded-full" />
                   )}
                   {habit.debt > 0 && (

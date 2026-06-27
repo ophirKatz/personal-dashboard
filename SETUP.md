@@ -555,7 +555,10 @@ they're not logged. Debt is shown next to the habit (Habits page) and as a runni
 Dashboard's Today card. Marking a habit complete pays down debt 1-for-1 (un-marking it the same day
 restores the debt it paid, so toggling doesn't let you grind the counter down for free); debt does
 not reset completion requirements, it's purely informational — e.g. missing a push-up day once just
-shows "1 owed" next to the habit, it doesn't change what counts as "done" today.
+shows "1 owed" next to the habit, it doesn't change what counts as "done" today. If debt remains
+after today's completion (multiple missed days, only one paid down per log), the habit icon shows a
+dashed border instead of a solid one, and the "owed" label adds "paid 1 today" — so it's visually
+clear today's log only partially cleared the debt.
 - A new `accrue-habit-debt` Edge Function checks, for every daily habit, whether yesterday
   (Asia/Jerusalem calendar date) has a `habit_logs` row; if not, it increments that habit's `debt`
   by 1. It records the date it last checked in `habits.debt_checked_date` so re-running it for the
