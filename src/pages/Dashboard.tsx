@@ -2,9 +2,9 @@ import { useEffect, useState } from 'react'
 import { Bell, ShoppingCart, Mountain, DollarSign, TrendingUp, X } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { supabase } from '../supabase'
-import type { Habit, HabitLog, Todo, Reminder, CalendarEvent, Notification } from '../supabase'
-import { today, formatDateTime } from '../utils'
-import { isBefore, addDays, format } from 'date-fns'
+import type { Habit, HabitLog, Todo, CalendarEvent, Notification } from '../supabase'
+import { today, advanceRecurrence } from '../utils'
+import { addDays, format } from 'date-fns'
 import { refreshGoogleCalendarEvents } from '../features/calendar/googleCalendar'
 import { toggleGoogleTask } from '../features/todos/googleTasks'
 import FocusSection from '../features/focus/FocusSection'
@@ -17,7 +17,6 @@ export default function Dashboard() {
   const [habits, setHabits] = useState<Habit[]>([])
   const [todayLogs, setTodayLogs] = useState<HabitLog[]>([])
   const [todos, setTodos] = useState<Todo[]>([])
-  const [reminders, setReminders] = useState<Reminder[]>([])
   const [events, setEvents] = useState<CalendarEvent[]>([])
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [loading, setLoading] = useState(true)
@@ -26,11 +25,10 @@ export default function Dashboard() {
     const t = today()
     const in7 = format(addDays(new Date(), 7), 'yyyy-MM-dd')
 
-    const [habitsRes, logsRes, todosRes, remindersRes, eventsRes, notificationsRes] = await Promise.all([
+    const [habitsRes, logsRes, todosRes, eventsRes, notificationsRes] = await Promise.all([
       supabase.from('habits').select('*').order('created_at'),
       supabase.from('habit_logs').select('*').eq('logged_date', t),
       supabase.from('todos').select('*').eq('completed', false).or(`due_date.eq.${t},due_date.is.null`).order('created_at'),
-      supabase.from('reminders').select('*').lte('remind_at', new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()).order('remind_at'),
       supabase.from('events').select('*').gte('event_date', t).lte('event_date', in7).order('event_date').order('event_time'),
       supabase.from('notifications').select('*').eq('read', false).order('created_at', { ascending: false }),
     ])
@@ -38,7 +36,6 @@ export default function Dashboard() {
     setHabits(habitsRes.data ?? [])
     setTodayLogs(logsRes.data ?? [])
     setTodos(todosRes.data ?? [])
-    setReminders(remindersRes.data ?? [])
     setEvents(eventsRes.data ?? [])
     setNotifications(notificationsRes.data ?? [])
     setLoading(false)
@@ -83,15 +80,15 @@ export default function Dashboard() {
     if (!todo) return
     if (todo.source === 'google') {
       await toggleGoogleTask(todo)
+    } else if (todo.due_date && todo.recurrence_interval && todo.recurrence_unit) {
+      const nextDue = advanceRecurrence(todo.due_date, todo.recurrence_interval, todo.recurrence_unit)
+      const nextRemindAt = todo.remind_at && todo.due_time ? new Date(`${nextDue}T${todo.due_time}`).toISOString() : null
+      await supabase.from('todos').update({ due_date: nextDue, remind_at: nextRemindAt, notified_at: null }).eq('id', id)
     } else {
       await supabase.from('todos').update({ completed: true, completed_at: new Date().toISOString() }).eq('id', id)
     }
     setTodos(prev => prev.filter(t => t.id !== id))
   }
-
-  const now = new Date()
-  const overdueReminders = reminders.filter(r => isBefore(new Date(r.remind_at), now))
-  const upcomingReminders = reminders.filter(r => !isBefore(new Date(r.remind_at), now)).slice(0, 5)
 
   const sortedEvents = [...events].sort((a, b) => {
     const dateCompare = a.event_date.localeCompare(b.event_date)
@@ -189,26 +186,6 @@ export default function Dashboard() {
         />
       )}
 
-      {/* Reminders */}
-      {!loading && (overdueReminders.length > 0 || upcomingReminders.length > 0) && (
-        <Section title="Reminders" badge={overdueReminders.length > 0 ? `${overdueReminders.length} overdue` : undefined} badgeClass="text-destructive">
-          <div className="space-y-2">
-            {[...overdueReminders, ...upcomingReminders].slice(0, 4).map(r => {
-              const overdue = isBefore(new Date(r.remind_at), now)
-              return (
-                <div key={r.id} className={`flex items-center gap-3 p-3.5 rounded-xl border ${overdue ? 'bg-destructive/5 border-destructive/30' : 'bg-card border-border'}`}>
-                  <Bell className={`h-4 w-4 shrink-0 ${overdue ? 'text-destructive' : 'text-muted-foreground'}`} />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium truncate">{r.title}</p>
-                    <p className={`text-xs mt-0.5 ${overdue ? 'text-destructive' : 'text-muted-foreground'}`}>{formatDateTime(r.remind_at)}</p>
-                  </div>
-                </div>
-              )
-            })}
-          </div>
-        </Section>
-      )}
-
       {/* Focus */}
       {!loading && <FocusSection />}
 
@@ -218,7 +195,7 @@ export default function Dashboard() {
         </div>
       )}
 
-      {!loading && habits.length === 0 && todos.length === 0 && reminders.length === 0 && events.length === 0 && (
+      {!loading && habits.length === 0 && todos.length === 0 && events.length === 0 && (
         <div className="text-center py-16 text-muted-foreground">
           <div className="text-5xl mb-4">🌅</div>
           <p className="font-semibold text-lg text-foreground">Welcome!</p>

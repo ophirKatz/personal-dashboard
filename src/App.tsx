@@ -12,7 +12,6 @@ import { upsertPrimaryGoogleAccount } from './lib/googleAccounts'
 // of the bundle needed for the initial Home Screen load.
 const Habits = lazy(() => import('./pages/Habits'))
 const Todos = lazy(() => import('./pages/Todos'))
-const Reminders = lazy(() => import('./pages/Reminders'))
 const Climbing = lazy(() => import('./pages/Climbing'))
 const Shopping = lazy(() => import('./pages/Shopping'))
 const Calendar = lazy(() => import('./pages/Calendar'))
@@ -72,7 +71,6 @@ export default function App() {
           <Route index element={<Dashboard />} />
           <Route path="habits" element={<Habits />} />
           <Route path="todos" element={<Todos />} />
-          <Route path="reminders" element={<Reminders />} />
           <Route path="climbing" element={<Climbing />} />
           <Route path="shopping" element={<Shopping />} />
           <Route path="calendar" element={<Calendar />} />

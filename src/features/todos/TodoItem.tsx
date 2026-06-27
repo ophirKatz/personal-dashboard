@@ -1,8 +1,8 @@
 import { useState } from 'react'
-import { Pencil, Trash2, CalendarDays, Check, Bell } from 'lucide-react'
+import { Pencil, Trash2, CalendarDays, Check, Bell, RefreshCw } from 'lucide-react'
 import { supabase } from '../../supabase'
 import type { Todo } from '../../supabase'
-import { cn, formatDate, formatTime } from '../../utils'
+import { cn, formatDate, formatTime, advanceRecurrence, formatRecurrence } from '../../utils'
 import { Checkbox } from '../../components/ui/checkbox'
 import { Input } from '../../components/ui/input'
 import { haptic } from '../../lib/haptics'
@@ -20,6 +20,18 @@ export default function TodoItem({ todo, onEdit, onDelete, onChange }: Props) {
   const [dueTime, setDueTime] = useState(todo.due_time ?? '')
 
   async function toggleComplete() {
+    if (!todo.completed && todo.due_date && todo.recurrence_interval && todo.recurrence_unit) {
+      haptic('success')
+      const nextDue = advanceRecurrence(todo.due_date, todo.recurrence_interval, todo.recurrence_unit)
+      const nextRemindAt = todo.remind_at && todo.due_time ? new Date(`${nextDue}T${todo.due_time}`).toISOString() : null
+      await supabase.from('todos').update({
+        due_date: nextDue,
+        remind_at: nextRemindAt,
+        notified_at: null,
+      }).eq('id', todo.id)
+      onChange()
+      return
+    }
     haptic(todo.completed ? 'light' : 'success')
     await supabase.from('todos').update({
       completed: !todo.completed,
@@ -73,6 +85,12 @@ export default function TodoItem({ todo, onEdit, onDelete, onChange }: Props) {
           )}
           {todo.reminder_enabled && todo.due_date && (
             <Bell className="h-3 w-3 text-muted-foreground shrink-0" />
+          )}
+          {todo.recurrence_interval && todo.recurrence_unit && (
+            <span className="flex items-center gap-0.5 text-xs text-muted-foreground shrink-0">
+              <RefreshCw className="h-3 w-3" />
+              {formatRecurrence(todo.recurrence_interval, todo.recurrence_unit)}
+            </span>
           )}
         </div>
         {todo.notes && <p className="text-sm text-muted-foreground mt-1 truncate">{todo.notes}</p>}

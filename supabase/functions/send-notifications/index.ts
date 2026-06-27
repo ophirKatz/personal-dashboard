@@ -32,17 +32,6 @@ Deno.serve(async (req: Request) => {
 
   const pending: PendingNotification[] = []
 
-  const { data: dueReminders } = await supabase
-    .from('reminders')
-    .select('id, user_id, title')
-    .lte('remind_at', now.toISOString())
-    .is('notified_at', null)
-
-  for (const reminder of dueReminders ?? []) {
-    pending.push({ userId: reminder.user_id, title: 'Reminder', body: reminder.title, url: '/reminders' })
-    await supabase.from('reminders').update({ notified_at: now.toISOString() }).eq('id', reminder.id)
-  }
-
   const { data: dueTodos } = await supabase
     .from('todos')
     .select('id, user_id, title')
