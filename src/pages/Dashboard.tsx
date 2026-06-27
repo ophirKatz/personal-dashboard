@@ -9,6 +9,7 @@ import { today, advanceRecurrence } from '../utils'
 import { addDays, format } from 'date-fns'
 import { refreshGoogleCalendarEvents } from '../features/calendar/googleCalendar'
 import { toggleGoogleTask } from '../features/todos/googleTasks'
+import { postponeToTomorrow } from '../features/todos/postpone'
 import FocusSection from '../features/focus/FocusSection'
 import TodaySection from '../features/today/TodaySection'
 import type { TodayEvent } from '../features/today/TodaySection'
@@ -61,7 +62,7 @@ export default function Dashboard() {
     const [habitsRes, logsRes, todosRes, eventsRes, notificationsRes] = await Promise.all([
       supabase.from('habits').select('*').order('created_at'),
       supabase.from('habit_logs').select('*').eq('logged_date', t),
-      supabase.from('todos').select('*').eq('completed', false).or(`due_date.eq.${t},due_date.is.null`).order('created_at'),
+      supabase.from('todos').select('*').eq('completed', false).or(`due_date.lte.${t},due_date.is.null`).order('created_at'),
       supabase.from('events').select('*').gte('event_date', t).lte('event_date', in7).order('event_date').order('event_time'),
       supabase.from('notifications').select('*').eq('read', false).order('created_at', { ascending: false }),
     ])
@@ -122,6 +123,13 @@ export default function Dashboard() {
     } else {
       await supabase.from('todos').update({ completed: true, completed_at: new Date().toISOString() }).eq('id', id)
     }
+    setTodos(prev => prev.filter(t => t.id !== id))
+  }
+
+  async function postponeTodo(id: string) {
+    const todo = todos.find(t => t.id === id)
+    if (!todo) return
+    await postponeToTomorrow(todo)
     setTodos(prev => prev.filter(t => t.id !== id))
   }
 
@@ -229,6 +237,7 @@ export default function Dashboard() {
           onToggleHabit={toggleHabit}
           todos={todos}
           onCompleteTodo={completeTodo}
+          onPostponeTodo={postponeTodo}
           events={todayEvents}
         />
       )}

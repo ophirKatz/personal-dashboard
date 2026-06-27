@@ -1,9 +1,10 @@
 import { useState } from 'react'
-import { Pencil, Trash2 } from 'lucide-react'
-import { cn, formatDate } from '../../utils'
+import { Pencil, Trash2, CalendarArrowUp } from 'lucide-react'
+import { cn, formatDate, isOverdue } from '../../utils'
 import { Checkbox } from '../../components/ui/checkbox'
 import { haptic } from '../../lib/haptics'
 import { toggleGoogleTask } from './googleTasks'
+import { postponeToTomorrow } from './postpone'
 import type { Todo } from '../../supabase'
 
 type Props = {
@@ -29,6 +30,16 @@ export default function GoogleTaskItem({ task, onEdit, onDelete, onChange }: Pro
     onDelete()
   }
 
+  async function handlePostpone() {
+    haptic('light')
+    setPending(true)
+    await postponeToTomorrow(task)
+    setPending(false)
+    onChange()
+  }
+
+  const overdue = !task.completed && isOverdue(task.due_date)
+
   return (
     <div className={cn('flex items-start gap-3 p-4 bg-card border border-border rounded-xl transition-opacity', (task.completed || pending) && 'opacity-60')}>
       <Checkbox
@@ -43,11 +54,16 @@ export default function GoogleTaskItem({ task, onEdit, onDelete, onChange }: Pro
           <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-blue-100 text-blue-700 shrink-0">Google</span>
         </div>
         {task.due_date && (
-          <p className="text-xs text-muted-foreground mt-1">{formatDate(task.due_date)}</p>
+          <p className={cn('text-xs text-muted-foreground mt-1', overdue && 'text-destructive')}>{formatDate(task.due_date)}</p>
         )}
         {task.notes && <p className="text-sm text-muted-foreground mt-1 truncate">{task.notes}</p>}
       </div>
       <div className="flex items-center gap-1 shrink-0">
+        {overdue && (
+          <button onClick={handlePostpone} disabled={pending} className="p-1.5 rounded-lg hover:bg-accent text-muted-foreground" title="Postpone to tomorrow">
+            <CalendarArrowUp className="h-4 w-4" />
+          </button>
+        )}
         <button onClick={onEdit} className="p-1.5 rounded-lg hover:bg-accent text-muted-foreground">
           <Pencil className="h-4 w-4" />
         </button>
