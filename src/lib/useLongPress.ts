@@ -22,6 +22,15 @@ export function useLongPress(onLongPress: () => void, delay = 500) {
     }
   }
 
+  function onTouchEnd(e: TouchEvent) {
+    clear()
+    // A successful long-press must suppress the browser's synthetic
+    // mousedown/mouseup/click that follows touchend, otherwise the
+    // synthetic mousedown re-triggers start() and resets triggeredRef
+    // before the click handler can read it.
+    if (triggeredRef.current) e.preventDefault()
+  }
+
   function onClick(e: MouseEvent) {
     if (triggeredRef.current) {
       e.preventDefault()
@@ -34,10 +43,10 @@ export function useLongPress(onLongPress: () => void, delay = 500) {
     onMouseUp: clear,
     onMouseLeave: clear,
     onTouchStart: start,
-    onTouchEnd: clear,
+    onTouchEnd,
     onTouchMove: clear,
     onClick,
     onContextMenu: (e: MouseEvent | TouchEvent) => e.preventDefault(),
-    style: { WebkitTouchCallout: 'none' } as const,
+    style: { WebkitTouchCallout: 'none', WebkitUserSelect: 'none', userSelect: 'none' } as const,
   }
 }
