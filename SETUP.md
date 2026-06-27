@@ -583,6 +583,41 @@ clear today's log only partially cleared the debt.
 
 ---
 
+## 1m. Morning rain notification
+
+Every morning, if today's forecast calls for rain, you get a push notification — "It's raining
+today" / "Take an umbrella with you." — the same way habit/todo reminders arrive (step 1g), no
+in-app action needed.
+
+**How it works:** a new Edge Function (`supabase/functions/send-rain-notification`) calls
+Open-Meteo's `daily` forecast endpoint (not just current conditions) for the fixed Jerusalem
+location, for today only (`forecast_days=1`). It flags rain if the day's WMO weather code is any
+drizzle/rain/thunderstorm code (51–57, 61–67, 80–82, 95–99 — the same codes that drive
+`WeatherWidget`'s rain icon) or if `precipitation_probability_max` is at least 50%. If so, it sends
+a push via `web-push` to every stored subscription, using the same `push_subscriptions` table and
+`VAPID_*` secrets as the existing notification sender.
+- **Daily 7am check:** a `pg_cron` job (`send-rain-notification-daily`) calls the function every
+  day at 4am UTC — same ≈7am Asia/Jerusalem during daylight saving / ≈6am in winter caveat as the
+  other 4am-UTC crons (steps 1h, 1l), since `pg_cron` has no timezone-aware scheduling.
+- **Idempotency:** `weather_cache.rain_notified_date` records the Asia/Jerusalem calendar date a
+  rain notification was last sent for, so re-running the function the same day (a manual retry, or
+  a delayed cron run) never double-sends — same pattern as `habits.last_notified_date`.
+- Authenticates the same way every other cron-triggered function in this app does — via the
+  `cron_secret` already stored in Supabase Vault. No new secret was needed.
+
+**This was already set up for you (via MCPs), no action needed:**
+- `weather_cache.rain_notified_date` (date, nullable)
+- The `send-rain-notification` Edge Function, deployed at
+  `https://tjjvrqamitwtoslinrxy.supabase.co/functions/v1/send-rain-notification`
+- The `send-rain-notification-daily` cron job
+
+**No manual action required** — it reuses the existing `push_subscriptions` table and
+`VAPID_PUBLIC_KEY`/`VAPID_PRIVATE_KEY`/`VAPID_SUBJECT`/`CRON_SECRET` Edge Function secrets from
+step 1g. If you've already enabled notifications there, this works automatically; if not, follow
+step 1g's "Enabling notifications on iPhone" instructions once.
+
+---
+
 ## 2. Vercel — Environment Variables
 
 As part of the import in step 0 (or right after), set these environment variables in the Vercel dashboard:
@@ -855,3 +890,15 @@ Common causes: unused imports (the tsconfig is set to `noUnusedLocals: false` to
   UTC minute, e.g. via the Habits page reminder display
 - If a reminder/habit was already due *before* you enabled notifications, it won't retroactively
   send — only checks done after the subscription exists will fire
+
+**Rain notification never arrives on a rainy day:**
+- Confirm the `send-rain-notification-daily` cron job exists and is active:
+  `select * from cron.job where jobname = 'send-rain-notification-daily';`
+- Check the Edge Function's logs (Dashboard → Edge Functions → `send-rain-notification` → Logs) —
+  the response body includes the day's `forecast` (weather code + max precipitation probability)
+  even when no notification was sent, which is the fastest way to tell whether Open-Meteo just
+  isn't forecasting rain today vs. something failing
+- It only ever sends once per Asia/Jerusalem calendar day (`weather_cache.rain_notified_date`) — if
+  you already got today's notification, a second manual run is expected to report
+  `"skipped": "already notified today"`
+- Same secret/subscription requirements as step 1g apply — no separate setup
