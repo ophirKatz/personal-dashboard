@@ -1,20 +1,7 @@
 import { useEffect, useState } from 'react'
-import { RefreshCw, Sun, Moon, CloudSun, Cloud, CloudFog, CloudDrizzle, CloudRain, CloudSnow, CloudLightning } from 'lucide-react'
+import { RefreshCw } from 'lucide-react'
 import { supabase } from '../../supabase'
 import type { WeatherCache } from '../../supabase'
-
-function weatherIcon(code: number | null, isDay: boolean | null) {
-  if (code === null) return Cloud
-  if (code <= 1) return isDay === false ? Moon : Sun
-  if (code === 2) return CloudSun
-  if (code === 3) return Cloud
-  if (code === 45 || code === 48) return CloudFog
-  if ([51, 53, 55, 56, 57].includes(code)) return CloudDrizzle
-  if ([61, 63, 65, 66, 67, 80, 81, 82].includes(code)) return CloudRain
-  if ([71, 73, 75, 77, 85, 86].includes(code)) return CloudSnow
-  if ([95, 96, 99].includes(code)) return CloudLightning
-  return Cloud
-}
 
 function temperatureStyle(celsius: number) {
   if (celsius < 0) return { color: 'text-blue-600', emoji: '🥶' }
@@ -67,12 +54,10 @@ export default function WeatherWidget() {
     )
   }
 
-  const Icon = weatherIcon(weather.weather_code, weather.is_day)
   const { color, emoji } = temperatureStyle(weather.temperature)
 
   return (
     <div className="flex items-center gap-1.5">
-      <Icon className="h-4 w-4 text-muted-foreground shrink-0" />
       <span className={`text-sm font-medium ${color}`}>
         {emoji} {Math.round(weather.temperature)}°C
       </span>
