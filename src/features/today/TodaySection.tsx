@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { AlertCircle, CalendarArrowUp, CheckCircle2, ChevronRight, Clock } from 'lucide-react'
 import type { Habit, HabitLog, Todo } from '../../supabase'
-import { formatTime, isOverdue } from '../../utils'
+import { formatTime, isOverdue, today } from '../../utils'
 import WeatherWidget from '../weather/WeatherWidget'
 import { celebrateFromElement } from '../../lib/confetti'
 
@@ -10,6 +10,8 @@ export type TodayEvent = {
   id: string
   title: string
   time: string | null
+  endTime: string | null
+  endDate: string | null
   source: 'local' | 'google'
 }
 
@@ -45,6 +47,13 @@ function formatCountdown(minutes: number): string {
   return m === 0 ? `${h}h` : `${h}h ${m}m`
 }
 
+function hasEventEnded(event: TodayEvent, now: Date): boolean {
+  if (!event.time) return false
+  const endDate = event.endDate ?? today()
+  const endTime = event.endTime ?? event.time
+  return new Date(`${endDate}T${endTime}`).getTime() < now.getTime()
+}
+
 export default function TodaySection({ habits, todayLogs, onToggleHabit, todos, onCompleteTodo, onPostponeTodo, events }: Props) {
   const [now, setNow] = useState(() => new Date())
   useEffect(() => {
@@ -62,6 +71,8 @@ export default function TodaySection({ habits, todayLogs, onToggleHabit, todos, 
     .sort((a, b) => a.minutes - b.minutes)[0]
 
   const urgency = nextUp == null ? null : nextUp.minutes <= 15 ? 'high' : nextUp.minutes <= 60 ? 'medium' : 'low'
+
+  const visibleEvents = events.filter(event => !hasEventEnded(event, now))
 
   const sortedTodos = [...todos].sort((a, b) => {
     const overdueDiff = Number(isOverdue(b.due_date)) - Number(isOverdue(a.due_date))
@@ -104,18 +115,22 @@ export default function TodaySection({ habits, todayLogs, onToggleHabit, todos, 
             View all <ChevronRight className="h-3 w-3" />
           </Link>
         </div>
-        {events.length === 0 ? (
+        {visibleEvents.length === 0 ? (
           <p className="text-sm text-muted-foreground">No events today</p>
         ) : (
           <div className="space-y-1.5">
-            {events.slice(0, 3).map(event => (
+            {visibleEvents.slice(0, 3).map(event => (
               <div key={event.id} className="flex items-center gap-2">
                 <Clock className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
                 <span className="text-sm truncate flex-1">{event.title}</span>
-                <span className="text-xs text-muted-foreground shrink-0">{event.time ? formatTime(event.time) : 'All day'}</span>
+                <span className="text-xs text-muted-foreground shrink-0">
+                  {event.time
+                    ? `${formatTime(event.time)}${event.endTime ? ` – ${formatTime(event.endTime)}` : ''}`
+                    : 'All day'}
+                </span>
               </div>
             ))}
-            {events.length > 3 && <p className="text-xs text-muted-foreground">+{events.length - 3} more</p>}
+            {visibleEvents.length > 3 && <p className="text-xs text-muted-foreground">+{visibleEvents.length - 3} more</p>}
           </div>
         )}
       </div>
