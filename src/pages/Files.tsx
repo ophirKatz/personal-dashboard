@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef, lazy, Suspense } from 'react'
-import { Plus, Download, Trash2, Folder as FolderIcon, FolderPlus, Upload, X, Eye, Pencil, Search, Link2, RefreshCw } from 'lucide-react'
+import { Plus, Download, Trash2, Folder as FolderIcon, FolderPlus, Upload, X, Pencil, Search, Link2, RefreshCw, MoreVertical } from 'lucide-react'
 import { supabase } from '../supabase'
 import type { FileRecord } from '../supabase'
 import type { User } from '@supabase/supabase-js'
@@ -156,9 +156,60 @@ export default function Files() {
     setNewFolderOpen(false)
   }
 
-  function FileRow({ file, showFolder, hidePath }: { file: FileRecord; showFolder?: boolean; hidePath?: boolean }) {
+  function FileActionsMenu({ file }: { file: FileRecord }) {
+    const [open, setOpen] = useState(false)
+    const ref = useRef<HTMLDivElement>(null)
+
+    useEffect(() => {
+      if (!open) return
+      function handleClick(e: MouseEvent) {
+        if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+      }
+      document.addEventListener('mousedown', handleClick)
+      return () => document.removeEventListener('mousedown', handleClick)
+    }, [open])
+
     return (
-      <div className="flex items-center gap-3 p-4 bg-card border border-border rounded-xl">
+      <div className="relative" ref={ref}>
+        <button
+          onClick={e => { e.stopPropagation(); setOpen(o => !o) }}
+          className="p-2 rounded-lg hover:bg-accent text-muted-foreground"
+        >
+          <MoreVertical className="h-4 w-4" />
+        </button>
+        {open && (
+          <div className="absolute right-0 top-full mt-1 z-10 w-36 rounded-lg border border-border bg-popover shadow-md py-1">
+            <button
+              onClick={e => { e.stopPropagation(); setOpen(false); renameFile(file) }}
+              className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-accent text-left"
+            >
+              <Pencil className="h-4 w-4" /> Rename
+            </button>
+            <button
+              onClick={e => { e.stopPropagation(); setOpen(false); downloadFile(file) }}
+              className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-accent text-left"
+            >
+              <Download className="h-4 w-4" /> Download
+            </button>
+            <button
+              onClick={e => { e.stopPropagation(); setOpen(false); deleteFile(file) }}
+              className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-accent hover:text-destructive text-left"
+            >
+              <Trash2 className="h-4 w-4" /> Delete
+            </button>
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  function FileRow({ file, showFolder, hidePath }: { file: FileRecord; showFolder?: boolean; hidePath?: boolean }) {
+    const viewable = isViewable(file.mime_type)
+    return (
+      <div
+        onClick={() => viewable && setViewingFile(file)}
+        className={`flex items-center gap-3 p-4 bg-card border border-border rounded-xl ${viewable ? 'cursor-pointer hover:bg-accent' : ''}`}
+      >
         <span className="text-2xl">{fileIcon(file.mime_type)}</span>
         <div className="flex-1 min-w-0">
           <p className="font-medium truncate">{file.name}</p>
@@ -168,22 +219,7 @@ export default function Files() {
             {formatFileSize(file.size_bytes)} · {format(new Date(file.created_at), 'MMM d, yyyy')}
           </p>
         </div>
-        <div className="flex items-center gap-1">
-          {isViewable(file.mime_type) && (
-            <button onClick={() => setViewingFile(file)} className="p-2 rounded-lg hover:bg-accent text-muted-foreground">
-              <Eye className="h-4 w-4" />
-            </button>
-          )}
-          <button onClick={() => renameFile(file)} className="p-2 rounded-lg hover:bg-accent text-muted-foreground">
-            <Pencil className="h-4 w-4" />
-          </button>
-          <button onClick={() => downloadFile(file)} className="p-2 rounded-lg hover:bg-accent text-muted-foreground">
-            <Download className="h-4 w-4" />
-          </button>
-          <button onClick={() => deleteFile(file)} className="p-2 rounded-lg hover:bg-accent text-muted-foreground hover:text-destructive">
-            <Trash2 className="h-4 w-4" />
-          </button>
-        </div>
+        <FileActionsMenu file={file} />
       </div>
     )
   }
