@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef, lazy, Suspense } from 'react'
 import { createPortal } from 'react-dom'
-import { Plus, Download, Trash2, Folder as FolderIcon, FolderPlus, Upload, X, Pencil, Search, Link2, RefreshCw, MoreVertical } from 'lucide-react'
+import { Plus, Download, Trash2, Folder as FolderIcon, FolderPlus, Upload, X, Pencil, Search, Link2, RefreshCw, MoreVertical, Star } from 'lucide-react'
 import { supabase } from '../supabase'
 import type { FileRecord } from '../supabase'
 import type { User } from '@supabase/supabase-js'
@@ -13,6 +13,7 @@ import { connectGoogle } from '../lib/googleAuth'
 import { DriveFolderPicker } from '../features/drive/DriveFolderPicker'
 import { fetchSelectedDriveFolders, addDriveFolder, removeDriveFolder, syncDriveFolder } from '../features/drive/googleDrive'
 import type { DriveFolder } from '../features/drive/googleDrive'
+import StarredFilesGrid from '../features/files/StarredFilesGrid'
 
 const FileViewer = lazy(() => import('../components/FileViewer').then(m => ({ default: m.FileViewer })))
 
@@ -149,6 +150,11 @@ export default function Files() {
     load()
   }
 
+  async function toggleStar(file: FileRecord) {
+    await supabase.from('files').update({ is_starred: !file.is_starred }).eq('id', file.id)
+    load()
+  }
+
   async function createFolder(e: React.FormEvent) {
     e.preventDefault()
     if (!newFolder.trim()) return
@@ -206,6 +212,12 @@ export default function Files() {
               style={{ position: 'fixed', top: coords.top, right: coords.right }}
               className="z-50 w-36 rounded-lg border border-border bg-popover shadow-md py-1"
             >
+              <button
+                onClick={e => { e.stopPropagation(); setOpen(false); toggleStar(file) }}
+                className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-accent text-left"
+              >
+                <Star className={`h-4 w-4 ${file.is_starred ? 'fill-current' : ''}`} /> {file.is_starred ? 'Unstar' : 'Star'}
+              </button>
               <button
                 onClick={e => { e.stopPropagation(); setOpen(false); renameFile(file) }}
                 className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-accent text-left"
@@ -467,6 +479,13 @@ export default function Files() {
           className="pl-9"
         />
       </div>
+
+      {!query && files.some(f => f.is_starred) && (
+        <div className="mb-5">
+          <h2 className="text-sm font-semibold text-muted-foreground mb-2.5">Starred</h2>
+          <StarredFilesGrid files={files} onSelect={setViewingFile} />
+        </div>
+      )}
 
       {query ? (
         <div className="space-y-2">
