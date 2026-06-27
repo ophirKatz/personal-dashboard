@@ -13,6 +13,11 @@ import { today } from '../utils'
 
 type Filter = 'today' | 'upcoming' | 'all' | 'completed'
 
+function dueSortKey(todo: Todo): string {
+  if (!todo.due_date) return '9999-12-31T23:59'
+  return `${todo.due_date}T${todo.due_time ?? '23:59'}`
+}
+
 const FILTERS: { key: Filter; label: string }[] = [
   { key: 'today', label: 'Today' },
   { key: 'upcoming', label: 'Upcoming' },
@@ -67,7 +72,7 @@ export default function Todos() {
     if (filter === 'today') return due === t || !due
     if (filter === 'upcoming') return due && due > t
     return true
-  })
+  }).sort((a, b) => dueSortKey(a).localeCompare(dueSortKey(b)))
 
   return (
     <div className="p-4 max-w-2xl mx-auto">

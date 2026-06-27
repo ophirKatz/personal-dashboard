@@ -39,7 +39,7 @@ export default function GoogleTaskItem({ task, onEdit, onDelete, onChange }: Pro
       />
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-1.5">
-          <p className={cn('font-medium truncate', task.completed && 'line-through text-muted-foreground')}>{task.title}</p>
+          <p dir="auto" className={cn('font-medium truncate', task.completed && 'line-through text-muted-foreground')}>{task.title}</p>
           <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-blue-100 text-blue-700 shrink-0">Google</span>
         </div>
         {task.due_date && (

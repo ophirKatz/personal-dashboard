@@ -55,7 +55,7 @@ export default function TodoItem({ todo, onEdit, onDelete, onChange }: Props) {
         className="mt-0.5 shrink-0"
       />
       <div className="flex-1 min-w-0">
-        <p className={cn('font-medium', todo.completed && 'line-through text-muted-foreground')}>{todo.title}</p>
+        <p dir="auto" className={cn('font-medium', todo.completed && 'line-through text-muted-foreground')}>{todo.title}</p>
         <div className="flex items-center gap-2 mt-1 flex-wrap">
           {editingDate ? (
             <div className="flex items-center gap-1.5">
