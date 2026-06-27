@@ -107,6 +107,7 @@ export type FileRecord = {
   drive_file_id: string | null
   relative_path: string
   drive_modified_time: string | null
+  is_starred: boolean
 }
 
 export type StockAlert = {

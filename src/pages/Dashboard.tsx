@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import type { MouseEvent, KeyboardEvent } from 'react'
-import { Bell, ShoppingCart, Mountain, DollarSign, TrendingUp, X } from 'lucide-react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Bell, ShoppingCart, Mountain, DollarSign, Folder, X } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
 import type { User } from '@supabase/supabase-js'
 import { supabase } from '../supabase'
 import type { Habit, HabitLog, Todo, CalendarEvent, Notification } from '../supabase'
@@ -18,6 +18,7 @@ import { useLongPress } from '../lib/useLongPress'
 import ShoppingItemDrawer from '../features/shopping/ShoppingItemDrawer'
 import QuickLogSessionDrawer from '../features/climbing/QuickLogSessionDrawer'
 import FinanceQuickDrawer from '../features/finance/FinanceQuickDrawer'
+import StarredFilesDrawer from '../features/files/StarredFilesDrawer'
 
 const USER_NAME = 'Ophir'
 
@@ -33,11 +34,13 @@ export default function Dashboard() {
   const [showAddItem, setShowAddItem] = useState(false)
   const [showLogSession, setShowLogSession] = useState(false)
   const [showFinanceRates, setShowFinanceRates] = useState(false)
+  const [showStarredFiles, setShowStarredFiles] = useState(false)
 
   const navigate = useNavigate()
   const shoppingLongPress = useLongPress(() => setShowAddItem(true))
   const climbingLongPress = useLongPress(() => setShowLogSession(true))
   const financeLongPress = useLongPress(() => setShowFinanceRates(true))
+  const filesLongPress = useLongPress(() => setShowStarredFiles(true))
 
   function quickLinkClick(longPress: { onClick: (e: MouseEvent) => void }, path: string) {
     return (e: MouseEvent<HTMLDivElement>) => {
@@ -216,17 +219,21 @@ export default function Dashboard() {
           </div>
           <span className="text-xs font-medium text-muted-foreground select-none">Finance</span>
         </div>
-        <Link
-          to="/habits"
-          aria-label="Habits"
-          title="Habits"
-          className="flex flex-col items-center justify-center gap-1.5 p-3.5 bg-card border border-border rounded-xl active:scale-[0.98] transition-transform"
+        <div
+          role="link"
+          tabIndex={0}
+          aria-label="Files"
+          title="Long press for starred files"
+          className="flex flex-col items-center justify-center gap-1.5 p-3.5 bg-card border border-border rounded-xl active:scale-[0.98] transition-transform select-none cursor-pointer"
+          {...filesLongPress}
+          onClick={quickLinkClick(filesLongPress, '/files')}
+          onKeyDown={quickLinkKeyDown('/files')}
         >
-          <div className="w-9 h-9 rounded-lg bg-purple-100 text-purple-700 flex items-center justify-center shrink-0">
-            <TrendingUp className="h-4 w-4" />
+          <div className="w-9 h-9 rounded-lg bg-purple-100 text-purple-700 flex items-center justify-center shrink-0 select-none">
+            <Folder className="h-4 w-4" />
           </div>
-          <span className="text-xs font-medium text-muted-foreground">Habits</span>
-        </Link>
+          <span className="text-xs font-medium text-muted-foreground select-none">Files</span>
+        </div>
       </div>
 
       {/* Today: habits, tasks due today, today's events, and weather */}
@@ -276,6 +283,7 @@ export default function Dashboard() {
         />
       )}
       <FinanceQuickDrawer open={showFinanceRates} onClose={() => setShowFinanceRates(false)} />
+      <StarredFilesDrawer open={showStarredFiles} onClose={() => setShowStarredFiles(false)} />
     </div>
   )
 }
