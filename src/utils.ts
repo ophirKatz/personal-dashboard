@@ -21,6 +21,14 @@ export function today(): string {
   return format(new Date(), 'yyyy-MM-dd')
 }
 
+export function tomorrow(): string {
+  return format(dfnsAddDays(new Date(), 1), 'yyyy-MM-dd')
+}
+
+export function isOverdue(dueDate: string | null): boolean {
+  return !!dueDate && dueDate < today()
+}
+
 export function formatDate(dateStr: string): string {
   const date = parseISO(dateStr)
   if (isToday(date)) return 'Today'

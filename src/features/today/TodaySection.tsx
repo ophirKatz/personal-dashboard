@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { AlertCircle, CheckCircle2, ChevronRight, Clock } from 'lucide-react'
+import { AlertCircle, CalendarArrowUp, CheckCircle2, ChevronRight, Clock } from 'lucide-react'
 import type { Habit, HabitLog, Todo } from '../../supabase'
-import { formatTime } from '../../utils'
+import { formatTime, isOverdue } from '../../utils'
 import WeatherWidget from '../weather/WeatherWidget'
 import { celebrateFromElement } from '../../lib/confetti'
 
@@ -19,6 +19,7 @@ type Props = {
   onToggleHabit: (habit: Habit) => void
   todos: Todo[]
   onCompleteTodo: (id: string) => void
+  onPostponeTodo: (id: string) => void
   events: TodayEvent[]
 }
 
@@ -44,7 +45,7 @@ function formatCountdown(minutes: number): string {
   return m === 0 ? `${h}h` : `${h}h ${m}m`
 }
 
-export default function TodaySection({ habits, todayLogs, onToggleHabit, todos, onCompleteTodo, events }: Props) {
+export default function TodaySection({ habits, todayLogs, onToggleHabit, todos, onCompleteTodo, onPostponeTodo, events }: Props) {
   const [now, setNow] = useState(() => new Date())
   useEffect(() => {
     const id = setInterval(() => setNow(new Date()), 30_000)
@@ -55,14 +56,18 @@ export default function TodaySection({ habits, todayLogs, onToggleHabit, todos, 
 
   const nextUp = [
     ...events.filter(e => e.time).map(e => ({ kind: 'event' as const, label: e.title, minutes: minutesUntil(e.time!, now) })),
-    ...todos.filter(t => t.due_time).map(t => ({ kind: 'task' as const, label: t.title, minutes: minutesUntil(t.due_time!, now) })),
+    ...todos.filter(t => t.due_time && !isOverdue(t.due_date)).map(t => ({ kind: 'task' as const, label: t.title, minutes: minutesUntil(t.due_time!, now) })),
   ]
     .filter(item => item.minutes >= 0 && item.minutes <= NEXT_UP_WINDOW_MINUTES)
     .sort((a, b) => a.minutes - b.minutes)[0]
 
   const urgency = nextUp == null ? null : nextUp.minutes <= 15 ? 'high' : nextUp.minutes <= 60 ? 'medium' : 'low'
 
-  const sortedTodos = [...todos].sort((a, b) => (a.due_time ?? '99:99:99').localeCompare(b.due_time ?? '99:99:99'))
+  const sortedTodos = [...todos].sort((a, b) => {
+    const overdueDiff = Number(isOverdue(b.due_date)) - Number(isOverdue(a.due_date))
+    if (overdueDiff !== 0) return overdueDiff
+    return (a.due_time ?? '99:99:99').localeCompare(b.due_time ?? '99:99:99')
+  })
 
   return (
     <div className="bg-card border border-border rounded-xl p-3.5 space-y-4">
@@ -127,7 +132,7 @@ export default function TodaySection({ habits, todayLogs, onToggleHabit, todos, 
         ) : (
           <div className="space-y-1.5">
             {sortedTodos.slice(0, 3).map(todo => {
-              const overdue = !!todo.due_time && minutesUntil(todo.due_time, now) < 0
+              const overdue = isOverdue(todo.due_date) || (!!todo.due_time && minutesUntil(todo.due_time, now) < 0)
               return (
                 <div key={todo.id} className="flex items-center gap-2">
                   <button
@@ -142,6 +147,15 @@ export default function TodaySection({ habits, todayLogs, onToggleHabit, todos, 
                       {overdue && <AlertCircle className="h-3 w-3" />}
                       {formatTime(todo.due_time)}
                     </span>
+                  )}
+                  {overdue && (
+                    <button
+                      onClick={() => onPostponeTodo(todo.id)}
+                      className="p-1 rounded-lg hover:bg-accent text-muted-foreground shrink-0"
+                      title="Postpone to tomorrow"
+                    >
+                      <CalendarArrowUp className="h-3.5 w-3.5" />
+                    </button>
                   )}
                 </div>
               )

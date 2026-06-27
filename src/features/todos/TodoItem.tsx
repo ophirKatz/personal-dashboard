@@ -1,11 +1,12 @@
 import { useState } from 'react'
-import { Pencil, Trash2, CalendarDays, Check, Bell, RefreshCw } from 'lucide-react'
+import { Pencil, Trash2, CalendarDays, CalendarArrowUp, Check, Bell, RefreshCw } from 'lucide-react'
 import { supabase } from '../../supabase'
 import type { Todo } from '../../supabase'
-import { cn, formatDate, formatTime, advanceRecurrence, formatRecurrence } from '../../utils'
+import { cn, formatDate, formatTime, advanceRecurrence, formatRecurrence, isOverdue } from '../../utils'
 import { Checkbox } from '../../components/ui/checkbox'
 import { Input } from '../../components/ui/input'
 import { haptic } from '../../lib/haptics'
+import { postponeToTomorrow } from './postpone'
 
 type Props = {
   todo: Todo
@@ -59,6 +60,14 @@ export default function TodoItem({ todo, onEdit, onDelete, onChange }: Props) {
     onDelete()
   }
 
+  async function handlePostpone() {
+    haptic('light')
+    await postponeToTomorrow(todo)
+    onChange()
+  }
+
+  const overdue = !todo.completed && isOverdue(todo.due_date)
+
   return (
     <div className={cn('flex items-start gap-3 p-4 bg-card border border-border rounded-xl transition-opacity', todo.completed && 'opacity-60')}>
       <Checkbox
@@ -78,7 +87,7 @@ export default function TodoItem({ todo, onEdit, onDelete, onChange }: Props) {
               </button>
             </div>
           ) : (
-            <button onClick={() => setEditingDate(true)} className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground">
+            <button onClick={() => setEditingDate(true)} className={cn('flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground', overdue && 'text-destructive')}>
               <CalendarDays className="h-3 w-3" />
               {todo.due_date ? `${formatDate(todo.due_date)}${todo.due_time ? ` · ${formatTime(todo.due_time)}` : ''}` : 'Add date'}
             </button>
@@ -96,6 +105,11 @@ export default function TodoItem({ todo, onEdit, onDelete, onChange }: Props) {
         {todo.notes && <p className="text-sm text-muted-foreground mt-1 truncate">{todo.notes}</p>}
       </div>
       <div className="flex items-center gap-1 shrink-0">
+        {overdue && (
+          <button onClick={handlePostpone} className="p-1.5 rounded-lg hover:bg-accent text-muted-foreground" title="Postpone to tomorrow">
+            <CalendarArrowUp className="h-4 w-4" />
+          </button>
+        )}
         <button onClick={onEdit} className="p-1.5 rounded-lg hover:bg-accent text-muted-foreground">
           <Pencil className="h-4 w-4" />
         </button>

@@ -69,7 +69,7 @@ export default function Todos() {
     if (filter === 'completed') return todo.completed
     if (todo.completed) return false
     const due = todo.due_date
-    if (filter === 'today') return due === t || !due
+    if (filter === 'today') return !due || due <= t
     if (filter === 'upcoming') return due && due > t
     return true
   }).sort((a, b) => dueSortKey(a).localeCompare(dueSortKey(b)))
