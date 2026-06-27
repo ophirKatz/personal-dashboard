@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
 import { format, subDays, eachDayOfInterval, parseISO, isToday } from 'date-fns'
 
 type Props = {
@@ -7,6 +7,7 @@ type Props = {
 }
 
 export default function HabitHeatmap({ logs, color }: Props) {
+  const scrollRef = useRef<HTMLDivElement>(null)
   const logSet = useMemo(() => new Set(logs), [logs])
 
   const days = useMemo(() => {
@@ -43,8 +44,13 @@ export default function HabitHeatmap({ logs, color }: Props) {
     return labels
   }, [weeks])
 
+  useEffect(() => {
+    const el = scrollRef.current
+    if (el) el.scrollLeft = el.scrollWidth
+  }, [weeks])
+
   return (
-    <div className="overflow-x-auto">
+    <div ref={scrollRef} className="overflow-x-auto">
       <div className="inline-block min-w-full">
         {/* Month labels */}
         <div className="flex gap-0.5 mb-1 pl-6">
