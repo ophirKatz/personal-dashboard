@@ -63,6 +63,8 @@ export default function TodaySection({ habits, todayLogs, onToggleHabit, todos, 
 
   const urgency = nextUp == null ? null : nextUp.minutes <= 15 ? 'high' : nextUp.minutes <= 60 ? 'medium' : 'low'
 
+  const sortedTodos = [...todos].sort((a, b) => (a.due_time ?? '99:99:99').localeCompare(b.due_time ?? '99:99:99'))
+
   return (
     <div className="bg-card border border-border rounded-xl p-3.5 space-y-4">
       <div className="flex items-center justify-between">
@@ -125,7 +127,7 @@ export default function TodaySection({ habits, todayLogs, onToggleHabit, todos, 
           <p className="text-sm text-muted-foreground">Nothing due today</p>
         ) : (
           <div className="space-y-1.5">
-            {todos.slice(0, 3).map(todo => (
+            {sortedTodos.slice(0, 3).map(todo => (
               <div key={todo.id} className="flex items-center gap-2">
                 <button
                   onClick={() => onCompleteTodo(todo.id)}
