@@ -47,7 +47,7 @@ export default function TodaySection({ habits, todayLogs, onToggleHabit, todos, 
               <span className="text-xs text-muted-foreground">{doneCount}/{habits.length}</span>
             </div>
           </div>
-          <div className="flex gap-3 overflow-x-auto pb-1 -mx-1 px-1">
+          <div className="flex gap-3 overflow-x-auto -mt-2 pt-2 pb-1 -mx-1 px-1">
             {habits.map(habit => {
               const done = todayLogs.some(l => l.habit_id === habit.id)
               return (
