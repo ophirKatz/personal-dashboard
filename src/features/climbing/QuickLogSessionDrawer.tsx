@@ -1,22 +1,24 @@
 import { useState } from 'react'
 import { CalendarDays } from 'lucide-react'
 import { supabase } from '../../supabase'
-import type { ClimbingAttempt } from '../../supabase'
 import { Button } from '../../components/ui/button'
 import { Input } from '../../components/ui/input'
-import { today } from '../../utils'
+import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerBody } from '../../components/ui/drawer'
 import { haptic } from '../../lib/haptics'
+import { today } from '../../utils'
 import QuickAttempt from './QuickAttempt'
 import AttemptsList from './AttemptsList'
 
-type LocalAttempt = Omit<ClimbingAttempt, 'id' | 'session_id' | 'user_id' | 'created_at'>
+type LocalAttempt = { grade: string; result: 'sent' | 'project' }
 
 type Props = {
-  userId: string
+  open: boolean
+  onClose: () => void
   onSaved: () => void
+  userId: string
 }
 
-export default function SessionForm({ userId, onSaved }: Props) {
+export default function QuickLogSessionDrawer({ open, onClose, onSaved, userId }: Props) {
   const [sessionDate, setSessionDate] = useState(today())
   const [attempts, setAttempts] = useState<LocalAttempt[]>([])
   const [saving, setSaving] = useState(false)
@@ -50,38 +52,43 @@ export default function SessionForm({ userId, onSaved }: Props) {
     if (error || !session) { setSaving(false); return }
 
     await supabase.from('climbing_attempts').insert(
-      attempts.map(a => ({ ...a, session_id: session.id, user_id: userId }))
+      attempts.map(a => ({ ...a, session_id: session.id, user_id: userId })),
     )
 
     haptic('success')
+    setSaving(false)
     setAttempts([])
     setSessionDate(today())
-    setSaving(false)
     onSaved()
+    onClose()
   }
 
   return (
-    <div className="space-y-5">
-      <div className="flex items-center gap-2 text-muted-foreground">
-        <CalendarDays className="h-4 w-4 shrink-0" />
-        <Input
-          type="date"
-          value={sessionDate}
-          onChange={e => setSessionDate(e.target.value)}
-          className="w-auto h-8 px-2 py-1 text-sm text-foreground"
-        />
-      </div>
+    <Drawer open={open} onOpenChange={(v) => !v && onClose()}>
+      <DrawerContent>
+        <DrawerHeader>
+          <DrawerTitle>Log session</DrawerTitle>
+        </DrawerHeader>
+        <DrawerBody className="space-y-5">
+          <div className="flex items-center gap-2 text-muted-foreground">
+            <CalendarDays className="h-4 w-4 shrink-0" />
+            <Input
+              type="date"
+              value={sessionDate}
+              onChange={e => setSessionDate(e.target.value)}
+              className="w-auto h-8 px-2 py-1 text-sm text-foreground"
+            />
+          </div>
 
-      <QuickAttempt onAdd={addAttempt} />
+          <QuickAttempt onAdd={addAttempt} />
 
-      {attempts.length > 0 && (
-        <div className="space-y-2">
           <AttemptsList attempts={attempts} onToggleResult={toggleAttemptResult} onRemove={removeAttempt} />
+
           <Button onClick={handleSave} disabled={saving || attempts.length === 0} className="w-full" size="lg">
-            {saving ? 'Saving…' : `Save Session (${attempts.length} attempts)`}
+            {saving ? 'Saving…' : `Save Session${attempts.length ? ` (${attempts.length})` : ''}`}
           </Button>
-        </div>
-      )}
-    </div>
+        </DrawerBody>
+      </DrawerContent>
+    </Drawer>
   )
 }

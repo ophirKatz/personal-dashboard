@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { X, CalendarDays } from 'lucide-react'
+import { CalendarDays } from 'lucide-react'
 import { supabase } from '../../supabase'
 import type { ClimbingSession, ClimbingAttempt } from '../../supabase'
 import { Button } from '../../components/ui/button'
@@ -8,6 +8,7 @@ import { Textarea } from '../../components/ui/textarea'
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerBody } from '../../components/ui/drawer'
 import { haptic } from '../../lib/haptics'
 import QuickAttempt from './QuickAttempt'
+import AttemptsList from './AttemptsList'
 
 type LocalAttempt = { grade: string; result: 'sent' | 'project' }
 
@@ -89,25 +90,7 @@ export default function EditSessionDrawer({ open, onClose, onSaved, session }: P
 
           <QuickAttempt onAdd={addAttempt} />
 
-          <div className="space-y-2">
-            <p className="text-sm font-medium">{attempts.length} attempt{attempts.length !== 1 ? 's' : ''}</p>
-            <div className="space-y-1.5 max-h-48 overflow-y-auto">
-              {attempts.map((a, i) => (
-                <div key={i} className="flex items-center gap-3 px-3 py-2 bg-card border border-border rounded-lg">
-                  <button
-                    onClick={() => toggleAttemptResult(i)}
-                    className={`text-xs font-bold px-2 py-0.5 rounded-full ${a.result === 'sent' ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}`}
-                  >
-                    {a.result === 'sent' ? 'SENT' : 'PROJ'}
-                  </button>
-                  <span className="font-medium text-sm">{a.grade}</span>
-                  <button onClick={() => removeAttempt(i)} className="ml-auto text-muted-foreground hover:text-destructive">
-                    <X className="h-4 w-4" />
-                  </button>
-                </div>
-              ))}
-            </div>
-          </div>
+          <AttemptsList attempts={attempts} onToggleResult={toggleAttemptResult} onRemove={removeAttempt} />
 
           <Button onClick={handleSave} disabled={saving} className="w-full" size="lg">
             {saving ? 'Saving…' : 'Save changes'}
