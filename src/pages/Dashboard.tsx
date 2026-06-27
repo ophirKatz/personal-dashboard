@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Bell, ShoppingCart, Mountain, DollarSign, TrendingUp, X } from 'lucide-react'
 import { Link } from 'react-router-dom'
+import type { User } from '@supabase/supabase-js'
 import { supabase } from '../supabase'
 import type { Habit, HabitLog, Todo, CalendarEvent, Notification } from '../supabase'
 import { today, advanceRecurrence } from '../utils'
@@ -11,6 +12,10 @@ import FocusSection from '../features/focus/FocusSection'
 import TodaySection from '../features/today/TodaySection'
 import type { TodayEvent } from '../features/today/TodaySection'
 import { getShowFocusSection } from '../lib/userSettings'
+import { useLongPress } from '../lib/useLongPress'
+import ShoppingItemDrawer from '../features/shopping/ShoppingItemDrawer'
+import QuickLogSessionDrawer from '../features/climbing/QuickLogSessionDrawer'
+import FinanceQuickDrawer from '../features/finance/FinanceQuickDrawer'
 
 const USER_NAME = 'Ophir'
 
@@ -22,6 +27,14 @@ export default function Dashboard() {
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [loading, setLoading] = useState(true)
   const [showFocusSection, setShowFocusSection] = useState(true)
+  const [user, setUser] = useState<User | null>(null)
+  const [showAddItem, setShowAddItem] = useState(false)
+  const [showLogSession, setShowLogSession] = useState(false)
+  const [showFinanceRates, setShowFinanceRates] = useState(false)
+
+  const shoppingLongPress = useLongPress(() => setShowAddItem(true))
+  const climbingLongPress = useLongPress(() => setShowLogSession(true))
+  const financeLongPress = useLongPress(() => setShowFinanceRates(true))
 
   async function loadLocalData() {
     const t = today()
@@ -48,6 +61,7 @@ export default function Dashboard() {
       refreshGoogleCalendarEvents().then(loadLocalData)
     })
     getShowFocusSection().then(setShowFocusSection)
+    supabase.auth.getUser().then(({ data: { user } }) => setUser(user))
   }, [])
 
   async function toggleHabit(habit: Habit) {
@@ -134,8 +148,9 @@ export default function Dashboard() {
         <Link
           to="/shopping"
           aria-label="Shopping List"
-          title="Shopping List"
-          className="flex flex-col items-center justify-center gap-1.5 p-3.5 bg-card border border-border rounded-xl active:scale-[0.98] transition-transform"
+          title="Long press to add an item"
+          className="flex flex-col items-center justify-center gap-1.5 p-3.5 bg-card border border-border rounded-xl active:scale-[0.98] transition-transform select-none"
+          {...shoppingLongPress}
         >
           <div className="w-9 h-9 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0">
             <ShoppingCart className="h-4 w-4" />
@@ -145,8 +160,9 @@ export default function Dashboard() {
         <Link
           to="/climbing"
           aria-label="Climbing"
-          title="Climbing"
-          className="flex flex-col items-center justify-center gap-1.5 p-3.5 bg-card border border-border rounded-xl active:scale-[0.98] transition-transform"
+          title="Long press to log a session"
+          className="flex flex-col items-center justify-center gap-1.5 p-3.5 bg-card border border-border rounded-xl active:scale-[0.98] transition-transform select-none"
+          {...climbingLongPress}
         >
           <div className="w-9 h-9 rounded-lg bg-orange-100 text-orange-700 flex items-center justify-center shrink-0">
             <Mountain className="h-4 w-4" />
@@ -156,8 +172,9 @@ export default function Dashboard() {
         <Link
           to="/finance"
           aria-label="Finance"
-          title="Finance"
-          className="flex flex-col items-center justify-center gap-1.5 p-3.5 bg-card border border-border rounded-xl active:scale-[0.98] transition-transform"
+          title="Long press for quick rates"
+          className="flex flex-col items-center justify-center gap-1.5 p-3.5 bg-card border border-border rounded-xl active:scale-[0.98] transition-transform select-none"
+          {...financeLongPress}
         >
           <div className="w-9 h-9 rounded-lg bg-amber-100 text-amber-700 flex items-center justify-center shrink-0">
             <DollarSign className="h-4 w-4" />
@@ -205,6 +222,24 @@ export default function Dashboard() {
           <p className="text-sm mt-1">Start by adding habits and tasks.</p>
         </div>
       )}
+
+      {user && (
+        <ShoppingItemDrawer
+          open={showAddItem}
+          onClose={() => setShowAddItem(false)}
+          onSave={() => {}}
+          userId={user.id}
+        />
+      )}
+      {user && (
+        <QuickLogSessionDrawer
+          open={showLogSession}
+          onClose={() => setShowLogSession(false)}
+          onSaved={() => setShowLogSession(false)}
+          userId={user.id}
+        />
+      )}
+      <FinanceQuickDrawer open={showFinanceRates} onClose={() => setShowFinanceRates(false)} />
     </div>
   )
 }
