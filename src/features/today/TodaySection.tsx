@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { CheckCircle2, ChevronRight, Clock } from 'lucide-react'
 import type { Habit, HabitLog, Todo } from '../../supabase'
@@ -27,9 +28,40 @@ const PRIORITY_DOT = {
   high: 'bg-red-500',
 } as const
 
+// How far ahead an upcoming item still counts as "next up" worth a banner.
+const NEXT_UP_WINDOW_MINUTES = 180
+
+function minutesUntil(time: string, now: Date): number {
+  const target = new Date(`${now.toDateString()} ${time}`)
+  return Math.round((target.getTime() - now.getTime()) / 60000)
+}
+
+function formatCountdown(minutes: number): string {
+  if (minutes <= 0) return 'now'
+  if (minutes < 60) return `${minutes} min`
+  const h = Math.floor(minutes / 60)
+  const m = minutes % 60
+  return m === 0 ? `${h}h` : `${h}h ${m}m`
+}
+
 export default function TodaySection({ habits, todayLogs, onToggleHabit, todos, onCompleteTodo, events }: Props) {
+  const [now, setNow] = useState(() => new Date())
+  useEffect(() => {
+    const id = setInterval(() => setNow(new Date()), 30_000)
+    return () => clearInterval(id)
+  }, [])
+
   const doneCount = habits.filter(h => todayLogs.some(l => l.habit_id === h.id)).length
   const totalDebt = habits.reduce((sum, h) => sum + h.debt, 0)
+
+  const nextUp = [
+    ...events.filter(e => e.time).map(e => ({ kind: 'event' as const, label: e.title, minutes: minutesUntil(e.time!, now) })),
+    ...todos.filter(t => t.due_time).map(t => ({ kind: 'task' as const, label: t.title, minutes: minutesUntil(t.due_time!, now) })),
+  ]
+    .filter(item => item.minutes >= 0 && item.minutes <= NEXT_UP_WINDOW_MINUTES)
+    .sort((a, b) => a.minutes - b.minutes)[0]
+
+  const urgency = nextUp == null ? null : nextUp.minutes <= 15 ? 'high' : nextUp.minutes <= 60 ? 'medium' : 'low'
 
   return (
     <div className="bg-card border border-border rounded-xl p-3.5 space-y-4">
@@ -38,8 +70,80 @@ export default function TodaySection({ habits, todayLogs, onToggleHabit, todos, 
         <WeatherWidget />
       </div>
 
+      {nextUp && (
+        <div
+          className={`flex items-center gap-3 rounded-lg p-3 ${
+            urgency === 'high'
+              ? 'bg-destructive/10 border border-destructive/30'
+              : urgency === 'medium'
+              ? 'bg-amber-500/10 border border-amber-500/30'
+              : 'bg-primary/5 border border-primary/20'
+          }`}
+        >
+          <Clock className={`h-4 w-4 shrink-0 ${urgency === 'high' ? 'text-destructive' : urgency === 'medium' ? 'text-amber-600' : 'text-primary'}`} />
+          <div className="flex-1 min-w-0">
+            <p className="text-xs text-muted-foreground">Next up</p>
+            <p className="text-sm font-medium truncate">{nextUp.label}</p>
+          </div>
+          <span className={`text-sm font-semibold shrink-0 ${urgency === 'high' ? 'text-destructive' : urgency === 'medium' ? 'text-amber-600' : 'text-primary'}`}>
+            in {formatCountdown(nextUp.minutes)}
+          </span>
+        </div>
+      )}
+
+      <div className="space-y-2">
+        <div className="flex items-center justify-between">
+          <span className="text-xs font-medium text-muted-foreground">Events</span>
+          <Link to="/calendar" className="flex items-center gap-0.5 text-xs text-primary">
+            View all <ChevronRight className="h-3 w-3" />
+          </Link>
+        </div>
+        {events.length === 0 ? (
+          <p className="text-sm text-muted-foreground">No events today</p>
+        ) : (
+          <div className="space-y-1.5">
+            {events.slice(0, 3).map(event => (
+              <div key={event.id} className="flex items-center gap-2">
+                <Clock className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                <span className="text-sm truncate flex-1">{event.title}</span>
+                <span className="text-xs text-muted-foreground shrink-0">{event.time ? formatTime(event.time) : 'All day'}</span>
+              </div>
+            ))}
+            {events.length > 3 && <p className="text-xs text-muted-foreground">+{events.length - 3} more</p>}
+          </div>
+        )}
+      </div>
+
+      <div className="space-y-2 border-t border-border pt-3">
+        <div className="flex items-center justify-between">
+          <span className="text-xs font-medium text-muted-foreground">Tasks</span>
+          <Link to="/todos" className="flex items-center gap-0.5 text-xs text-primary">
+            View all <ChevronRight className="h-3 w-3" />
+          </Link>
+        </div>
+        {todos.length === 0 ? (
+          <p className="text-sm text-muted-foreground">Nothing due today</p>
+        ) : (
+          <div className="space-y-1.5">
+            {todos.slice(0, 3).map(todo => (
+              <div key={todo.id} className="flex items-center gap-2">
+                <button
+                  onClick={() => onCompleteTodo(todo.id)}
+                  className="w-4 h-4 rounded-full border-2 border-primary shrink-0 hover:bg-primary/10"
+                  title="Mark complete"
+                />
+                <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${PRIORITY_DOT[todo.priority]}`} />
+                <span className="text-sm truncate flex-1">{todo.title}</span>
+                {todo.due_time && <span className="text-xs text-muted-foreground shrink-0">{formatTime(todo.due_time)}</span>}
+              </div>
+            ))}
+            {todos.length > 3 && <p className="text-xs text-muted-foreground">+{todos.length - 3} more</p>}
+          </div>
+        )}
+      </div>
+
       {habits.length > 0 && (
-        <div className="space-y-2">
+        <div className="space-y-2 border-t border-border pt-3">
           <div className="flex items-center justify-between">
             <span className="text-xs font-medium text-muted-foreground">Habits</span>
             <div className="flex items-center gap-2">
@@ -80,57 +184,6 @@ export default function TodaySection({ habits, todayLogs, onToggleHabit, todos, 
           </div>
         </div>
       )}
-
-      <div className="space-y-2 border-t border-border pt-3">
-        <div className="flex items-center justify-between">
-          <span className="text-xs font-medium text-muted-foreground">Tasks</span>
-          <Link to="/todos" className="flex items-center gap-0.5 text-xs text-primary">
-            View all <ChevronRight className="h-3 w-3" />
-          </Link>
-        </div>
-        {todos.length === 0 ? (
-          <p className="text-sm text-muted-foreground">Nothing due today</p>
-        ) : (
-          <div className="space-y-1.5">
-            {todos.slice(0, 3).map(todo => (
-              <div key={todo.id} className="flex items-center gap-2">
-                <button
-                  onClick={() => onCompleteTodo(todo.id)}
-                  className="w-4 h-4 rounded-full border-2 border-primary shrink-0 hover:bg-primary/10"
-                  title="Mark complete"
-                />
-                <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${PRIORITY_DOT[todo.priority]}`} />
-                <span className="text-sm truncate flex-1">{todo.title}</span>
-                {todo.due_time && <span className="text-xs text-muted-foreground shrink-0">{formatTime(todo.due_time)}</span>}
-              </div>
-            ))}
-            {todos.length > 3 && <p className="text-xs text-muted-foreground">+{todos.length - 3} more</p>}
-          </div>
-        )}
-      </div>
-
-      <div className="space-y-2 border-t border-border pt-3">
-        <div className="flex items-center justify-between">
-          <span className="text-xs font-medium text-muted-foreground">Events</span>
-          <Link to="/calendar" className="flex items-center gap-0.5 text-xs text-primary">
-            View all <ChevronRight className="h-3 w-3" />
-          </Link>
-        </div>
-        {events.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No events today</p>
-        ) : (
-          <div className="space-y-1.5">
-            {events.slice(0, 3).map(event => (
-              <div key={event.id} className="flex items-center gap-2">
-                <Clock className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                <span className="text-sm truncate flex-1">{event.title}</span>
-                <span className="text-xs text-muted-foreground shrink-0">{event.time ? formatTime(event.time) : 'All day'}</span>
-              </div>
-            ))}
-            {events.length > 3 && <p className="text-xs text-muted-foreground">+{events.length - 3} more</p>}
-          </div>
-        )}
-      </div>
     </div>
   )
 }
