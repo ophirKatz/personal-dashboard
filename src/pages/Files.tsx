@@ -1,4 +1,5 @@
 import { useEffect, useState, useRef, lazy, Suspense } from 'react'
+import { createPortal } from 'react-dom'
 import { Plus, Download, Trash2, Folder as FolderIcon, FolderPlus, Upload, X, Pencil, Search, Link2, RefreshCw, MoreVertical } from 'lucide-react'
 import { supabase } from '../supabase'
 import type { FileRecord } from '../supabase'
@@ -158,48 +159,76 @@ export default function Files() {
 
   function FileActionsMenu({ file }: { file: FileRecord }) {
     const [open, setOpen] = useState(false)
-    const ref = useRef<HTMLDivElement>(null)
+    const [coords, setCoords] = useState({ top: 0, right: 0 })
+    const buttonRef = useRef<HTMLButtonElement>(null)
+    const menuRef = useRef<HTMLDivElement>(null)
+
+    function openMenu(e: React.MouseEvent) {
+      e.stopPropagation()
+      const rect = buttonRef.current?.getBoundingClientRect()
+      if (rect) setCoords({ top: rect.bottom + 4, right: window.innerWidth - rect.right })
+      setOpen(o => !o)
+    }
 
     useEffect(() => {
       if (!open) return
       function handleClick(e: MouseEvent) {
-        if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+        if (
+          menuRef.current && !menuRef.current.contains(e.target as Node) &&
+          buttonRef.current && !buttonRef.current.contains(e.target as Node)
+        ) setOpen(false)
       }
+      function handleScrollOrResize() { setOpen(false) }
       document.addEventListener('mousedown', handleClick)
-      return () => document.removeEventListener('mousedown', handleClick)
+      window.addEventListener('scroll', handleScrollOrResize, true)
+      window.addEventListener('resize', handleScrollOrResize)
+      return () => {
+        document.removeEventListener('mousedown', handleClick)
+        window.removeEventListener('scroll', handleScrollOrResize, true)
+        window.removeEventListener('resize', handleScrollOrResize)
+      }
     }, [open])
 
     return (
-      <div className="relative" ref={ref}>
+      <>
         <button
-          onClick={e => { e.stopPropagation(); setOpen(o => !o) }}
+          ref={buttonRef}
+          onClick={openMenu}
           className="p-2 rounded-lg hover:bg-accent text-muted-foreground"
         >
           <MoreVertical className="h-4 w-4" />
         </button>
-        {open && (
-          <div className="absolute right-0 top-full mt-1 z-10 w-36 rounded-lg border border-border bg-popover shadow-md py-1">
-            <button
-              onClick={e => { e.stopPropagation(); setOpen(false); renameFile(file) }}
-              className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-accent text-left"
+        {open && createPortal(
+          <>
+            <div className="fixed inset-0 z-40 bg-black/10" onClick={() => setOpen(false)} />
+            <div
+              ref={menuRef}
+              style={{ position: 'fixed', top: coords.top, right: coords.right }}
+              className="z-50 w-36 rounded-lg border border-border bg-popover shadow-md py-1"
             >
-              <Pencil className="h-4 w-4" /> Rename
-            </button>
-            <button
-              onClick={e => { e.stopPropagation(); setOpen(false); downloadFile(file) }}
-              className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-accent text-left"
-            >
-              <Download className="h-4 w-4" /> Download
-            </button>
-            <button
-              onClick={e => { e.stopPropagation(); setOpen(false); deleteFile(file) }}
-              className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-accent hover:text-destructive text-left"
-            >
-              <Trash2 className="h-4 w-4" /> Delete
-            </button>
-          </div>
+              <button
+                onClick={e => { e.stopPropagation(); setOpen(false); renameFile(file) }}
+                className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-accent text-left"
+              >
+                <Pencil className="h-4 w-4" /> Rename
+              </button>
+              <button
+                onClick={e => { e.stopPropagation(); setOpen(false); downloadFile(file) }}
+                className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-accent text-left"
+              >
+                <Download className="h-4 w-4" /> Download
+              </button>
+              <button
+                onClick={e => { e.stopPropagation(); setOpen(false); deleteFile(file) }}
+                className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-accent hover:text-destructive text-left"
+              >
+                <Trash2 className="h-4 w-4" /> Delete
+              </button>
+            </div>
+          </>,
+          document.body,
         )}
-      </div>
+      </>
     )
   }
 
