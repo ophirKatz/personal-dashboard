@@ -40,7 +40,10 @@ function computeStreak(logs: HabitLog[], frequency: 'daily' | 'weekly'): number 
 
 export default function HabitCard({ habit, logs, onEdit, onDelete, onLogChange }: Props) {
   const [expanded, setExpanded] = useState(false)
-  const todayLogged = logs.some(l => l.logged_date === today())
+  const todayLog = logs.find(l => l.logged_date === today())
+  const todayLogged = todayLog != null
+  const fullyDone = todayLogged && habit.debt === 0
+  const partiallyDone = todayLogged && habit.debt > 0
   const streak = computeStreak(logs, habit.frequency)
   const logDates = logs.map(l => l.logged_date)
 
@@ -48,13 +51,12 @@ export default function HabitCard({ habit, logs, onEdit, onDelete, onLogChange }
     haptic(todayLogged ? 'light' : 'success')
     if (!todayLogged) celebrateFromElement(e.currentTarget)
     if (todayLogged) {
-      const log = logs.find(l => l.logged_date === today())
       await supabase
         .from('habit_logs')
         .delete()
         .eq('habit_id', habit.id)
         .eq('logged_date', today())
-      if (log?.paid_debt) {
+      if (todayLog?.paid_debt) {
         await supabase.from('habits').update({ debt: habit.debt + 1 }).eq('id', habit.id)
       }
     } else {
@@ -83,10 +85,13 @@ export default function HabitCard({ habit, logs, onEdit, onDelete, onLogChange }
       <div className="flex items-center gap-3 p-4">
         <button
           onClick={toggleToday}
-          className="w-12 h-12 rounded-xl flex items-center justify-center text-2xl shrink-0 transition-transform active:scale-95"
+          title={partiallyDone ? `Logged today — ${habit.debt} owed still` : undefined}
+          className={`w-12 h-12 rounded-xl flex items-center justify-center text-2xl shrink-0 transition-transform active:scale-95 ${
+            partiallyDone ? 'border-2 border-dashed border-destructive' : ''
+          }`}
           style={{
             backgroundColor: todayLogged ? habit.color : 'hsl(var(--muted))',
-            opacity: todayLogged ? 1 : 0.6,
+            opacity: fullyDone ? 1 : todayLogged ? 0.75 : 0.6,
           }}
         >
           {habit.emoji}
@@ -108,7 +113,9 @@ export default function HabitCard({ habit, logs, onEdit, onDelete, onLogChange }
             {habit.debt > 0 && (
               <>
                 <span className="mx-1">·</span>
-                <span className="text-destructive font-medium">{habit.debt} owed</span>
+                <span className="text-destructive font-medium">
+                  {habit.debt} owed{todayLog?.paid_debt ? ' · paid 1 today' : ''}
+                </span>
               </>
             )}
           </div>
