@@ -65,7 +65,7 @@ export default function Dashboard() {
     const [habitsRes, logsRes, todosRes, eventsRes, notificationsRes] = await Promise.all([
       supabase.from('habits').select('*').order('created_at'),
       supabase.from('habit_logs').select('*').eq('logged_date', t),
-      supabase.from('todos').select('*').eq('completed', false).or(`due_date.lte.${t},due_date.is.null`).order('created_at'),
+      supabase.from('todos').select('*').eq('completed', false).or(`due_date.eq.${t},due_date.is.null`).order('created_at'),
       supabase.from('events').select('*').gte('event_date', t).lte('event_date', in7).order('event_date').order('event_time'),
       supabase.from('notifications').select('*').eq('read', false).order('created_at', { ascending: false }),
     ])
