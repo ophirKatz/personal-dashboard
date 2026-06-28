@@ -5,7 +5,7 @@ import { useNavigate } from 'react-router-dom'
 import type { User } from '@supabase/supabase-js'
 import { supabase } from '../supabase'
 import type { Habit, HabitLog, Todo, CalendarEvent, Notification } from '../supabase'
-import { today, advanceRecurrence } from '../utils'
+import { today, advanceRecurrence, isHabitDueToday } from '../utils'
 import { addDays, format } from 'date-fns'
 import { refreshGoogleCalendarEvents } from '../features/calendar/googleCalendar'
 import { toggleGoogleTask } from '../features/todos/googleTasks'
@@ -24,7 +24,7 @@ const USER_NAME = 'Ophir'
 
 export default function Dashboard() {
   const [habits, setHabits] = useState<Habit[]>([])
-  const [todayLogs, setTodayLogs] = useState<HabitLog[]>([])
+  const [recentHabitLogs, setRecentHabitLogs] = useState<HabitLog[]>([])
   const [todos, setTodos] = useState<Todo[]>([])
   const [events, setEvents] = useState<CalendarEvent[]>([])
   const [notifications, setNotifications] = useState<Notification[]>([])
@@ -61,17 +61,20 @@ export default function Dashboard() {
   async function loadLocalData() {
     const t = today()
     const in7 = format(addDays(new Date(), 7), 'yyyy-MM-dd')
+    // A week back is enough lookback to know which "due" period any habit
+    // (even 1x/week) currently sits in — see isHabitDueToday in utils.ts.
+    const habitLogsSince = format(addDays(new Date(), -7), 'yyyy-MM-dd')
 
     const [habitsRes, logsRes, todosRes, eventsRes, notificationsRes] = await Promise.all([
       supabase.from('habits').select('*').order('created_at'),
-      supabase.from('habit_logs').select('*').eq('logged_date', t),
+      supabase.from('habit_logs').select('*').gte('logged_date', habitLogsSince),
       supabase.from('todos').select('*').eq('completed', false).or(`due_date.eq.${t},due_date.is.null`).order('created_at'),
       supabase.from('events').select('*').gte('event_date', t).lte('event_date', in7).order('event_date').order('event_time'),
       supabase.from('notifications').select('*').eq('read', false).order('created_at', { ascending: false }),
     ])
 
     setHabits(habitsRes.data ?? [])
-    setTodayLogs(logsRes.data ?? [])
+    setRecentHabitLogs(logsRes.data ?? [])
     setTodos(todosRes.data ?? [])
     setEvents(eventsRes.data ?? [])
     setNotifications(notificationsRes.data ?? [])
@@ -87,25 +90,27 @@ export default function Dashboard() {
   }, [])
 
   async function toggleHabit(habit: Habit) {
-    const log = todayLogs.find(l => l.habit_id === habit.id)
+    const t = today()
+    const log = recentHabitLogs.find(l => l.habit_id === habit.id && l.logged_date === t)
     if (log) {
-      await supabase.from('habit_logs').delete().eq('habit_id', habit.id).eq('logged_date', today())
+      await supabase.from('habit_logs').delete().eq('habit_id', habit.id).eq('logged_date', t)
       if (log.paid_debt) {
         await supabase.from('habits').update({ debt: habit.debt + 1 }).eq('id', habit.id)
       }
     } else {
       const paidDebt = habit.debt > 0
       const { data: { user } } = await supabase.auth.getUser()
-      await supabase.from('habit_logs').insert({ habit_id: habit.id, user_id: user!.id, logged_date: today(), paid_debt: paidDebt })
+      await supabase.from('habit_logs').insert({ habit_id: habit.id, user_id: user!.id, logged_date: t, paid_debt: paidDebt })
       if (paidDebt) {
         await supabase.from('habits').update({ debt: habit.debt - 1 }).eq('id', habit.id)
       }
     }
+    const habitLogsSince = format(addDays(new Date(), -7), 'yyyy-MM-dd')
     const [{ data: logsData }, { data: habitsData }] = await Promise.all([
-      supabase.from('habit_logs').select('*').eq('logged_date', today()),
+      supabase.from('habit_logs').select('*').gte('logged_date', habitLogsSince),
       supabase.from('habits').select('*').order('created_at'),
     ])
-    setTodayLogs(logsData ?? [])
+    setRecentHabitLogs(logsData ?? [])
     setHabits(habitsData ?? [])
   }
 
@@ -143,6 +148,8 @@ export default function Dashboard() {
   })
 
   const t = today()
+  const todayLogs = recentHabitLogs.filter(l => l.logged_date === t)
+  const dueHabits = habits.filter(h => isHabitDueToday(h, recentHabitLogs))
   const todayEvents: TodayEvent[] = sortedEvents
     .filter(event => event.event_date === t)
     .map(event => ({
@@ -246,7 +253,7 @@ export default function Dashboard() {
       {/* Today: habits, tasks due today, today's events, and weather */}
       {!loading && (
         <TodaySection
-          habits={habits}
+          habits={dueHabits}
           todayLogs={todayLogs}
           onToggleHabit={toggleHabit}
           todos={todos}
