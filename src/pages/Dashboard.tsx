@@ -254,6 +254,7 @@ export default function Dashboard() {
       {!loading && (
         <TodaySection
           habits={dueHabits}
+          totalHabitsCount={habits.length}
           todayLogs={todayLogs}
           onToggleHabit={toggleHabit}
           todos={todos}

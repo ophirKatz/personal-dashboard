@@ -17,6 +17,7 @@ export type TodayEvent = {
 
 type Props = {
   habits: Habit[]
+  totalHabitsCount: number
   todayLogs: HabitLog[]
   onToggleHabit: (habit: Habit) => void
   todos: Todo[]
@@ -54,14 +55,12 @@ function hasEventEnded(event: TodayEvent, now: Date): boolean {
   return new Date(`${endDate}T${endTime}`).getTime() < now.getTime()
 }
 
-export default function TodaySection({ habits, todayLogs, onToggleHabit, todos, onCompleteTodo, onPostponeTodo, events }: Props) {
+export default function TodaySection({ habits, totalHabitsCount, todayLogs, onToggleHabit, todos, onCompleteTodo, onPostponeTodo, events }: Props) {
   const [now, setNow] = useState(() => new Date())
   useEffect(() => {
     const id = setInterval(() => setNow(new Date()), 30_000)
     return () => clearInterval(id)
   }, [])
-
-  const doneCount = habits.filter(h => todayLogs.some(l => l.habit_id === h.id)).length
 
   const nextUp = [
     ...events.filter(e => e.time).map(e => ({ kind: 'event' as const, label: e.title, minutes: minutesUntil(e.time!, now) })),
@@ -184,7 +183,7 @@ export default function TodaySection({ habits, todayLogs, onToggleHabit, todos, 
         <div className="space-y-2 border-t border-border pt-3">
           <div className="flex items-center justify-between">
             <span className="text-xs font-medium text-muted-foreground">Habits</span>
-            <span className="text-xs text-muted-foreground">{doneCount}/{habits.length}</span>
+            <span className="text-xs text-muted-foreground">{habits.length}/{totalHabitsCount}</span>
           </div>
           <div className="flex gap-3 overflow-x-auto -mt-2 pt-2 pb-1 -mx-1 px-1">
             {habits.map(habit => {
