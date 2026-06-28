@@ -98,29 +98,35 @@ export default function HabitCard({ habit, logs, onEdit, onDelete, onLogChange }
         </button>
         <div className="flex-1 min-w-0" onClick={() => setExpanded(e => !e)}>
           <div className="font-medium truncate">{habit.name}</div>
-          <div className="flex items-center gap-1 text-sm text-muted-foreground">
-            <Flame className="h-3.5 w-3.5 text-orange-400" />
-            <span>{streak} day streak</span>
-            <span className="mx-1">·</span>
-            <span>{habit.frequency === 'daily' ? 'Daily' : `${habit.times_per_week}×/week`}</span>
+          <div className="flex flex-wrap items-center gap-x-1.5 gap-y-1 mt-0.5 text-sm text-muted-foreground">
+            <span className="inline-flex items-center gap-1 whitespace-nowrap">
+              <Flame className="h-3.5 w-3.5 text-orange-400 shrink-0" />
+              {streak} day streak
+            </span>
+            <span className="whitespace-nowrap">
+              <span className="text-border">· </span>
+              {habit.frequency === 'daily' ? 'Daily' : `${habit.times_per_week}×/week`}
+            </span>
             {habit.reminder_enabled && habit.reminder_time && (
-              <>
-                <span className="mx-1">·</span>
-                <Bell className="h-3.5 w-3.5" />
-                <span>{formatTime(utcTimeToLocalTime(habit.reminder_time.slice(0, 5)))}</span>
-              </>
+              <span className="inline-flex items-center gap-1 whitespace-nowrap">
+                <span className="text-border">·</span>
+                <Bell className="h-3.5 w-3.5 shrink-0" />
+                {formatTime(utcTimeToLocalTime(habit.reminder_time.slice(0, 5)))}
+              </span>
             )}
             {habit.debt > 0 && (
-              <>
-                <span className="mx-1">·</span>
-                <span className="text-destructive font-medium">
-                  {habit.debt} owed{todayLog?.paid_debt ? ' · paid 1 today' : ''}
-                </span>
-              </>
+              <span className="inline-flex items-center whitespace-nowrap rounded-full bg-destructive/10 px-2 py-0.5 text-xs font-medium text-destructive">
+                {habit.debt} owed
+              </span>
+            )}
+            {todayLog?.paid_debt && (
+              <span className="inline-flex items-center whitespace-nowrap rounded-full bg-emerald-500/10 px-2 py-0.5 text-xs font-medium text-emerald-600 dark:text-emerald-400">
+                paid 1 today
+              </span>
             )}
           </div>
         </div>
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-1 shrink-0">
           <button onClick={onEdit} className="p-2 rounded-lg hover:bg-accent text-muted-foreground">
             <Pencil className="h-4 w-4" />
           </button>
