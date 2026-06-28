@@ -1,17 +1,20 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { createClient } from '@supabase/supabase-js'
 
-// Same scopes as the login flow, so a secondary account can later be
-// promoted to primary. The callback itself runs as a Supabase Edge Function
-// (supabase/functions/google-connect-callback), not a Vercel function — it
-// needs to bypass RLS to write tokens for a user with no session/JWT (Google's
-// redirect carries none), and Supabase auto-injects the service-role key into
-// every Edge Function, so it never needs to be pasted into Vercel.
+// Calendar-only: these are additional/secondary accounts (e.g. a work
+// account), and only Calendar syncs across multiple accounts — Tasks and
+// Drive stay scoped to the primary login account (see api/_googleAuth.ts),
+// so there's no need to request those scopes here. The callback itself runs
+// as a Supabase Edge Function (supabase/functions/google-connect-callback),
+// not a Vercel function — it needs to bypass RLS to write tokens for a user
+// with no session/JWT (Google's redirect carries none), and Supabase
+// auto-injects the service-role key into every Edge Function, so it never
+// needs to be pasted into Vercel.
 //
 // userinfo.email is required so the callback can call Google's userinfo
 // endpoint to learn which Google account email this token belongs to —
 // without it, that call returns 401 UNAUTHENTICATED even with a valid token.
-const GOOGLE_SCOPES = 'https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/calendar.readonly https://www.googleapis.com/auth/tasks https://www.googleapis.com/auth/drive.readonly'
+const GOOGLE_SCOPES = 'https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/calendar.readonly'
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'GET') {
