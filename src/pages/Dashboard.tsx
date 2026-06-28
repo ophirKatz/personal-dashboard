@@ -148,7 +148,6 @@ export default function Dashboard() {
   })
 
   const t = today()
-  const todayLogs = recentHabitLogs.filter(l => l.logged_date === t)
   const dueHabits = habits.filter(h => isHabitDueToday(h, recentHabitLogs))
   const todayEvents: TodayEvent[] = sortedEvents
     .filter(event => event.event_date === t)
@@ -255,7 +254,7 @@ export default function Dashboard() {
         <TodaySection
           habits={dueHabits}
           totalHabitsCount={habits.length}
-          todayLogs={todayLogs}
+          logs={recentHabitLogs}
           onToggleHabit={toggleHabit}
           todos={todos}
           onCompleteTodo={completeTodo}

@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { AlertCircle, CalendarArrowUp, CheckCircle2, ChevronRight, Clock } from 'lucide-react'
 import type { Habit, HabitLog, Todo } from '../../supabase'
-import { formatTime, isOverdue, today } from '../../utils'
+import { formatTime, isHabitDoneThisPeriod, isOverdue, today } from '../../utils'
 import WeatherWidget from '../weather/WeatherWidget'
 import { celebrateFromElement } from '../../lib/confetti'
 
@@ -18,7 +18,7 @@ export type TodayEvent = {
 type Props = {
   habits: Habit[]
   totalHabitsCount: number
-  todayLogs: HabitLog[]
+  logs: HabitLog[]
   onToggleHabit: (habit: Habit) => void
   todos: Todo[]
   onCompleteTodo: (id: string) => void
@@ -55,7 +55,7 @@ function hasEventEnded(event: TodayEvent, now: Date): boolean {
   return new Date(`${endDate}T${endTime}`).getTime() < now.getTime()
 }
 
-export default function TodaySection({ habits, totalHabitsCount, todayLogs, onToggleHabit, todos, onCompleteTodo, onPostponeTodo, events }: Props) {
+export default function TodaySection({ habits, totalHabitsCount, logs, onToggleHabit, todos, onCompleteTodo, onPostponeTodo, events }: Props) {
   const [now, setNow] = useState(() => new Date())
   useEffect(() => {
     const id = setInterval(() => setNow(new Date()), 30_000)
@@ -187,24 +187,25 @@ export default function TodaySection({ habits, totalHabitsCount, todayLogs, onTo
           </div>
           <div className="flex gap-3 overflow-x-auto -mt-2 pt-2 pb-1 -mx-1 px-1">
             {habits.map(habit => {
-              const done = todayLogs.some(l => l.habit_id === habit.id)
-              const fullyDone = done && habit.debt === 0
-              const partiallyDone = done && habit.debt > 0
+              const loggedToday = logs.some(l => l.habit_id === habit.id && l.logged_date === today())
+              const doneThisPeriod = isHabitDoneThisPeriod(habit, logs)
+              const fullyDone = doneThisPeriod && habit.debt === 0
+              const partiallyDone = doneThisPeriod && habit.debt > 0
               return (
                 <button
                   key={habit.id}
                   onClick={e => {
-                    if (!done) celebrateFromElement(e.currentTarget)
+                    if (!loggedToday) celebrateFromElement(e.currentTarget)
                     onToggleHabit(habit)
                   }}
-                  title={partiallyDone ? `Logged today — ${habit.debt} owed still` : undefined}
+                  title={partiallyDone ? `${habit.debt} owed still` : undefined}
                   className="flex flex-col items-center gap-1 shrink-0 relative"
                 >
                   <div
                     className={`w-11 h-11 rounded-xl flex items-center justify-center text-xl transition-all active:scale-95 ${
                       partiallyDone ? 'border-2 border-dashed border-destructive' : ''
                     }`}
-                    style={{ backgroundColor: done ? habit.color : 'hsl(var(--muted))', opacity: fullyDone ? 1 : done ? 0.75 : 0.5 }}
+                    style={{ backgroundColor: loggedToday ? habit.color : 'hsl(var(--muted))', opacity: fullyDone ? 1 : loggedToday ? 0.75 : 0.5 }}
                   >
                     {habit.emoji}
                   </div>
