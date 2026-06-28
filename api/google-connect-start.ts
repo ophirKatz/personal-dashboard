@@ -7,7 +7,11 @@ import { createClient } from '@supabase/supabase-js'
 // needs to bypass RLS to write tokens for a user with no session/JWT (Google's
 // redirect carries none), and Supabase auto-injects the service-role key into
 // every Edge Function, so it never needs to be pasted into Vercel.
-const GOOGLE_SCOPES = 'https://www.googleapis.com/auth/calendar.readonly https://www.googleapis.com/auth/tasks https://www.googleapis.com/auth/drive.readonly'
+//
+// userinfo.email is required so the callback can call Google's userinfo
+// endpoint to learn which Google account email this token belongs to —
+// without it, that call returns 401 UNAUTHENTICATED even with a valid token.
+const GOOGLE_SCOPES = 'https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/calendar.readonly https://www.googleapis.com/auth/tasks https://www.googleapis.com/auth/drive.readonly'
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'GET') {
