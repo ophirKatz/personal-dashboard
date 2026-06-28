@@ -84,24 +84,49 @@ export function utcTimeToLocalTime(utcTime: string): string {
 // days, anchored to the habit's creation date — not once per calendar day
 // like daily habits. E.g. 2x/week uses 3-day periods, so logging it once
 // hides it from "due today" views for the rest of that period instead of
-// reappearing the very next day. Mirrors the period math the
-// accrue-habit-debt Edge Function uses, so debt and "due today" never
-// disagree about which period is current.
+// reappearing the very next day. Daily habits use a 1-day period, so this
+// math applies to them too. Mirrors the period math the accrue-habit-debt
+// Edge Function uses, so debt and "due today" never disagree about which
+// period is current.
 export function habitPeriodLengthDays(habit: Habit): number {
   if (habit.frequency === 'daily') return 1
   return Math.max(1, Math.floor(7 / (habit.times_per_week ?? 1)))
 }
 
-export function isHabitDueToday(habit: Habit, logs: HabitLog[]): boolean {
-  if (habit.frequency === 'daily') return true
+function currentPeriodStart(habit: Habit): string | null {
   const createdDate = habit.created_at.slice(0, 10)
   const todayStr = today()
-  if (createdDate > todayStr) return false
+  if (createdDate > todayStr) return null
   const periodLength = habitPeriodLengthDays(habit)
   const daysSinceCreation = differenceInCalendarDays(parseISO(todayStr), parseISO(createdDate))
   const periodIndex = Math.floor(daysSinceCreation / periodLength)
-  const periodStart = format(dfnsAddDays(parseISO(createdDate), periodIndex * periodLength), 'yyyy-MM-dd')
-  return !logs.some(l => l.habit_id === habit.id && l.logged_date >= periodStart && l.logged_date <= todayStr)
+  return format(dfnsAddDays(parseISO(createdDate), periodIndex * periodLength), 'yyyy-MM-dd')
+}
+
+// True once the habit has been logged at least once during its current
+// period (today for daily habits, the current floor(7/times_per_week)-day
+// window for weekly ones) — regardless of which day within the period the
+// log landed on.
+export function isHabitDoneThisPeriod(habit: Habit, logs: HabitLog[]): boolean {
+  const periodStart = currentPeriodStart(habit)
+  if (periodStart == null) return true
+  const todayStr = today()
+  return logs.some(l => l.habit_id === habit.id && l.logged_date >= periodStart && l.logged_date <= todayStr)
+}
+
+// Total units owed right now: debt carried over from past missed periods,
+// plus one more if the current period hasn't been logged yet. This is the
+// single number that decides both whether a habit shows up as "due today"
+// and how much further debt-paying it still needs.
+export function habitDebtOwedToday(habit: Habit, logs: HabitLog[]): number {
+  return habit.debt + (isHabitDoneThisPeriod(habit, logs) ? 0 : 1)
+}
+
+// A habit only needs attention today when there's actually something to pay
+// down: either this period isn't logged yet, or past debt is still
+// outstanding even though this period is already logged.
+export function isHabitDueToday(habit: Habit, logs: HabitLog[]): boolean {
+  return habitDebtOwedToday(habit, logs) > 0
 }
 
 export function formatFileSize(bytes: number): string {
