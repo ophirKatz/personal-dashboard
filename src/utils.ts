@@ -1,6 +1,7 @@
 import { type ClassValue, clsx } from 'clsx'
 import { twMerge } from 'tailwind-merge'
-import { format, isToday, isTomorrow, parseISO, addDays as dfnsAddDays, addWeeks, addMonths as dfnsAddMonths } from 'date-fns'
+import { format, isToday, isTomorrow, parseISO, addDays as dfnsAddDays, addWeeks, addMonths as dfnsAddMonths, differenceInCalendarDays } from 'date-fns'
+import type { Habit, HabitLog } from './supabase'
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
@@ -77,6 +78,30 @@ export function utcTimeToLocalTime(utcTime: string): string {
   const d = new Date()
   d.setUTCHours(h, m, 0, 0)
   return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
+}
+
+// Weekly habits are due once per fixed period of floor(7 / times_per_week)
+// days, anchored to the habit's creation date — not once per calendar day
+// like daily habits. E.g. 2x/week uses 3-day periods, so logging it once
+// hides it from "due today" views for the rest of that period instead of
+// reappearing the very next day. Mirrors the period math the
+// accrue-habit-debt Edge Function uses, so debt and "due today" never
+// disagree about which period is current.
+export function habitPeriodLengthDays(habit: Habit): number {
+  if (habit.frequency === 'daily') return 1
+  return Math.max(1, Math.floor(7 / (habit.times_per_week ?? 1)))
+}
+
+export function isHabitDueToday(habit: Habit, logs: HabitLog[]): boolean {
+  if (habit.frequency === 'daily') return true
+  const createdDate = habit.created_at.slice(0, 10)
+  const todayStr = today()
+  if (createdDate > todayStr) return false
+  const periodLength = habitPeriodLengthDays(habit)
+  const daysSinceCreation = differenceInCalendarDays(parseISO(todayStr), parseISO(createdDate))
+  const periodIndex = Math.floor(daysSinceCreation / periodLength)
+  const periodStart = format(dfnsAddDays(parseISO(createdDate), periodIndex * periodLength), 'yyyy-MM-dd')
+  return !logs.some(l => l.habit_id === habit.id && l.logged_date >= periodStart && l.logged_date <= todayStr)
 }
 
 export function formatFileSize(bytes: number): string {
