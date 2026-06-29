@@ -14,7 +14,7 @@ export default function FocusSection() {
   const [summaries, setSummaries] = useState<Record<Period, FocusSummary | null>>({ today: null, week: null })
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState<Period | null>(null)
-  const [tab, setTab] = useState<Period>('today')
+  const [tab, setTab] = useState<Period>('week')
   const [autoGenerate, setAutoGenerate] = useState<boolean | null>(null)
 
   async function load() {

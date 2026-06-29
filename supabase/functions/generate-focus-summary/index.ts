@@ -75,7 +75,7 @@ async function callClaude(
     },
     body: JSON.stringify({
       model: 'claude-haiku-4-5-20251001',
-      max_tokens: 1024,
+      max_tokens: period === 'today' ? 1024 : 4096,
       system,
       messages: [{ role: 'user', content: JSON.stringify(context) }],
     }),
