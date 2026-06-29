@@ -132,7 +132,7 @@ export default function FocusSection() {
 
       <Tabs value={tab} onValueChange={v => setTab(v as Period)}>
         <TabsList>
-          <TabsTrigger value="today">Today</TabsTrigger>
+          <TabsTrigger value="today">Tomorrow</TabsTrigger>
           <TabsTrigger value="week">This Week</TabsTrigger>
         </TabsList>
         <TabsContent value="today" className="mt-3">

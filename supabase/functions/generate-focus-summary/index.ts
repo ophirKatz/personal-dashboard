@@ -54,7 +54,7 @@ async function callClaude(
 ): Promise<string> {
   const system =
     `You are a focus assistant inside a personal dashboard app. Given a user's todos and calendar ` +
-    `events for ${period === 'today' ? 'today' : 'the next 7 days'}, group related items into short, ` +
+    `events for ${period === 'today' ? 'tomorrow' : 'the next 7 days'}, group related items into short, ` +
     `thematic cards — e.g. a meeting with its prep task, items tied to the same project or person, or a ` +
     `cluster of back-to-back commitments. Items with nothing else to group with still get their own ` +
     `single-item card; never omit an item. Respond with ONLY a JSON object (no markdown fences, no ` +
@@ -162,12 +162,14 @@ async function generateFocusSummary(
   secrets: { anthropicApiKey?: string },
 ): Promise<{ period: Period; summary: string }> {
   const todayStr = todayInTZ('Asia/Jerusalem')
-  const rangeEnd = period === 'today' ? todayStr : addDays(todayStr, 6)
+  const tomorrowStr = addDays(todayStr, 1)
+  const rangeStart = period === 'today' ? tomorrowStr : todayStr
+  const rangeEnd = period === 'today' ? tomorrowStr : addDays(todayStr, 6)
 
   let todosQuery = supabase.from('todos').select('id, title, notes, due_date, due_time, priority').eq('user_id', userId).eq('completed', false)
   todosQuery = period === 'today'
-    ? todosQuery.or(`due_date.eq.${todayStr},due_date.is.null`)
-    : todosQuery.gte('due_date', todayStr).lte('due_date', rangeEnd)
+    ? todosQuery.or(`due_date.eq.${tomorrowStr},due_date.is.null`)
+    : todosQuery.gte('due_date', rangeStart).lte('due_date', rangeEnd)
 
   const [todosRes, eventsRes] = await Promise.all([
     todosQuery,
@@ -175,7 +177,7 @@ async function generateFocusSummary(
       .from('events')
       .select('id, title, event_date, event_time, notes, source')
       .eq('user_id', userId)
-      .gte('event_date', todayStr)
+      .gte('event_date', rangeStart)
       .lte('event_date', rangeEnd),
   ])
 
@@ -192,13 +194,13 @@ async function generateFocusSummary(
   let payload: SummaryPayload
   if (todos.length === 0 && events.length === 0) {
     const note = period === 'today'
-      ? 'Nothing on the books for today — a clear day. Good time to get ahead on something, or just rest.'
+      ? 'Nothing on the books for tomorrow — a clear day. Good time to get ahead on something, or just rest.'
       : 'Nothing scheduled for the week ahead yet. A clean slate.'
     payload = { type: 'cards', cards: [], note }
   } else if (!secrets.anthropicApiKey) {
     throw new Error('MISSING_ANTHROPIC_API_KEY')
   } else {
-    const raw = await callClaude(period, { today: todayStr, rangeEnd, todos, events }, secrets.anthropicApiKey)
+    const raw = await callClaude(period, { today: rangeStart, rangeEnd, todos, events }, secrets.anthropicApiKey)
     try {
       payload = resolveCards(raw, todos, events)
     } catch {
