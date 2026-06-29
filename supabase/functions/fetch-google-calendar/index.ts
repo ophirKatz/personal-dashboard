@@ -16,6 +16,7 @@ type GoogleEventItem = {
   status?: string
   start: { date?: string; dateTime?: string }
   end: { date?: string; dateTime?: string }
+  attendees?: { self?: boolean; responseStatus?: string }[]
 }
 
 // Calendar event titles that mark a climbing session — Hebrew for "training" and "climbing".
@@ -23,6 +24,16 @@ const CLIMBING_TITLE_KEYWORDS = ['אימון', 'טיפוס']
 
 function isClimbingSessionTitle(title: string): boolean {
   return CLIMBING_TITLE_KEYWORDS.some(keyword => title.includes(keyword))
+}
+
+// Events with no attendees list are the user's own (no guests invited), which
+// Google never asks you to RSVP to — treat those as accepted. Otherwise only
+// keep events the user has explicitly accepted; declined/tentative/needsAction
+// invites are excluded from sync entirely so they never reach the dashboard,
+// calendar views, or AI focus summaries.
+function isAcceptedByMe(ev: GoogleEventItem): boolean {
+  const self = ev.attendees?.find(a => a.self)
+  return !self || self.responseStatus === 'accepted'
 }
 
 // Event end times are plain wall-clock strings (no offset) in the calendar's own
@@ -110,7 +121,7 @@ async function syncCalendarForAccount(supabase: SupabaseClient, account: Account
 
   const data: { items?: GoogleEventItem[] } = await res.json()
   const events = (data.items ?? [])
-    .filter(ev => ev.status !== 'cancelled' && (ev.start.date || ev.start.dateTime))
+    .filter(ev => ev.status !== 'cancelled' && (ev.start.date || ev.start.dateTime) && isAcceptedByMe(ev))
     .map(ev => ({
       id: ev.id,
       title: ev.summary ?? '(No title)',
