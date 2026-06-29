@@ -268,7 +268,7 @@ select cron.alter_job(
 
 ## 1h. Focus Summaries — Enable the AI focus section
 
-The Dashboard's "Focus" section (Today / This Week tabs) replaces the old "Upcoming Events" list
+The Dashboard's "Focus" section (Tomorrow / This Week tabs) replaces the old "Upcoming Events" list
 with a short AI-generated briefing of what's relevant for each period, built from your local todos
 and calendar events (plus Google Calendar, if connected). It's powered by Anthropic's Claude API
 and cached in a new `focus_summaries` table.
@@ -283,7 +283,7 @@ and cached in a new `focus_summaries` table.
   day at 4am UTC (≈7am Asia/Jerusalem during daylight saving; ≈6am in winter, since `pg_cron` has no
   timezone-aware scheduling — adjust the cron schedule yourself if the seasonal drift bothers you).
 - **Triggered refresh:** Postgres triggers on `todos` (insert/update of `due_date`) and `events`
-  (insert/update of `event_date`) call the same function whenever an item lands within today or the
+  (insert/update of `event_date`) call the same function whenever an item lands tomorrow or within the
   next 7 days, so adding something relevant updates the cached summary without waiting for 7am.
 - **Manual refresh:** the refresh icon in the Focus section calls the function directly
   (`supabase.functions.invoke`), authenticated with your own session — it only ever regenerates your
@@ -701,7 +701,7 @@ The `vercel.json` in this repo configures SPA routing (all paths → `index.html
 | `stock_alerts` | Price thresholds per stock symbol |
 | `notifications` | In-app notification banners (e.g. triggered stock alerts) |
 | `push_subscriptions` | One row per subscribed browser/device (Web Push endpoint + keys), used by `/api/send-notifications` to deliver habit/todo pushes |
-| `focus_summaries` | Cached AI-generated focus briefing per user per `period` (`today`/`week`), written by the `generate-focus-summary` Edge Function; `status`/`error` track the last generation attempt, `generated_at` is shown in the UI as "Updated X ago" |
+| `focus_summaries` | Cached AI-generated focus briefing per user per `period` (`today`/`week` — covering tomorrow and the week ahead, respectively), written by the `generate-focus-summary` Edge Function; `status`/`error` track the last generation attempt, `generated_at` is shown in the UI as "Updated X ago" |
 | `api_tokens` | Long-lived personal API tokens (hashed, `token_hash` only) used by external callers like an iOS Shortcut that can't hold a short-lived Supabase session JWT — see step 1j |
 
 ### Storage
