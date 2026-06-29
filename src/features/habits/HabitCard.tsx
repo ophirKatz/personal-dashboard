@@ -1,10 +1,10 @@
 import { useState } from 'react'
 import { Flame, Trash2, Pencil, Bell } from 'lucide-react'
-import { supabase } from '../../supabase'
 import type { Habit, HabitLog } from '../../supabase'
 import { today, formatTime, utcTimeToLocalTime } from '../../utils'
 import { haptic } from '../../lib/haptics'
 import { celebrateFromElement } from '../../lib/confetti'
+import { decideHabitTap, executeHabitTap } from './habitTaps'
 import HabitHeatmap from './HabitHeatmap'
 
 type Props = {
@@ -40,38 +40,19 @@ function computeStreak(logs: HabitLog[], frequency: 'daily' | 'weekly'): number 
 
 export default function HabitCard({ habit, logs, onEdit, onDelete, onLogChange }: Props) {
   const [expanded, setExpanded] = useState(false)
-  const todayLog = logs.find(l => l.logged_date === today())
-  const todayLogged = todayLog != null
+  const todayLogs = logs.filter(l => l.logged_date === today())
+  const todayLogged = todayLogs.length > 0
+  const paidToday = todayLogs.filter(l => l.paid_debt).length
   const fullyDone = todayLogged && habit.debt === 0
   const partiallyDone = todayLogged && habit.debt > 0
   const streak = computeStreak(logs, habit.frequency)
   const logDates = logs.map(l => l.logged_date)
 
   async function toggleToday(e: React.MouseEvent<HTMLButtonElement>) {
-    haptic(todayLogged ? 'light' : 'success')
-    if (!todayLogged) celebrateFromElement(e.currentTarget)
-    if (todayLogged) {
-      await supabase
-        .from('habit_logs')
-        .delete()
-        .eq('habit_id', habit.id)
-        .eq('logged_date', today())
-      if (todayLog?.paid_debt) {
-        await supabase.from('habits').update({ debt: habit.debt + 1 }).eq('id', habit.id)
-      }
-    } else {
-      const paidDebt = habit.debt > 0
-      const { data: { user } } = await supabase.auth.getUser()
-      await supabase.from('habit_logs').insert({
-        habit_id: habit.id,
-        user_id: user!.id,
-        logged_date: today(),
-        paid_debt: paidDebt,
-      })
-      if (paidDebt) {
-        await supabase.from('habits').update({ debt: habit.debt - 1 }).eq('id', habit.id)
-      }
-    }
+    const action = decideHabitTap(habit, logs)
+    haptic(action.type === 'pay' ? 'success' : 'light')
+    if (action.type === 'pay') celebrateFromElement(e.currentTarget)
+    await executeHabitTap(habit, action)
     onLogChange()
   }
 
@@ -119,9 +100,9 @@ export default function HabitCard({ habit, logs, onEdit, onDelete, onLogChange }
                 {habit.debt} owed
               </span>
             )}
-            {todayLog?.paid_debt && (
+            {paidToday > 0 && (
               <span className="inline-flex items-center whitespace-nowrap rounded-full bg-emerald-500/10 px-2 py-0.5 text-xs font-medium text-emerald-600 dark:text-emerald-400">
-                paid 1 today
+                paid {paidToday} today
               </span>
             )}
           </div>

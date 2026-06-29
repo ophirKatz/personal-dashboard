@@ -19,6 +19,7 @@ import ShoppingItemDrawer from '../features/shopping/ShoppingItemDrawer'
 import QuickLogSessionDrawer from '../features/climbing/QuickLogSessionDrawer'
 import FinanceQuickDrawer from '../features/finance/FinanceQuickDrawer'
 import StarredFilesDrawer from '../features/files/StarredFilesDrawer'
+import { decideHabitTap, executeHabitTap } from '../features/habits/habitTaps'
 
 const USER_NAME = 'Ophir'
 
@@ -90,21 +91,7 @@ export default function Dashboard() {
   }, [])
 
   async function toggleHabit(habit: Habit) {
-    const t = today()
-    const log = recentHabitLogs.find(l => l.habit_id === habit.id && l.logged_date === t)
-    if (log) {
-      await supabase.from('habit_logs').delete().eq('habit_id', habit.id).eq('logged_date', t)
-      if (log.paid_debt) {
-        await supabase.from('habits').update({ debt: habit.debt + 1 }).eq('id', habit.id)
-      }
-    } else {
-      const paidDebt = habit.debt > 0
-      const { data: { user } } = await supabase.auth.getUser()
-      await supabase.from('habit_logs').insert({ habit_id: habit.id, user_id: user!.id, logged_date: t, paid_debt: paidDebt })
-      if (paidDebt) {
-        await supabase.from('habits').update({ debt: habit.debt - 1 }).eq('id', habit.id)
-      }
-    }
+    await executeHabitTap(habit, decideHabitTap(habit, recentHabitLogs))
     const habitLogsSince = format(addDays(new Date(), -7), 'yyyy-MM-dd')
     const [{ data: logsData }, { data: habitsData }] = await Promise.all([
       supabase.from('habit_logs').select('*').gte('logged_date', habitLogsSince),
