@@ -2,8 +2,20 @@ import { createClient, SupabaseClient } from 'npm:@supabase/supabase-js@2'
 
 type Period = 'today' | 'week'
 
-type Todo = { title: string; notes: string | null; due_date: string | null; due_time: string | null; priority: string }
-type Event = { title: string; date: string; time: string | null; notes: string | null; source: 'local' | 'google' }
+type Todo = { id: string; title: string; notes: string | null; due_date: string | null; due_time: string | null; priority: string }
+type Event = { id: string; title: string; date: string; time: string | null; notes: string | null; source: 'local' | 'google' }
+
+type FocusCardItem = {
+  type: 'todo' | 'event'
+  id: string
+  title: string
+  date: string | null
+  time: string | null
+  priority?: string
+  source?: 'local' | 'google'
+}
+type FocusCard = { label: string; insight: string; items: FocusCardItem[] }
+type SummaryPayload = { type: 'cards'; cards: FocusCard[]; note: string | null } | { type: 'text'; text: string }
 
 function todayInTZ(tz: string): string {
   return new Intl.DateTimeFormat('en-CA', { timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date())
@@ -42,11 +54,17 @@ async function callClaude(
 ): Promise<string> {
   const system =
     `You are a focus assistant inside a personal dashboard app. Given a user's todos and calendar ` +
-    `events for ${period === 'today' ? 'today' : 'the next 7 days'}, write a short, warm, prioritized ` +
-    `focus briefing in plain text (no markdown headers; 2-5 sentences, or a short list using "-" for bullets). ` +
-    `Call out urgent or time-sensitive items first, flag any scheduling conflicts (overlapping or ` +
-    `back-to-back events), and mention if the period looks light or heavy. Only reference items present ` +
-    `in the data — never invent items.`
+    `events for ${period === 'today' ? 'today' : 'the next 7 days'}, group related items into short, ` +
+    `thematic cards — e.g. a meeting with its prep task, items tied to the same project or person, or a ` +
+    `cluster of back-to-back commitments. Items with nothing else to group with still get their own ` +
+    `single-item card; never omit an item. Respond with ONLY a JSON object (no markdown fences, no ` +
+    `commentary) matching this shape:\n` +
+    `{"cards": [{"label": string, "insight": string, "items": [{"type": "todo" | "event", "id": string}]}], "note": string | null}\n` +
+    `- "label": a short 2-5 word title for the group.\n` +
+    `- "insight": one short sentence about the group — urgency, timing, or conflicts.\n` +
+    `- "items": reference ONLY "id" values present in the input data, tagged with their "type". Never invent ids.\n` +
+    `- Order cards with the most urgent/important first.\n` +
+    `- "note": one short overall remark (e.g. a cross-card conflict, or how light/heavy the period looks), or null.`
 
   const res = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
@@ -57,7 +75,7 @@ async function callClaude(
     },
     body: JSON.stringify({
       model: 'claude-haiku-4-5-20251001',
-      max_tokens: 400,
+      max_tokens: 1024,
       system,
       messages: [{ role: 'user', content: JSON.stringify(context) }],
     }),
@@ -69,6 +87,50 @@ async function callClaude(
 
   const data: { content?: Array<{ text?: string }> } = await res.json()
   return data.content?.[0]?.text?.trim() ?? ''
+}
+
+function extractJson(text: string): string {
+  const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/i)
+  return (fenced ? fenced[1] : text).trim()
+}
+
+// Resolves the model's id references back against the actual todos/events so the
+// stored payload is self-contained (the frontend never has to re-fetch by id).
+// Cards that end up with no valid items (hallucinated ids) are dropped; if that
+// leaves nothing, the caller falls back to the raw text.
+function resolveCards(raw: string, todos: Todo[], events: Event[]): SummaryPayload {
+  const parsed = JSON.parse(extractJson(raw)) as {
+    cards?: Array<{ label?: string; insight?: string; items?: Array<{ type?: string; id?: string }> }>
+    note?: string | null
+  }
+
+  const todosById = new Map(todos.map(t => [t.id, t]))
+  const eventsById = new Map(events.map(e => [e.id, e]))
+
+  const cards: FocusCard[] = (parsed.cards ?? [])
+    .map(card => {
+      const items: FocusCardItem[] = (card.items ?? [])
+        .map((item): FocusCardItem | null => {
+          if (item.type === 'todo' && item.id) {
+            const todo = todosById.get(item.id)
+            if (!todo) return null
+            return { type: 'todo', id: todo.id, title: todo.title, date: todo.due_date, time: todo.due_time, priority: todo.priority }
+          }
+          if (item.type === 'event' && item.id) {
+            const event = eventsById.get(item.id)
+            if (!event) return null
+            return { type: 'event', id: event.id, title: event.title, date: event.date, time: event.time, source: event.source }
+          }
+          return null
+        })
+        .filter((item): item is FocusCardItem => item !== null)
+      return { label: card.label?.trim() || 'Untitled', insight: card.insight?.trim() ?? '', items }
+    })
+    .filter(card => card.items.length > 0)
+
+  if (cards.length === 0) throw new Error('No matched items in model response')
+
+  return { type: 'cards', cards, note: parsed.note?.trim() || null }
 }
 
 async function upsertSummary(
@@ -102,7 +164,7 @@ async function generateFocusSummary(
   const todayStr = todayInTZ('Asia/Jerusalem')
   const rangeEnd = period === 'today' ? todayStr : addDays(todayStr, 6)
 
-  let todosQuery = supabase.from('todos').select('title, notes, due_date, due_time, priority').eq('user_id', userId).eq('completed', false)
+  let todosQuery = supabase.from('todos').select('id, title, notes, due_date, due_time, priority').eq('user_id', userId).eq('completed', false)
   todosQuery = period === 'today'
     ? todosQuery.or(`due_date.eq.${todayStr},due_date.is.null`)
     : todosQuery.gte('due_date', todayStr).lte('due_date', rangeEnd)
@@ -111,7 +173,7 @@ async function generateFocusSummary(
     todosQuery,
     supabase
       .from('events')
-      .select('title, event_date, event_time, notes, source')
+      .select('id, title, event_date, event_time, notes, source')
       .eq('user_id', userId)
       .gte('event_date', todayStr)
       .lte('event_date', rangeEnd),
@@ -119,6 +181,7 @@ async function generateFocusSummary(
 
   const todos = (todosRes.data ?? []) as Todo[]
   const events: Event[] = (eventsRes.data ?? []).map(e => ({
+    id: e.id,
     title: e.title,
     date: e.event_date,
     time: e.event_time,
@@ -126,17 +189,24 @@ async function generateFocusSummary(
     source: e.source,
   }))
 
-  let summary: string
+  let payload: SummaryPayload
   if (todos.length === 0 && events.length === 0) {
-    summary = period === 'today'
+    const note = period === 'today'
       ? 'Nothing on the books for today — a clear day. Good time to get ahead on something, or just rest.'
       : 'Nothing scheduled for the week ahead yet. A clean slate.'
+    payload = { type: 'cards', cards: [], note }
   } else if (!secrets.anthropicApiKey) {
     throw new Error('MISSING_ANTHROPIC_API_KEY')
   } else {
-    summary = await callClaude(period, { today: todayStr, rangeEnd, todos, events }, secrets.anthropicApiKey)
+    const raw = await callClaude(period, { today: todayStr, rangeEnd, todos, events }, secrets.anthropicApiKey)
+    try {
+      payload = resolveCards(raw, todos, events)
+    } catch {
+      payload = { type: 'text', text: raw }
+    }
   }
 
+  const summary = JSON.stringify(payload)
   await upsertSummary(supabase, userId, period, { summary, status: 'ready' })
   return { period, summary }
 }

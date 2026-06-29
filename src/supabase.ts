@@ -149,6 +149,29 @@ export type FocusSummary = {
   updated_at: string
 }
 
+// `FocusSummary.summary` stores JSON.stringify(FocusSummaryPayload). The 'text'
+// variant covers both a malformed model response and summaries generated
+// before cards existed, so old cached rows keep rendering.
+export type FocusCardItem = {
+  type: 'todo' | 'event'
+  id: string
+  title: string
+  date: string | null
+  time: string | null
+  priority?: 'low' | 'medium' | 'high'
+  source?: 'local' | 'google'
+}
+
+export type FocusCard = {
+  label: string
+  insight: string
+  items: FocusCardItem[]
+}
+
+export type FocusSummaryPayload =
+  | { type: 'cards'; cards: FocusCard[]; note: string | null }
+  | { type: 'text'; text: string }
+
 export type WeatherCache = {
   id: string
   user_id: string

@@ -5,6 +5,8 @@ import { supabase } from '../../supabase'
 import type { FocusSummary } from '../../supabase'
 import { getAutoGenerateFocusSummariesOnChange } from '../../lib/userSettings'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '../../components/ui/tabs'
+import { parseFocusSummary } from './parseFocusSummary'
+import FocusCardView from './FocusCardView'
 
 type Period = 'today' | 'week'
 
@@ -49,10 +51,15 @@ export default function FocusSection() {
   function renderContent(period: Period) {
     const summary = summaries[period]
     const isRefreshing = refreshing === period
+    const updatedAt = summary?.generated_at && (
+      <p className="text-xs text-muted-foreground">
+        Updated {formatDistanceToNow(new Date(summary.generated_at), { addSuffix: true })}
+      </p>
+    )
 
     if (loading || (isRefreshing && !summary)) {
       return (
-        <div className="flex items-center gap-2 text-sm text-muted-foreground py-1.5">
+        <div className="p-3.5 bg-card border border-border rounded-xl flex items-center gap-2 text-sm text-muted-foreground">
           <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin shrink-0" />
           Generating your focus summary…
         </div>
@@ -60,25 +67,52 @@ export default function FocusSection() {
     }
 
     if (summary?.status === 'error' && !summary.summary) {
-      return <p className="text-sm text-destructive">Couldn't generate a summary. Try the refresh button.</p>
+      return (
+        <div className="p-3.5 bg-card border border-border rounded-xl">
+          <p className="text-sm text-destructive">Couldn't generate a summary. Try the refresh button.</p>
+        </div>
+      )
     }
 
     if (!summary?.summary) {
-      return <p className="text-sm text-muted-foreground">No summary yet.</p>
+      return (
+        <div className="p-3.5 bg-card border border-border rounded-xl">
+          <p className="text-sm text-muted-foreground">No summary yet.</p>
+        </div>
+      )
+    }
+
+    const payload = parseFocusSummary(summary.summary)
+
+    if (payload?.type === 'cards') {
+      return (
+        <div className="space-y-2">
+          {payload.note && (
+            <div className="flex items-start gap-2 px-0.5">
+              <Sparkles className="h-4 w-4 text-primary shrink-0 mt-0.5" />
+              <p className="text-sm leading-relaxed">{payload.note}</p>
+            </div>
+          )}
+          {payload.cards.length === 0 ? (
+            <div className="p-3.5 bg-card border border-border rounded-xl">
+              <p className="text-sm text-muted-foreground">Nothing to focus on.</p>
+            </div>
+          ) : (
+            payload.cards.map((card, i) => <FocusCardView key={i} card={card} />)
+          )}
+          {updatedAt}
+        </div>
+      )
     }
 
     return (
-      <>
+      <div className="p-3.5 bg-card border border-border rounded-xl space-y-2">
         <div className="flex items-start gap-2">
           <Sparkles className="h-4 w-4 text-primary shrink-0 mt-0.5" />
-          <p className="text-sm whitespace-pre-line leading-relaxed">{summary.summary}</p>
+          <p className="text-sm whitespace-pre-line leading-relaxed">{payload?.type === 'text' ? payload.text : ''}</p>
         </div>
-        {summary.generated_at && (
-          <p className="text-xs text-muted-foreground mt-2">
-            Updated {formatDistanceToNow(new Date(summary.generated_at), { addSuffix: true })}
-          </p>
-        )}
-      </>
+        {updatedAt}
+      </div>
     )
   }
 
@@ -102,10 +136,10 @@ export default function FocusSection() {
           <TabsTrigger value="week">This Week</TabsTrigger>
         </TabsList>
         <TabsContent value="today" className="mt-3">
-          <div className="p-3.5 bg-card border border-border rounded-xl">{renderContent('today')}</div>
+          {renderContent('today')}
         </TabsContent>
         <TabsContent value="week" className="mt-3">
-          <div className="p-3.5 bg-card border border-border rounded-xl">{renderContent('week')}</div>
+          {renderContent('week')}
         </TabsContent>
       </Tabs>
     </div>
