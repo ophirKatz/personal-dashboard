@@ -41,6 +41,11 @@ export default function TodoItem({ todo, onEdit, onDelete, onChange }: Props) {
     onChange()
   }
 
+  function handleDateTimeChange(value: string) {
+    const [nextDate, nextTime] = value ? value.split('T') : ['', '']
+    saveDateTime(nextDate ?? '', nextTime ?? '')
+  }
+
   async function saveDateTime(nextDate: string, nextTime: string) {
     setDueDate(nextDate)
     setDueTime(nextTime)
@@ -80,8 +85,12 @@ export default function TodoItem({ todo, onEdit, onDelete, onChange }: Props) {
         <div className="flex items-center gap-2 mt-1 flex-wrap">
           {editingDate ? (
             <div className="flex items-center gap-1.5">
-              <Input type="date" value={dueDate} onChange={e => saveDateTime(e.target.value, dueTime)} className="h-7 text-xs px-2 w-auto" />
-              <Input type="time" value={dueTime} disabled={!dueDate} onChange={e => saveDateTime(dueDate, e.target.value)} className="h-7 text-xs px-2 w-auto" />
+              <Input
+                type="datetime-local"
+                value={dueDate ? `${dueDate}T${dueTime || '00:00'}` : ''}
+                onChange={e => handleDateTimeChange(e.target.value)}
+                className="h-7 text-xs px-2 w-auto"
+              />
               <button onClick={() => setEditingDate(false)} className="p-1 rounded-lg hover:bg-accent text-muted-foreground shrink-0">
                 <Check className="h-3.5 w-3.5" />
               </button>
