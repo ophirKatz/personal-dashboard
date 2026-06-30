@@ -1,11 +1,17 @@
 import { useEffect, useState } from 'react'
+import type { MouseEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { AlertCircle, CalendarArrowUp, CheckCircle2, ChevronRight, Clock, MapPin } from 'lucide-react'
 import type { Habit, HabitLog, Todo } from '../../supabase'
 import { formatTime, isHabitDoneThisPeriod, isOverdue, today } from '../../utils'
 import WeatherWidget from '../weather/WeatherWidget'
 import { celebrateFromElement } from '../../lib/confetti'
+import { haptic } from '../../lib/haptics'
 import PostponeMenu from '../todos/PostponeMenu'
+
+// Gives the user a beat to see the checkmark/celebration before the parent
+// reload removes the item from the list.
+const COMPLETE_REMOVAL_DELAY_MS = 450
 
 export type TodayEvent = {
   id: string
@@ -65,6 +71,14 @@ export default function TodaySection({ habits, totalHabitsCount, logs, onToggleH
   }, [])
   const [expandedEventId, setExpandedEventId] = useState<string | null>(null)
   const [postponingTodoId, setPostponingTodoId] = useState<string | null>(null)
+  const [completingTodoIds, setCompletingTodoIds] = useState<Set<string>>(new Set())
+
+  function handleCompleteTodo(todo: Todo, e: MouseEvent<HTMLButtonElement>) {
+    haptic('success')
+    celebrateFromElement(e.currentTarget)
+    setCompletingTodoIds(prev => new Set(prev).add(todo.id))
+    setTimeout(() => onCompleteTodo(todo.id), COMPLETE_REMOVAL_DELAY_MS)
+  }
 
   const nextUp = [
     ...events.filter(e => e.time).map(e => ({ kind: 'event' as const, label: e.title, minutes: minutesUntil(e.time!, now) })),
@@ -163,15 +177,23 @@ export default function TodaySection({ habits, totalHabitsCount, logs, onToggleH
           <div className="space-y-1.5">
             {sortedTodos.slice(0, 3).map(todo => {
               const overdue = isOverdue(todo.due_date) || (!!todo.due_time && minutesUntil(todo.due_time, now) < 0)
+              const completing = completingTodoIds.has(todo.id)
               return (
-                <div key={todo.id} className="flex items-center gap-2">
+                <div key={todo.id} className={`flex items-center gap-2 transition-opacity duration-300 ${completing ? 'opacity-60' : ''}`}>
                   <button
-                    onClick={() => onCompleteTodo(todo.id)}
-                    className={`w-4 h-4 rounded-full border-2 shrink-0 hover:bg-primary/10 ${overdue ? 'border-destructive' : 'border-primary'}`}
+                    onClick={e => handleCompleteTodo(todo, e)}
+                    disabled={completing}
+                    className="shrink-0 hover:bg-primary/10 rounded-full"
                     title="Mark complete"
-                  />
+                  >
+                    {completing ? (
+                      <CheckCircle2 className="h-4 w-4 text-primary animate-in zoom-in-50 duration-150" />
+                    ) : (
+                      <span className={`block w-4 h-4 rounded-full border-2 ${overdue ? 'border-destructive' : 'border-primary'}`} />
+                    )}
+                  </button>
                   <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${PRIORITY_DOT[todo.priority]}`} />
-                  <span className={`text-sm truncate flex-1 ${overdue ? 'text-destructive' : ''}`}>{todo.title}</span>
+                  <span className={`text-sm truncate flex-1 ${completing ? 'line-through text-muted-foreground' : overdue ? 'text-destructive' : ''}`}>{todo.title}</span>
                   {todo.due_time && (
                     <span className={`flex items-center gap-1 text-xs shrink-0 ${overdue ? 'text-destructive font-medium' : 'text-muted-foreground'}`}>
                       {overdue && <AlertCircle className="h-3 w-3" />}
