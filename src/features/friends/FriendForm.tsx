@@ -49,6 +49,7 @@ export default function FriendForm({ open, onClose, onSave, friend, userId }: Pr
   const [avatarPreview, setAvatarPreview] = useState(friend?.avatar_url ?? null)
   const [avatarFile, setAvatarFile] = useState<File | null>(null)
   const [avatarError, setAvatarError] = useState<string | null>(null)
+  const [saveError, setSaveError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
@@ -92,6 +93,7 @@ export default function FriendForm({ open, onClose, onSave, friend, userId }: Pr
     e.preventDefault()
     if (!name.trim()) return
     setSaving(true)
+    setSaveError(null)
 
     const id = friend?.id ?? crypto.randomUUID()
     let avatarUrl = friend?.avatar_url ?? null
@@ -117,11 +119,16 @@ export default function FriendForm({ open, onClose, onSave, friend, userId }: Pr
       reminder_enabled: reminderEnabled,
       user_id: userId,
     }
-    if (friend) {
-      await supabase.from('friends').update(payload).eq('id', friend.id)
-    } else {
-      await supabase.from('friends').insert(payload)
+    const { error } = friend
+      ? await supabase.from('friends').update(payload).eq('id', friend.id)
+      : await supabase.from('friends').insert(payload)
+
+    if (error) {
+      setSaveError('Could not save friend. Please try again.')
+      setSaving(false)
+      return
     }
+
     haptic('success')
     setSaving(false)
     onSave()
@@ -222,6 +229,7 @@ export default function FriendForm({ open, onClose, onSave, friend, userId }: Pr
               </button>
             </div>
           </DialogBody>
+          {saveError && <p className="px-4 text-xs text-destructive">{saveError}</p>}
           <DialogFooter>
             <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
             <Button type="submit" disabled={saving || !name.trim()}>
