@@ -209,3 +209,26 @@ export type Notification = {
   read: boolean
   created_at: string
 }
+
+export type Friend = {
+  id: string
+  user_id: string
+  name: string
+  notes: string | null
+  avatar_url: string | null
+  goal_count: number
+  goal_unit: 'day' | 'week' | 'month'
+  reminder_enabled: boolean
+  last_notified_date: string | null
+  reminder_notified_at: string | null
+  created_at: string
+}
+
+export type FriendInteraction = {
+  id: string
+  friend_id: string
+  user_id: string
+  interaction_date: string
+  note: string | null
+  created_at: string
+}

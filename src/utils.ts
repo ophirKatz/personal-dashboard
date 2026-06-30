@@ -1,7 +1,7 @@
 import { type ClassValue, clsx } from 'clsx'
 import { twMerge } from 'tailwind-merge'
 import { format, isToday, isTomorrow, parseISO, addDays as dfnsAddDays, addWeeks, addMonths as dfnsAddMonths, differenceInCalendarDays } from 'date-fns'
-import type { Habit, HabitLog } from './supabase'
+import type { Habit, HabitLog, Friend, FriendInteraction } from './supabase'
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
@@ -127,6 +127,33 @@ export function habitDebtOwedToday(habit: Habit, logs: HabitLog[]): number {
 // outstanding even though this period is already logged.
 export function isHabitDueToday(habit: Habit, logs: HabitLog[]): boolean {
   return habitDebtOwedToday(habit, logs) > 0
+}
+
+const RECURRENCE_UNIT_DAYS: Record<RecurrenceUnit, number> = { day: 1, week: 7, month: 30 }
+
+export function formatFriendGoal(count: number, unit: RecurrenceUnit): string {
+  return count === 1 ? `Once a ${unit}` : `${count}x a ${unit}`
+}
+
+// "2x a week" -> remind roughly every 3.5 days, rounded. No debt/streak
+// concept here, just "it's been longer than the target gap" — simpler than
+// the habit period model since the goal is a nudge, not a tracked tally.
+export function friendTargetIntervalDays(friend: Friend): number {
+  return Math.max(1, Math.round(RECURRENCE_UNIT_DAYS[friend.goal_unit] / friend.goal_count))
+}
+
+export function friendLastInteractionDate(friend: Friend, interactions: FriendInteraction[]): string | null {
+  const dates = interactions.filter(i => i.friend_id === friend.id).map(i => i.interaction_date)
+  return dates.length ? dates.sort().at(-1)! : null
+}
+
+export function friendDaysSinceLastInteraction(friend: Friend, interactions: FriendInteraction[]): number {
+  const last = friendLastInteractionDate(friend, interactions) ?? friend.created_at.slice(0, 10)
+  return differenceInCalendarDays(parseISO(today()), parseISO(last))
+}
+
+export function isFriendOverdue(friend: Friend, interactions: FriendInteraction[]): boolean {
+  return friendDaysSinceLastInteraction(friend, interactions) >= friendTargetIntervalDays(friend)
 }
 
 export function formatFileSize(bytes: number): string {

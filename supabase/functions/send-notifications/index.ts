@@ -85,6 +85,40 @@ Deno.serve(async (req: Request) => {
     await supabase.from('habits').update({ last_notified_date: nowDate }).eq('id', habit.id)
   }
 
+  const { data: dueFriends } = await supabase
+    .from('friends')
+    .select('id, user_id, name, goal_count, goal_unit, reminder_enabled, last_notified_date, created_at')
+    .eq('reminder_enabled', true)
+
+  const friendIds = (dueFriends ?? []).map((f: { id: string }) => f.id)
+  const { data: friendInteractions } = friendIds.length
+    ? await supabase
+        .from('friend_interactions')
+        .select('friend_id, interaction_date')
+        .in('friend_id', friendIds)
+    : { data: [] }
+
+  const unitDays: Record<string, number> = { day: 1, week: 7, month: 30 }
+  for (const friend of dueFriends ?? []) {
+    if (friend.last_notified_date === nowDate) continue
+    const targetInterval = Math.max(1, Math.round(unitDays[friend.goal_unit] / friend.goal_count))
+    const dates = (friendInteractions ?? [])
+      .filter((i: { friend_id: string }) => i.friend_id === friend.id)
+      .map((i: { interaction_date: string }) => i.interaction_date)
+    const lastDate = dates.length ? dates.sort().at(-1) : friend.created_at.slice(0, 10)
+    const msPerDay = 24 * 60 * 60 * 1000
+    const daysSince = Math.floor((Date.now() - new Date(lastDate).getTime()) / msPerDay)
+    if (daysSince < targetInterval) continue
+
+    pending.push({
+      userId: friend.user_id,
+      title: `Stay in touch with ${friend.name}`,
+      body: `It's been ${daysSince} day${daysSince !== 1 ? 's' : ''} — your goal is ${friend.goal_count}x per ${friend.goal_unit}.`,
+      url: '/friends',
+    })
+    await supabase.from('friends').update({ last_notified_date: nowDate }).eq('id', friend.id)
+  }
+
   if (pending.length === 0) {
     return new Response(JSON.stringify({ sent: 0 }), { status: 200 })
   }

@@ -699,8 +699,10 @@ The `vercel.json` in this repo configures SPA routing (all paths → `index.html
 | `google_oauth_states` | Short-lived nonce rows for the standalone "connect another account" OAuth flow (step 1k) — bridges the stateless Google redirect callback back to the user who started it. Rows are single-use and expire after a few minutes |
 | `google_drive_folders` | The Drive root folders a user has chosen to sync (Drive folder ID + name), plus `sync_status` / `sync_error` / `last_synced_at` for the recursive sync job. Deleting a row cascades to delete its synced `files` rows |
 | `stock_alerts` | Price thresholds per stock symbol |
-| `notifications` | In-app notification banners (e.g. triggered stock alerts) |
-| `push_subscriptions` | One row per subscribed browser/device (Web Push endpoint + keys), used by `/api/send-notifications` to deliver habit/todo pushes |
+| `notifications` | In-app notification banners (e.g. triggered stock alerts, friend interaction reminders). `type` distinguishes `stock_alert` vs `friend_reminder`. Friend-reminder banners navigate to `/friends` when clicked |
+| `push_subscriptions` | One row per subscribed browser/device (Web Push endpoint + keys), used by `/api/send-notifications` to deliver habit/todo/friend pushes |
+| `friends` | People to stay in touch with. `goal_count`/`goal_unit` encode a frequency goal (e.g. 2x per week). `reminder_enabled` gates both in-app banners and push notifications. `last_notified_date` deduplicates push notifications (one per calendar day); `reminder_notified_at` arms/disarms the in-app banner (set when overdue, cleared when back on track) |
+| `friend_interactions` | One row per logged interaction with a friend: `interaction_date` + optional `note`. Used to compute days-since-last-interaction and decide overdue status |
 | `focus_summaries` | Cached AI-generated focus briefing per user per `period` (`today`/`week` — covering tomorrow and the week ahead, respectively), written by the `generate-focus-summary` Edge Function; `status`/`error` track the last generation attempt, `generated_at` is shown in the UI as "Updated X ago" |
 | `api_tokens` | Long-lived personal API tokens (hashed, `token_hash` only) used by external callers like an iOS Shortcut that can't hold a short-lived Supabase session JWT — see step 1j |
 
@@ -711,6 +713,12 @@ The `vercel.json` in this repo configures SPA routing (all paths → `index.html
 **Max file size:** 50 MB (enforced at bucket level) — oversized Drive files are skipped on sync
 
 Files are accessed via signed URLs (1-hour expiry), generated on demand when a user taps Download.
+
+**Bucket:** `avatars` (public)
+**Path convention:** `{user_id}/{friend_id}.{ext}`
+**Max file size:** 5 MB (enforced in the client before upload)
+
+Avatar images are served via public URLs (`getPublicUrl`), no signed URLs needed. RLS on the storage policy restricts writes to the owning user's folder (`(storage.foldername(name))[1] = auth.uid()::text`) while reads are public.
 
 ### RLS
 

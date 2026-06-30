@@ -1,5 +1,7 @@
 import { supabase } from '../../supabase'
 import { fetchQuote } from '../finance/stocks'
+import { isFriendOverdue } from '../../utils'
+import type { FriendInteraction } from '../../supabase'
 
 export async function checkStockAlerts(userId: string) {
   const { data: alerts } = await supabase.from('stock_alerts').select('*').eq('user_id', userId)
@@ -21,6 +23,36 @@ export async function checkStockAlerts(userId: string) {
       }
     } catch {
       // skip symbols that fail to fetch (e.g. missing API key)
+    }
+  }
+}
+
+export async function checkFriendReminders(userId: string) {
+  const { data: friends } = await supabase
+    .from('friends')
+    .select('*')
+    .eq('user_id', userId)
+    .eq('reminder_enabled', true)
+  if (!friends) return
+
+  const { data: interactions } = await supabase
+    .from('friend_interactions')
+    .select('*')
+    .eq('user_id', userId)
+  const allInteractions: FriendInteraction[] = interactions ?? []
+
+  for (const friend of friends) {
+    const overdue = isFriendOverdue(friend, allInteractions)
+    if (overdue && !friend.reminder_notified_at) {
+      await supabase.from('notifications').insert({
+        user_id: userId,
+        type: 'friend_reminder',
+        title: `Stay in touch with ${friend.name}`,
+        message: `You haven't connected in a while — your goal is ${friend.goal_count}x per ${friend.goal_unit}.`,
+      })
+      await supabase.from('friends').update({ reminder_notified_at: new Date().toISOString() }).eq('id', friend.id)
+    } else if (!overdue && friend.reminder_notified_at) {
+      await supabase.from('friends').update({ reminder_notified_at: null }).eq('id', friend.id)
     }
   }
 }
