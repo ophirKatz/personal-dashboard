@@ -58,7 +58,11 @@ Deno.serve(async (req: Request) => {
     query = query.gte('interaction_date', `${now.getFullYear()}-01-01`)
   }
 
-  const { data: interactions } = await query
+  const { data: interactions, error: interactionsError } = await query
+
+  if (interactionsError) {
+    return new Response(JSON.stringify({ error: 'DB_ERROR' }), { status: 500 })
+  }
 
   if (!interactions || interactions.length === 0) {
     return new Response(
@@ -115,7 +119,7 @@ Deno.serve(async (req: Request) => {
   }
 
   const data = await res.json() as { content?: Array<{ text?: string }> }
-  const summary = data.content?.[0]?.text?.trim() ?? 'Could not generate summary.'
+  const summary = data.content?.[0]?.text?.trim() || 'Could not generate summary.'
 
   return new Response(
     JSON.stringify({ summary }),
