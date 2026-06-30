@@ -50,6 +50,24 @@ export async function enablePushNotifications(): Promise<PushResult> {
   return { ok: true }
 }
 
+export async function syncPushSubscription(): Promise<void> {
+  if (!isPushSupported()) return
+  const subscription = await getPushSubscription()
+  if (!subscription) return
+
+  const { data: { session } } = await supabase.auth.getSession()
+  if (!session) return
+
+  const keys = subscription.toJSON().keys
+  if (!keys?.p256dh || !keys?.auth) return
+
+  await fetch('/api/push-subscribe', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+    body: JSON.stringify({ endpoint: subscription.endpoint, p256dh: keys.p256dh, auth: keys.auth }),
+  })
+}
+
 export async function disablePushNotifications(): Promise<void> {
   const subscription = await getPushSubscription()
   if (!subscription) return
