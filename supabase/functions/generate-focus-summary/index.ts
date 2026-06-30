@@ -3,7 +3,7 @@ import { createClient, SupabaseClient } from 'npm:@supabase/supabase-js@2'
 type Period = 'today' | 'week'
 
 type Todo = { id: string; title: string; notes: string | null; due_date: string | null; due_time: string | null; priority: string }
-type Event = { id: string; title: string; date: string; time: string | null; notes: string | null; source: 'local' | 'google' }
+type Event = { id: string; title: string; date: string; time: string | null; notes: string | null; location: string | null; source: 'local' | 'google' }
 
 type FocusCardItem = {
   type: 'todo' | 'event'
@@ -175,7 +175,7 @@ async function generateFocusSummary(
     todosQuery,
     supabase
       .from('events')
-      .select('id, title, event_date, event_time, notes, source')
+      .select('id, title, event_date, event_time, notes, location, source')
       .eq('user_id', userId)
       .gte('event_date', rangeStart)
       .lte('event_date', rangeEnd),
@@ -188,6 +188,7 @@ async function generateFocusSummary(
     date: e.event_date,
     time: e.event_time,
     notes: e.notes,
+    location: e.location,
     source: e.source,
   }))
 
