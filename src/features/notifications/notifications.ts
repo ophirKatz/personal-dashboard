@@ -48,7 +48,7 @@ export async function checkFriendReminders(userId: string) {
         user_id: userId,
         type: 'friend_reminder',
         title: `Stay in touch with ${friend.name}`,
-        message: `You haven't connected in a while — your goal is ${formatFriendGoal(friend.goal_count, friend.goal_unit)}.`,
+        message: `You haven't connected in a while — your goal is ${formatFriendGoal(friend.goal_count, friend.goal_unit, friend.goal_mode)}.`,
       })
       await supabase.from('friends').update({ reminder_notified_at: new Date().toISOString() }).eq('id', friend.id)
     } else if (!overdue && friend.reminder_notified_at) {
