@@ -75,14 +75,25 @@ Deno.serve(async (req: Request) => {
     .map(i => `- ${i.interaction_date}${i.note ? `: ${i.note}` : ''}`)
     .join('\n')
 
-  const contextParts = [`Friend: ${(friend as { name: string }).name}`]
-  if ((friend as { details?: string | null }).details) {
-    contextParts.push(`Background: ${(friend as { details: string }).details}`)
+  const typedFriend = friend as { name: string; details?: string | null; notes?: string | null }
+
+  const contextParts = [`Friend: ${typedFriend.name}`]
+  if (typedFriend.details) {
+    contextParts.push(`About this friendship: ${typedFriend.details}`)
   }
-  if ((friend as { notes?: string | null }).notes) {
-    contextParts.push(`Reminder note: ${(friend as { notes: string }).notes}`)
+  if (typedFriend.notes) {
+    contextParts.push(`Reminder note (things to talk about): ${typedFriend.notes}`)
   }
   contextParts.push(`\nInteractions (${period}):\n${interactionLines}`)
+
+  const system =
+    'You are a personal assistant helping a user reflect on their friendships. ' +
+    'You will receive context about a friend — who they are and what makes the friendship meaningful — ' +
+    'followed by a list of logged interactions (dates and optional notes). ' +
+    'Write a brief 2-4 sentence summary of the relationship activity in the period. ' +
+    'Use the friendship context to make the summary personal and specific — not generic. ' +
+    'Focus on patterns, topics discussed, and how the interactions connect to what matters in this friendship. ' +
+    'Do not use bullet points.'
 
   const res = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
@@ -94,11 +105,7 @@ Deno.serve(async (req: Request) => {
     body: JSON.stringify({
       model: 'claude-haiku-4-5-20251001',
       max_tokens: 512,
-      system:
-        'You are a personal assistant helping a user reflect on their friendships. ' +
-        'Given a list of logged interactions with a friend (dates and optional notes), write a brief 2-4 sentence summary ' +
-        'of the relationship activity in the period. Focus on patterns, topics discussed, and frequency. ' +
-        'Be warm and personal. Do not use bullet points.',
+      system,
       messages: [{ role: 'user', content: contextParts.join('\n') }],
     }),
   })
