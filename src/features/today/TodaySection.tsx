@@ -5,6 +5,7 @@ import type { Habit, HabitLog, Todo } from '../../supabase'
 import { formatTime, isHabitDoneThisPeriod, isOverdue, today } from '../../utils'
 import WeatherWidget from '../weather/WeatherWidget'
 import { celebrateFromElement } from '../../lib/confetti'
+import PostponeMenu from '../todos/PostponeMenu'
 
 export type TodayEvent = {
   id: string
@@ -23,7 +24,7 @@ type Props = {
   onToggleHabit: (habit: Habit) => void
   todos: Todo[]
   onCompleteTodo: (id: string) => void
-  onPostponeTodo: (id: string) => void
+  onPostponeTodo: (id: string, target: Date | 'tomorrow') => void
   events: TodayEvent[]
 }
 
@@ -63,6 +64,7 @@ export default function TodaySection({ habits, totalHabitsCount, logs, onToggleH
     return () => clearInterval(id)
   }, [])
   const [expandedEventId, setExpandedEventId] = useState<string | null>(null)
+  const [postponingTodoId, setPostponingTodoId] = useState<string | null>(null)
 
   const nextUp = [
     ...events.filter(e => e.time).map(e => ({ kind: 'event' as const, label: e.title, minutes: minutesUntil(e.time!, now) })),
@@ -178,9 +180,9 @@ export default function TodaySection({ habits, totalHabitsCount, logs, onToggleH
                   )}
                   {overdue && (
                     <button
-                      onClick={() => onPostponeTodo(todo.id)}
+                      onClick={() => setPostponingTodoId(todo.id)}
                       className="p-1 rounded-lg hover:bg-accent text-muted-foreground shrink-0"
-                      title="Postpone to tomorrow"
+                      title="Postpone"
                     >
                       <CalendarArrowUp className="h-3.5 w-3.5" />
                     </button>
@@ -238,6 +240,19 @@ export default function TodaySection({ habits, totalHabitsCount, logs, onToggleH
           </div>
         </div>
       )}
+
+      <PostponeMenu
+        open={postponingTodoId !== null}
+        onClose={() => setPostponingTodoId(null)}
+        onPostponeTomorrow={() => {
+          if (postponingTodoId) onPostponeTodo(postponingTodoId, 'tomorrow')
+          setPostponingTodoId(null)
+        }}
+        onPostponeTo={target => {
+          if (postponingTodoId) onPostponeTodo(postponingTodoId, target)
+          setPostponingTodoId(null)
+        }}
+      />
     </div>
   )
 }
