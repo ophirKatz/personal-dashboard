@@ -6,6 +6,7 @@ import Layout from './components/Layout'
 import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
 import { checkStockAlerts, checkFriendReminders } from './features/notifications/notifications'
+import { syncPushSubscription } from './lib/push'
 import { upsertPrimaryGoogleAccount } from './lib/googleAccounts'
 
 // Lazy-loaded so their dependencies (recharts, pdfjs/react-pdf, etc.) stay out
@@ -55,6 +56,7 @@ export default function App() {
     if (user) {
       checkStockAlerts(user.id)
       checkFriendReminders(user.id)
+      syncPushSubscription()
     }
   }, [user])
 
