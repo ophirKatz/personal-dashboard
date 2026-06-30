@@ -99,27 +99,46 @@ Deno.serve(async (req: Request) => {
     'Focus on patterns, topics discussed, and how the interactions connect to what matters in this friendship. ' +
     'Do not use bullet points.'
 
-  const res = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: {
-      'x-api-key': anthropicApiKey,
-      'anthropic-version': '2023-06-01',
-      'content-type': 'application/json',
-    },
-    body: JSON.stringify({
-      model: 'claude-haiku-4-5-20251001',
-      max_tokens: 512,
-      system,
-      messages: [{ role: 'user', content: contextParts.join('\n') }],
-    }),
-  })
-
-  if (!res.ok) {
+  let aiRes: Response
+  try {
+    aiRes = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'x-api-key': anthropicApiKey,
+        'anthropic-version': '2023-06-01',
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 512,
+        system,
+        messages: [{ role: 'user', content: contextParts.join('\n') }],
+      }),
+    })
+  } catch (err) {
+    console.error('Anthropic fetch error:', err)
     return new Response(JSON.stringify({ error: 'AI_ERROR' }), { status: 502 })
   }
 
-  const data = await res.json() as { content?: Array<{ text?: string }> }
-  const summary = data.content?.[0]?.text?.trim() || 'Could not generate summary.'
+  if (!aiRes.ok) {
+    const errBody = await aiRes.text().catch(() => '')
+    console.error(`Anthropic API ${aiRes.status}:`, errBody.slice(0, 200))
+    return new Response(JSON.stringify({ error: 'AI_ERROR' }), { status: 502 })
+  }
+
+  let summary: string
+  try {
+    const data = await aiRes.json() as { content?: Array<{ text?: string }> }
+    summary = data.content?.[0]?.text?.trim() || ''
+    console.log(`summary length=${summary.length}, stop_reason ok`)
+  } catch (err) {
+    console.error('Failed to parse Anthropic response:', err)
+    return new Response(JSON.stringify({ error: 'AI_ERROR' }), { status: 502 })
+  }
+
+  if (!summary) {
+    summary = 'No summary available for this period.'
+  }
 
   return new Response(
     JSON.stringify({ summary }),
