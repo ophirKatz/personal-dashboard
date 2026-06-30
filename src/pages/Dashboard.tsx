@@ -5,7 +5,7 @@ import { useNavigate } from 'react-router-dom'
 import type { User } from '@supabase/supabase-js'
 import { supabase } from '../supabase'
 import type { Habit, HabitLog, Todo, CalendarEvent, Notification } from '../supabase'
-import { today, tomorrow, advanceRecurrence, isHabitDueToday } from '../utils'
+import { today, tomorrow, advanceRecurrence, isHabitDueToday, cn } from '../utils'
 import { addDays, format } from 'date-fns'
 import { refreshGoogleCalendarEvents } from '../features/calendar/googleCalendar'
 import { toggleGoogleTask } from '../features/todos/googleTasks'
@@ -178,13 +178,24 @@ export default function Dashboard() {
       {!loading && notifications.length > 0 && (
         <div className="space-y-2">
           {notifications.map(n => (
-            <div key={n.id} className="flex items-start gap-3 p-3.5 rounded-xl border bg-primary/5 border-primary/30">
+            <div
+              key={n.id}
+              onClick={n.type === 'friend_reminder' ? () => navigate('/friends') : undefined}
+              className={cn(
+                'flex items-start gap-3 p-3.5 rounded-xl border bg-primary/5 border-primary/30',
+                n.type === 'friend_reminder' && 'cursor-pointer hover:bg-primary/10 transition-colors',
+              )}
+            >
               <Bell className="h-4 w-4 text-primary shrink-0 mt-0.5" />
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium">{n.title}</p>
                 <p className="text-xs text-muted-foreground mt-0.5">{n.message}</p>
               </div>
-              <button onClick={() => dismissNotification(n.id)} className="p-1 rounded-lg hover:bg-accent text-muted-foreground shrink-0" title="Dismiss">
+              <button
+                onClick={e => { e.stopPropagation(); dismissNotification(n.id) }}
+                className="p-1 rounded-lg hover:bg-accent text-muted-foreground shrink-0"
+                title="Dismiss"
+              >
                 <X className="h-4 w-4" />
               </button>
             </div>
