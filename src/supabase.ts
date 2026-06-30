@@ -217,7 +217,7 @@ export type Friend = {
   notes: string | null
   avatar_url: string | null
   goal_count: number
-  goal_unit: 'day' | 'week' | 'month'
+  goal_unit: 'day' | 'week' | 'month' | 'year'
   reminder_enabled: boolean
   last_notified_date: string | null
   reminder_notified_at: string | null

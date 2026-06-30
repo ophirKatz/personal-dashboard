@@ -129,17 +129,14 @@ export function isHabitDueToday(habit: Habit, logs: HabitLog[]): boolean {
   return habitDebtOwedToday(habit, logs) > 0
 }
 
-const RECURRENCE_UNIT_DAYS: Record<RecurrenceUnit, number> = { day: 1, week: 7, month: 30 }
+const FRIEND_GOAL_UNIT_DAYS: Record<Friend['goal_unit'], number> = { day: 1, week: 7, month: 30, year: 365 }
 
-export function formatFriendGoal(count: number, unit: RecurrenceUnit): string {
-  return count === 1 ? `Once a ${unit}` : `${count}x a ${unit}`
+export function formatFriendGoal(count: number, unit: Friend['goal_unit']): string {
+  return count === 1 ? `Every ${unit}` : `Every ${count} ${unit}s`
 }
 
-// "2x a week" -> remind roughly every 3.5 days, rounded. No debt/streak
-// concept here, just "it's been longer than the target gap" — simpler than
-// the habit period model since the goal is a nudge, not a tracked tally.
 export function friendTargetIntervalDays(friend: Friend): number {
-  return Math.max(1, Math.round(RECURRENCE_UNIT_DAYS[friend.goal_unit] / friend.goal_count))
+  return friend.goal_count * FRIEND_GOAL_UNIT_DAYS[friend.goal_unit]
 }
 
 export function friendLastInteractionDate(friend: Friend, interactions: FriendInteraction[]): string | null {

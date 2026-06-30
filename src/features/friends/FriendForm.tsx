@@ -2,7 +2,6 @@ import { useRef, useState } from 'react'
 import { Camera, Bell } from 'lucide-react'
 import { supabase } from '../../supabase'
 import type { Friend } from '../../supabase'
-import type { RecurrenceUnit } from '../../utils'
 import { Button } from '../../components/ui/button'
 import { Input } from '../../components/ui/input'
 import { Label } from '../../components/ui/label'
@@ -11,7 +10,16 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogBody, DialogFoo
 import { haptic } from '../../lib/haptics'
 import { ALLOWED_AVATAR_TYPES, MAX_AVATAR_BYTES, initials, uploadFriendAvatar } from './friends'
 
-const GOAL_UNITS: RecurrenceUnit[] = ['day', 'week', 'month']
+type GoalUnit = Friend['goal_unit']
+
+const GOAL_UNITS: GoalUnit[] = ['day', 'week', 'month', 'year']
+
+const MAX_GOAL_COUNT: Record<GoalUnit, number> = {
+  day: 30,
+  week: 26,
+  month: 24,
+  year: 10,
+}
 
 type Props = {
   open: boolean
@@ -25,7 +33,7 @@ export default function FriendForm({ open, onClose, onSave, friend, userId }: Pr
   const [name, setName] = useState(friend?.name ?? '')
   const [notes, setNotes] = useState(friend?.notes ?? '')
   const [goalCount, setGoalCount] = useState(friend?.goal_count ?? 1)
-  const [goalUnit, setGoalUnit] = useState<RecurrenceUnit>(friend?.goal_unit ?? 'month')
+  const [goalUnit, setGoalUnit] = useState<GoalUnit>(friend?.goal_unit ?? 'month')
   const [reminderEnabled, setReminderEnabled] = useState(friend?.reminder_enabled ?? true)
   const [avatarPreview, setAvatarPreview] = useState(friend?.avatar_url ?? null)
   const [avatarFile, setAvatarFile] = useState<File | null>(null)
@@ -48,6 +56,12 @@ export default function FriendForm({ open, onClose, onSave, friend, userId }: Pr
     setAvatarError(null)
     setAvatarFile(file)
     setAvatarPreview(URL.createObjectURL(file))
+  }
+
+  function handleUnitChange(u: GoalUnit) {
+    haptic('selection')
+    setGoalUnit(u)
+    setGoalCount(c => Math.min(c, MAX_GOAL_COUNT[u]))
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -128,19 +142,19 @@ export default function FriendForm({ open, onClose, onSave, friend, userId }: Pr
             <div className="space-y-2">
               <Label>Goal</Label>
               <div className="flex flex-wrap items-center gap-2">
+                <span className="text-sm text-muted-foreground">Every</span>
                 <button type="button" onClick={() => setGoalCount(c => Math.max(1, c - 1))} className="w-8 h-8 rounded-lg border flex items-center justify-center hover:bg-accent">−</button>
                 <span className="w-6 text-center font-medium">{goalCount}</span>
-                <button type="button" onClick={() => setGoalCount(c => Math.min(30, c + 1))} className="w-8 h-8 rounded-lg border flex items-center justify-center hover:bg-accent">+</button>
-                <span className="text-sm text-muted-foreground whitespace-nowrap">time{goalCount !== 1 ? 's' : ''} per</span>
-                <div className="flex gap-1">
+                <button type="button" onClick={() => setGoalCount(c => Math.min(MAX_GOAL_COUNT[goalUnit], c + 1))} className="w-8 h-8 rounded-lg border flex items-center justify-center hover:bg-accent">+</button>
+                <div className="flex gap-1 flex-wrap">
                   {GOAL_UNITS.map(u => (
                     <button
                       key={u}
                       type="button"
-                      onClick={() => { haptic('selection'); setGoalUnit(u) }}
+                      onClick={() => handleUnitChange(u)}
                       className={`px-3 py-1.5 rounded-lg border text-sm font-medium capitalize transition-colors ${goalUnit === u ? 'bg-primary text-primary-foreground border-primary' : 'border-input hover:bg-accent'}`}
                     >
-                      {u}
+                      {goalCount === 1 ? u : u + 's'}
                     </button>
                   ))}
                 </div>
