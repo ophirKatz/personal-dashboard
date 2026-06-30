@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Plus, Pencil, Trash2, ExternalLink, Link2 } from 'lucide-react'
+import { Plus, Pencil, Trash2, ExternalLink, Link2, MapPin } from 'lucide-react'
 import { supabase } from '../supabase'
 import type { CalendarEvent } from '../supabase'
 import type { User } from '@supabase/supabase-js'
@@ -24,6 +24,7 @@ function EventForm({ open, onClose, onSave, event, userId }: {
   const [eventDate, setEventDate] = useState(event?.event_date ?? today())
   const [eventTime, setEventTime] = useState(event?.event_time ?? '')
   const [endTime, setEndTime] = useState(event?.event_end_time ?? '')
+  const [location, setLocation] = useState(event?.location ?? '')
   const [notes, setNotes] = useState(event?.notes ?? '')
   const [saving, setSaving] = useState(false)
 
@@ -37,6 +38,7 @@ function EventForm({ open, onClose, onSave, event, userId }: {
       event_time: eventTime || null,
       event_end_date: endTime ? eventDate : null,
       event_end_time: endTime || null,
+      location: location.trim() || null,
       notes: notes.trim() || null,
       user_id: userId,
     }
@@ -73,6 +75,10 @@ function EventForm({ open, onClose, onSave, event, userId }: {
                 <Label>End time (optional)</Label>
                 <Input type="time" value={endTime} onChange={e => setEndTime(e.target.value)} className="min-w-0" />
               </div>
+            </div>
+            <div className="space-y-2">
+              <Label>Location</Label>
+              <Input value={location} onChange={e => setLocation(e.target.value)} placeholder="Optional location…" />
             </div>
             <div className="space-y-2">
               <Label>Notes</Label>
@@ -246,6 +252,12 @@ export default function Calendar() {
                               )
                             })()}
                           </div>
+                          {event.location && (
+                            <p className="flex items-center gap-1 text-sm text-muted-foreground mt-0.5 truncate">
+                              <MapPin className="h-3.5 w-3.5 shrink-0" />
+                              <span className="truncate">{event.location}</span>
+                            </p>
+                          )}
                           {event.notes && <p className="text-sm text-muted-foreground mt-0.5 truncate">{event.notes}</p>}
                         </div>
                         <div className="flex items-center gap-1">

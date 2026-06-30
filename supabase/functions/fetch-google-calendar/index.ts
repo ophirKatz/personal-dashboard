@@ -129,7 +129,7 @@ async function syncCalendarForAccount(supabase: SupabaseClient, account: Account
       eventTime: ev.start.dateTime ? ev.start.dateTime.slice(11, 19) : null,
       eventEndDate: ev.end.date ?? ev.end.dateTime?.slice(0, 10) ?? null,
       eventEndTime: ev.end.dateTime ? ev.end.dateTime.slice(11, 19) : null,
-      notes: ev.location ?? null,
+      location: ev.location ?? null,
       htmlLink: ev.htmlLink,
     }))
 
@@ -147,7 +147,7 @@ async function syncCalendarForAccount(supabase: SupabaseClient, account: Account
     event_time: e.eventTime,
     event_end_date: e.eventEndDate,
     event_end_time: e.eventEndTime,
-    notes: e.notes,
+    location: e.location,
     source: 'google',
     google_event_id: e.id,
     google_account_id: account.id,

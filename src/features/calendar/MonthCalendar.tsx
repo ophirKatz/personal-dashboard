@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { ChevronLeft, ChevronRight } from 'lucide-react'
+import { ChevronLeft, ChevronRight, MapPin } from 'lucide-react'
 import { startOfMonth, endOfMonth, startOfWeek, endOfWeek, eachDayOfInterval, format, isSameMonth, isToday, addMonths, parseISO } from 'date-fns'
 import { supabase } from '../../supabase'
 import type { CalendarEvent } from '../../supabase'
@@ -125,6 +125,12 @@ export default function MonthCalendar() {
                   </div>
                   {event.event_time && (
                     <p className="text-xs text-muted-foreground mt-0.5">{formatTime(event.event_time)}</p>
+                  )}
+                  {event.location && (
+                    <p className="flex items-center gap-1 text-sm text-muted-foreground mt-1">
+                      <MapPin className="h-3.5 w-3.5 shrink-0" />
+                      <span>{event.location}</span>
+                    </p>
                   )}
                   {event.notes && <p className="text-sm text-muted-foreground mt-1">{event.notes}</p>}
                   {event.source === 'google' && event.html_link && (
