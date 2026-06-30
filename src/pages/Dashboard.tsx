@@ -5,7 +5,7 @@ import { useNavigate } from 'react-router-dom'
 import type { User } from '@supabase/supabase-js'
 import { supabase } from '../supabase'
 import type { Habit, HabitLog, Todo, CalendarEvent, Notification } from '../supabase'
-import { today, advanceRecurrence, isHabitDueToday } from '../utils'
+import { today, tomorrow, advanceRecurrence, isHabitDueToday } from '../utils'
 import { addDays, format } from 'date-fns'
 import { refreshGoogleCalendarEvents } from '../features/calendar/googleCalendar'
 import { toggleGoogleTask } from '../features/todos/googleTasks'
@@ -124,12 +124,27 @@ export default function Dashboard() {
   async function postponeTodo(id: string, target: Date | 'tomorrow') {
     const todo = todos.find(t => t.id === id)
     if (!todo) return
+
+    let nextDueDate: string
+    let nextDueTime: string | null
     if (target === 'tomorrow') {
       await postponeToTomorrow(todo)
+      nextDueDate = tomorrow()
+      nextDueTime = todo.due_time
     } else {
       await postponeToDateTime(todo, target)
+      nextDueDate = format(target, 'yyyy-MM-dd')
+      nextDueTime = format(target, 'HH:mm:ss')
     }
-    setTodos(prev => prev.filter(t => t.id !== id))
+
+    // Postponing within today (e.g. "in 1 hour") should keep the task
+    // visible in the Today section, just no longer flagged as overdue —
+    // only drop it once it's actually due on a future day.
+    if (nextDueDate === today()) {
+      setTodos(prev => prev.map(t => (t.id === id ? { ...t, due_date: nextDueDate, due_time: nextDueTime } : t)))
+    } else {
+      setTodos(prev => prev.filter(t => t.id !== id))
+    }
   }
 
   const sortedEvents = [...events].sort((a, b) => {
