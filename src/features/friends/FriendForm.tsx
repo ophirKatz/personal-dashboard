@@ -2,7 +2,6 @@ import { useRef, useState } from 'react'
 import { Camera, Bell } from 'lucide-react'
 import { supabase } from '../../supabase'
 import type { Friend } from '../../supabase'
-import type { RecurrenceUnit } from '../../utils'
 import { Button } from '../../components/ui/button'
 import { Input } from '../../components/ui/input'
 import { Label } from '../../components/ui/label'
@@ -11,7 +10,25 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogBody, DialogFoo
 import { haptic } from '../../lib/haptics'
 import { ALLOWED_AVATAR_TYPES, MAX_AVATAR_BYTES, initials, uploadFriendAvatar } from './friends'
 
-const GOAL_UNITS: RecurrenceUnit[] = ['day', 'week', 'month']
+type GoalUnit = Friend['goal_unit']
+type GoalMode = Friend['goal_mode']
+
+const INTERVAL_UNITS: GoalUnit[] = ['day', 'week', 'month', 'year']
+const FREQUENCY_UNITS: GoalUnit[] = ['day', 'week', 'month']
+
+const MAX_INTERVAL_COUNT: Record<GoalUnit, number> = {
+  day: 30,
+  week: 26,
+  month: 24,
+  year: 10,
+}
+
+const MAX_FREQUENCY_COUNT: Record<GoalUnit, number> = {
+  day: 10,
+  week: 7,
+  month: 30,
+  year: 1,
+}
 
 type Props = {
   open: boolean
@@ -24,14 +41,18 @@ type Props = {
 export default function FriendForm({ open, onClose, onSave, friend, userId }: Props) {
   const [name, setName] = useState(friend?.name ?? '')
   const [notes, setNotes] = useState(friend?.notes ?? '')
+  const [goalMode, setGoalMode] = useState<GoalMode>(friend?.goal_mode ?? 'interval')
   const [goalCount, setGoalCount] = useState(friend?.goal_count ?? 1)
-  const [goalUnit, setGoalUnit] = useState<RecurrenceUnit>(friend?.goal_unit ?? 'month')
+  const [goalUnit, setGoalUnit] = useState<GoalUnit>(friend?.goal_unit ?? 'month')
   const [reminderEnabled, setReminderEnabled] = useState(friend?.reminder_enabled ?? true)
   const [avatarPreview, setAvatarPreview] = useState(friend?.avatar_url ?? null)
   const [avatarFile, setAvatarFile] = useState<File | null>(null)
   const [avatarError, setAvatarError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
+
+  const availableUnits = goalMode === 'interval' ? INTERVAL_UNITS : FREQUENCY_UNITS
+  const maxCount = goalMode === 'interval' ? MAX_INTERVAL_COUNT[goalUnit] : MAX_FREQUENCY_COUNT[goalUnit]
 
   function handleAvatarSelect(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
@@ -48,6 +69,22 @@ export default function FriendForm({ open, onClose, onSave, friend, userId }: Pr
     setAvatarError(null)
     setAvatarFile(file)
     setAvatarPreview(URL.createObjectURL(file))
+  }
+
+  function handleModeChange(mode: GoalMode) {
+    haptic('selection')
+    setGoalMode(mode)
+    setGoalCount(1)
+    if (mode === 'frequency' && goalUnit === 'year') {
+      setGoalUnit('month')
+    }
+  }
+
+  function handleUnitChange(u: GoalUnit) {
+    haptic('selection')
+    setGoalUnit(u)
+    const max = goalMode === 'interval' ? MAX_INTERVAL_COUNT[u] : MAX_FREQUENCY_COUNT[u]
+    setGoalCount(c => Math.min(c, max))
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -74,6 +111,7 @@ export default function FriendForm({ open, onClose, onSave, friend, userId }: Pr
       avatar_url: avatarUrl,
       goal_count: goalCount,
       goal_unit: goalUnit,
+      goal_mode: goalMode,
       reminder_enabled: reminderEnabled,
       user_id: userId,
     }
@@ -125,22 +163,41 @@ export default function FriendForm({ open, onClose, onSave, friend, userId }: Pr
               <Textarea value={notes} onChange={e => setNotes(e.target.value)} placeholder="Optional" rows={2} />
             </div>
 
-            <div className="space-y-2">
+            <div className="space-y-3">
               <Label>Goal</Label>
+              <div className="flex rounded-lg border border-input p-0.5 gap-0.5">
+                {(['interval', 'frequency'] as GoalMode[]).map(mode => (
+                  <button
+                    key={mode}
+                    type="button"
+                    onClick={() => handleModeChange(mode)}
+                    className={`flex-1 py-1.5 text-sm font-medium rounded-md transition-colors ${goalMode === mode ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+                  >
+                    {mode === 'interval' ? 'Every N' : 'N times per'}
+                  </button>
+                ))}
+              </div>
               <div className="flex flex-wrap items-center gap-2">
+                {goalMode === 'interval' && (
+                  <span className="text-sm text-muted-foreground">Every</span>
+                )}
                 <button type="button" onClick={() => setGoalCount(c => Math.max(1, c - 1))} className="w-8 h-8 rounded-lg border flex items-center justify-center hover:bg-accent">−</button>
                 <span className="w-6 text-center font-medium">{goalCount}</span>
-                <button type="button" onClick={() => setGoalCount(c => Math.min(30, c + 1))} className="w-8 h-8 rounded-lg border flex items-center justify-center hover:bg-accent">+</button>
-                <span className="text-sm text-muted-foreground whitespace-nowrap">time{goalCount !== 1 ? 's' : ''} per</span>
-                <div className="flex gap-1">
-                  {GOAL_UNITS.map(u => (
+                <button type="button" onClick={() => setGoalCount(c => Math.min(maxCount, c + 1))} className="w-8 h-8 rounded-lg border flex items-center justify-center hover:bg-accent">+</button>
+                {goalMode === 'frequency' && (
+                  <span className="text-sm text-muted-foreground">times per</span>
+                )}
+                <div className="flex gap-1 flex-wrap">
+                  {availableUnits.map(u => (
                     <button
                       key={u}
                       type="button"
-                      onClick={() => { haptic('selection'); setGoalUnit(u) }}
+                      onClick={() => handleUnitChange(u)}
                       className={`px-3 py-1.5 rounded-lg border text-sm font-medium capitalize transition-colors ${goalUnit === u ? 'bg-primary text-primary-foreground border-primary' : 'border-input hover:bg-accent'}`}
                     >
-                      {u}
+                      {goalMode === 'interval'
+                        ? (goalCount === 1 ? u : u + 's')
+                        : u}
                     </button>
                   ))}
                 </div>

@@ -37,7 +37,7 @@ export default function FriendCard({ friend, interactions, userId, onEdit, onDel
       <div className="flex-1 min-w-0">
         <div className="font-medium truncate">{friend.name}</div>
         <div className="flex flex-wrap items-center gap-x-1.5 gap-y-1 mt-0.5 text-sm text-muted-foreground">
-          <span className="whitespace-nowrap">{formatFriendGoal(friend.goal_count, friend.goal_unit)}</span>
+          <span className="whitespace-nowrap">{formatFriendGoal(friend.goal_count, friend.goal_unit, friend.goal_mode)}</span>
           <span className="text-border">·</span>
           <span className="whitespace-nowrap">{daysSince === 0 ? 'Today' : `${daysSince}d ago`}</span>
           {overdue && (
