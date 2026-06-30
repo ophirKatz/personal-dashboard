@@ -49,7 +49,7 @@ export default function PostponeMenu({ open, onClose, onPostponeTomorrow, onPost
         </DrawerHeader>
         <DrawerBody className="space-y-1">
           {!customizing ? (
-            <>
+            <div key="menu" className="space-y-1 animate-in fade-in-0 slide-in-from-left-2 duration-150">
               <button onClick={handleTomorrow} className="flex items-center gap-3 w-full p-3 rounded-xl hover:bg-accent text-left">
                 <CalendarArrowUp className="h-4 w-4 text-muted-foreground shrink-0" />
                 <span className="text-sm font-medium">Tomorrow</span>
@@ -62,9 +62,13 @@ export default function PostponeMenu({ open, onClose, onPostponeTomorrow, onPost
                 <CalendarClock className="h-4 w-4 text-muted-foreground shrink-0" />
                 <span className="text-sm font-medium">Custom date & time…</span>
               </button>
-            </>
+            </div>
           ) : (
-            <form onSubmit={handleCustomSubmit} className="flex items-center gap-2 pt-1">
+            <form
+              key="custom"
+              onSubmit={handleCustomSubmit}
+              className="flex items-center gap-2 pt-1 animate-in fade-in-0 slide-in-from-right-2 duration-150"
+            >
               <Input
                 type="datetime-local"
                 value={customValue}
