@@ -164,7 +164,7 @@ export default function FriendForm({ open, onClose, onSave, friend, userId }: Pr
 
             <div className="space-y-2">
               <Label>Name</Label>
-              <Input value={name} onChange={e => setName(e.target.value)} placeholder="e.g. Alex" autoFocus />
+              <Input value={name} onChange={e => setName(e.target.value)} placeholder="e.g. Alex" autoFocus={!friend} />
             </div>
 
             <div className="space-y-2">
