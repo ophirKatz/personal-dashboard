@@ -87,7 +87,7 @@ Deno.serve(async (req: Request) => {
 
   const { data: dueFriends } = await supabase
     .from('friends')
-    .select('id, user_id, name, goal_count, goal_unit, goal_mode, reminder_enabled, last_notified_date, created_at')
+    .select('id, user_id, name, goal_count, goal_unit, goal_mode, notes, reminder_enabled, last_notified_date, created_at')
     .eq('reminder_enabled', true)
 
   const friendIds = (dueFriends ?? []).map((f: { id: string }) => f.id)
@@ -113,10 +113,11 @@ Deno.serve(async (req: Request) => {
     const daysSince = Math.floor((Date.now() - new Date(lastDate).getTime()) / msPerDay)
     if (daysSince < targetInterval) continue
 
+    const noteClause = friend.notes ? ` Note: ${friend.notes}` : ''
     pending.push({
       userId: friend.user_id,
       title: `Stay in touch with ${friend.name}`,
-      body: `It's been ${daysSince} day${daysSince !== 1 ? 's' : ''} — your goal is ${friend.goal_mode === 'frequency' ? (friend.goal_count === 1 ? `once a ${friend.goal_unit}` : `${friend.goal_count}x a ${friend.goal_unit}`) : (friend.goal_count === 1 ? `every ${friend.goal_unit}` : `every ${friend.goal_count} ${friend.goal_unit}s`)}.`,
+      body: `It's been ${daysSince} day${daysSince !== 1 ? 's' : ''} — your goal is ${friend.goal_mode === 'frequency' ? (friend.goal_count === 1 ? `once a ${friend.goal_unit}` : `${friend.goal_count}x a ${friend.goal_unit}`) : (friend.goal_count === 1 ? `every ${friend.goal_unit}` : `every ${friend.goal_count} ${friend.goal_unit}s`)}.${noteClause}`,
       url: '/friends',
     })
     await supabase.from('friends').update({ last_notified_date: nowDate }).eq('id', friend.id)

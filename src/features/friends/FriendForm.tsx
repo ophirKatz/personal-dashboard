@@ -42,6 +42,7 @@ export default function FriendForm({ open, onClose, onSave, friend, userId }: Pr
   const [name, setName] = useState(friend?.name ?? '')
   const [notes, setNotes] = useState(friend?.notes ?? '')
   const [goalMode, setGoalMode] = useState<GoalMode>(friend?.goal_mode ?? 'interval')
+  const [details, setDetails] = useState(friend?.details ?? '')
   const [goalCount, setGoalCount] = useState(friend?.goal_count ?? 1)
   const [goalUnit, setGoalUnit] = useState<GoalUnit>(friend?.goal_unit ?? 'month')
   const [reminderEnabled, setReminderEnabled] = useState(friend?.reminder_enabled ?? true)
@@ -108,6 +109,7 @@ export default function FriendForm({ open, onClose, onSave, friend, userId }: Pr
       id,
       name: name.trim(),
       notes: notes.trim() || null,
+      details: details.trim() || null,
       avatar_url: avatarUrl,
       goal_count: goalCount,
       goal_unit: goalUnit,
@@ -159,8 +161,13 @@ export default function FriendForm({ open, onClose, onSave, friend, userId }: Pr
             </div>
 
             <div className="space-y-2">
-              <Label>Notes</Label>
-              <Textarea value={notes} onChange={e => setNotes(e.target.value)} placeholder="Optional" rows={2} />
+              <Label>Notes <span className="text-xs font-normal text-muted-foreground">(shown in reminders)</span></Label>
+              <Textarea value={notes} onChange={e => setNotes(e.target.value)} placeholder="What to talk about, things to plan…" rows={2} />
+            </div>
+
+            <div className="space-y-2">
+              <Label>Details <span className="text-xs font-normal text-muted-foreground">(background info)</span></Label>
+              <Textarea value={details} onChange={e => setDetails(e.target.value)} placeholder="Works at…, met through…, interested in…" rows={2} />
             </div>
 
             <div className="space-y-3">

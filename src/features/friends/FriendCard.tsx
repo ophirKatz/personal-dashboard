@@ -1,10 +1,11 @@
 import { useState } from 'react'
-import { Pencil, Trash2, MessageCircle } from 'lucide-react'
+import { Pencil, Trash2, MessageCircle, Clock } from 'lucide-react'
 import type { Friend, FriendInteraction } from '../../supabase'
 import { formatFriendGoal, friendDaysSinceLastInteraction, isFriendOverdue } from '../../utils'
 import { haptic } from '../../lib/haptics'
 import { initials } from './friends'
 import LogInteractionDrawer from './LogInteractionDrawer'
+import InteractionHistoryDrawer from './InteractionHistoryDrawer'
 
 type Props = {
   friend: Friend
@@ -17,6 +18,7 @@ type Props = {
 
 export default function FriendCard({ friend, interactions, userId, onEdit, onDelete, onLogChange }: Props) {
   const [showLog, setShowLog] = useState(false)
+  const [showHistory, setShowHistory] = useState(false)
   const daysSince = friendDaysSinceLastInteraction(friend, interactions)
   const overdue = isFriendOverdue(friend, interactions)
 
@@ -51,6 +53,9 @@ export default function FriendCard({ friend, interactions, userId, onEdit, onDel
         <button onClick={() => setShowLog(true)} className="p-2 rounded-lg hover:bg-accent text-muted-foreground" title="Log interaction">
           <MessageCircle className="h-4 w-4" />
         </button>
+        <button onClick={() => setShowHistory(true)} className="p-2 rounded-lg hover:bg-accent text-muted-foreground" title="View history">
+          <Clock className="h-4 w-4" />
+        </button>
         <button onClick={onEdit} className="p-2 rounded-lg hover:bg-accent text-muted-foreground">
           <Pencil className="h-4 w-4" />
         </button>
@@ -65,6 +70,15 @@ export default function FriendCard({ friend, interactions, userId, onEdit, onDel
         onSave={onLogChange}
         friendId={friend.id}
         userId={userId}
+      />
+
+      <InteractionHistoryDrawer
+        open={showHistory}
+        onClose={() => setShowHistory(false)}
+        friend={friend}
+        interactions={interactions}
+        userId={userId}
+        onInteractionChanged={onLogChange}
       />
     </div>
   )

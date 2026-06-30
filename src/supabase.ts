@@ -215,6 +215,7 @@ export type Friend = {
   user_id: string
   name: string
   notes: string | null
+  details: string | null
   avatar_url: string | null
   goal_count: number
   goal_unit: 'day' | 'week' | 'month' | 'year'
