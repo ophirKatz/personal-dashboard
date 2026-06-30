@@ -68,23 +68,14 @@ export default function InteractionHistoryDrawer({
     setSummary(null)
     setSummaryError(false)
     try {
-      const { data: { session } } = await supabase.auth.getSession()
-      const res = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/summarize-friend-interactions`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${session?.access_token}`,
-          },
-          body: JSON.stringify({ friend_id: friend.id, period }),
-        },
+      const { data, error } = await supabase.functions.invoke<{ summary?: string; error?: string }>(
+        'summarize-friend-interactions',
+        { body: { friend_id: friend.id, period } },
       )
-      const data: { summary?: string; error?: string } = await res.json()
-      if (data.summary) {
-        setSummary(data.summary)
-      } else {
+      if (error || !data?.summary) {
         setSummaryError(true)
+      } else {
+        setSummary(data.summary)
       }
     } catch {
       setSummaryError(true)
@@ -112,7 +103,7 @@ export default function InteractionHistoryDrawer({
             </div>
             <div>
               <DrawerTitle>{friend.name}</DrawerTitle>
-              <p className="text-xs text-muted-foreground">{formatFriendGoal(friend.goal_count, friend.goal_unit)}</p>
+              <p className="text-xs text-muted-foreground">{formatFriendGoal(friend.goal_count, friend.goal_unit, friend.goal_mode)}</p>
             </div>
           </div>
         </DrawerHeader>
