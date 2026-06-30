@@ -9,7 +9,7 @@ import { today, advanceRecurrence, isHabitDueToday } from '../utils'
 import { addDays, format } from 'date-fns'
 import { refreshGoogleCalendarEvents } from '../features/calendar/googleCalendar'
 import { toggleGoogleTask } from '../features/todos/googleTasks'
-import { postponeToTomorrow } from '../features/todos/postpone'
+import { postponeToTomorrow, postponeToDateTime } from '../features/todos/postpone'
 import FocusSection from '../features/focus/FocusSection'
 import TodaySection from '../features/today/TodaySection'
 import type { TodayEvent } from '../features/today/TodaySection'
@@ -121,10 +121,14 @@ export default function Dashboard() {
     setTodos(prev => prev.filter(t => t.id !== id))
   }
 
-  async function postponeTodo(id: string) {
+  async function postponeTodo(id: string, target: Date | 'tomorrow') {
     const todo = todos.find(t => t.id === id)
     if (!todo) return
-    await postponeToTomorrow(todo)
+    if (target === 'tomorrow') {
+      await postponeToTomorrow(todo)
+    } else {
+      await postponeToDateTime(todo, target)
+    }
     setTodos(prev => prev.filter(t => t.id !== id))
   }
 
