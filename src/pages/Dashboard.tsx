@@ -144,6 +144,7 @@ export default function Dashboard() {
       time: event.event_time,
       endTime: event.event_end_time,
       endDate: event.event_end_date,
+      location: event.location,
       source: event.source,
     }))
 

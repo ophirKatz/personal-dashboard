@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { AlertCircle, CalendarArrowUp, CheckCircle2, ChevronRight, Clock } from 'lucide-react'
+import { AlertCircle, CalendarArrowUp, CheckCircle2, ChevronRight, Clock, MapPin } from 'lucide-react'
 import type { Habit, HabitLog, Todo } from '../../supabase'
 import { formatTime, isHabitDoneThisPeriod, isOverdue, today } from '../../utils'
 import WeatherWidget from '../weather/WeatherWidget'
@@ -12,6 +12,7 @@ export type TodayEvent = {
   time: string | null
   endTime: string | null
   endDate: string | null
+  location: string | null
   source: 'local' | 'google'
 }
 
@@ -61,6 +62,7 @@ export default function TodaySection({ habits, totalHabitsCount, logs, onToggleH
     const id = setInterval(() => setNow(new Date()), 30_000)
     return () => clearInterval(id)
   }, [])
+  const [expandedEventId, setExpandedEventId] = useState<string | null>(null)
 
   const nextUp = [
     ...events.filter(e => e.time).map(e => ({ kind: 'event' as const, label: e.title, minutes: minutesUntil(e.time!, now) })),
@@ -119,14 +121,26 @@ export default function TodaySection({ habits, totalHabitsCount, logs, onToggleH
         ) : (
           <div className="space-y-1.5">
             {visibleEvents.slice(0, 3).map(event => (
-              <div key={event.id} className="flex items-center gap-2">
-                <Clock className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                <span className="text-sm truncate flex-1">{event.title}</span>
-                <span className="text-xs text-muted-foreground shrink-0">
-                  {event.time
-                    ? `${formatTime(event.time)}${event.endTime ? ` – ${formatTime(event.endTime)}` : ''}`
-                    : 'All day'}
-                </span>
+              <div key={event.id}>
+                <button
+                  onClick={() => event.location && setExpandedEventId(id => (id === event.id ? null : event.id))}
+                  className="flex items-center gap-2 w-full text-left"
+                  disabled={!event.location}
+                >
+                  <Clock className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                  <span className="text-sm truncate flex-1">{event.title}</span>
+                  <span className="text-xs text-muted-foreground shrink-0">
+                    {event.time
+                      ? `${formatTime(event.time)}${event.endTime ? ` – ${formatTime(event.endTime)}` : ''}`
+                      : 'All day'}
+                  </span>
+                </button>
+                {expandedEventId === event.id && event.location && (
+                  <p className="flex items-center gap-1 text-xs text-muted-foreground mt-0.5 pl-6">
+                    <MapPin className="h-3 w-3 shrink-0" />
+                    <span className="truncate">{event.location}</span>
+                  </p>
+                )}
               </div>
             ))}
             {visibleEvents.length > 3 && <p className="text-xs text-muted-foreground">+{visibleEvents.length - 3} more</p>}
