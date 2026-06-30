@@ -15,7 +15,7 @@ export default function AttemptsList({ attempts, onToggleResult, onRemove }: Pro
       <p className="text-sm font-medium">{attempts.length} attempt{attempts.length !== 1 ? 's' : ''}</p>
       <div className="space-y-1.5 max-h-48 overflow-y-auto">
         {attempts.map((a, i) => (
-          <div key={i} className="flex items-center gap-3 px-3 py-2 bg-card border border-border rounded-lg">
+          <div key={i} className="flex items-center gap-3 px-3 py-2 bg-card border border-border rounded-lg animate-in fade-in-0 slide-in-from-top-1 duration-200">
             <button
               onClick={() => onToggleResult(i)}
               className={`text-xs font-bold px-2 py-0.5 rounded-full ${a.result === 'sent' ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}`}

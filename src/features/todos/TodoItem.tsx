@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Pencil, Trash2, CalendarDays, CalendarArrowUp, Check, Bell, RefreshCw } from 'lucide-react'
 import { supabase } from '../../supabase'
 import type { Todo } from '../../supabase'
@@ -6,7 +6,12 @@ import { cn, formatDate, formatTime, advanceRecurrence, formatRecurrence, isOver
 import { Checkbox } from '../../components/ui/checkbox'
 import { Input } from '../../components/ui/input'
 import { haptic } from '../../lib/haptics'
+import { celebrateFromElement } from '../../lib/confetti'
 import { postponeToTomorrow } from './postpone'
+
+// Gives the user a beat to see the checkmark/celebration before the parent
+// reload removes the item from filtered views (e.g. the "Today" tab).
+const COMPLETE_REMOVAL_DELAY_MS = 450
 
 type Props = {
   todo: Todo
@@ -19,10 +24,26 @@ export default function TodoItem({ todo, onEdit, onDelete, onChange }: Props) {
   const [editingDate, setEditingDate] = useState(false)
   const [dueDate, setDueDate] = useState(todo.due_date ?? '')
   const [dueTime, setDueTime] = useState(todo.due_time ?? '')
+  const [completing, setCompleting] = useState(false)
+  const checkboxRef = useRef<HTMLButtonElement>(null)
+
+  // Once fresh data arrives from the parent reload, the real `todo.completed`
+  // takes over - drop the optimistic flag so a recurring task's reset
+  // (completed stays false, due date just advances) doesn't get stuck
+  // showing as checked.
+  useEffect(() => {
+    setCompleting(false)
+  }, [todo])
 
   async function toggleComplete() {
-    if (!todo.completed && todo.due_date && todo.recurrence_interval && todo.recurrence_unit) {
-      haptic('success')
+    const completingNow = !todo.completed
+    haptic(completingNow ? 'success' : 'light')
+    if (completingNow) {
+      setCompleting(true)
+      if (checkboxRef.current) celebrateFromElement(checkboxRef.current)
+    }
+
+    if (completingNow && todo.due_date && todo.recurrence_interval && todo.recurrence_unit) {
       const nextDue = advanceRecurrence(todo.due_date, todo.recurrence_interval, todo.recurrence_unit)
       const nextRemindAt = todo.remind_at && todo.due_time ? new Date(`${nextDue}T${todo.due_time}`).toISOString() : null
       await supabase.from('todos').update({
@@ -30,15 +51,18 @@ export default function TodoItem({ todo, onEdit, onDelete, onChange }: Props) {
         remind_at: nextRemindAt,
         notified_at: null,
       }).eq('id', todo.id)
-      onChange()
-      return
+    } else {
+      await supabase.from('todos').update({
+        completed: completingNow,
+        completed_at: completingNow ? new Date().toISOString() : null,
+      }).eq('id', todo.id)
     }
-    haptic(todo.completed ? 'light' : 'success')
-    await supabase.from('todos').update({
-      completed: !todo.completed,
-      completed_at: todo.completed ? null : new Date().toISOString(),
-    }).eq('id', todo.id)
-    onChange()
+
+    if (completingNow) {
+      setTimeout(onChange, COMPLETE_REMOVAL_DELAY_MS)
+    } else {
+      onChange()
+    }
   }
 
   function handleDateTimeChange(value: string) {
@@ -72,16 +96,19 @@ export default function TodoItem({ todo, onEdit, onDelete, onChange }: Props) {
   }
 
   const overdue = !todo.completed && isOverdue(todo.due_date)
+  const done = todo.completed || completing
 
   return (
-    <div className={cn('flex items-start gap-3 p-4 bg-card border border-border rounded-xl transition-opacity', todo.completed && 'opacity-60')}>
+    <div className={cn('flex items-start gap-3 p-4 bg-card border border-border rounded-xl transition-all duration-300', done && 'opacity-60 bg-primary/5')}>
       <Checkbox
-        checked={todo.completed}
+        ref={checkboxRef}
+        checked={done}
         onCheckedChange={toggleComplete}
+        disabled={completing}
         className="mt-0.5 shrink-0"
       />
       <div className="flex-1 min-w-0">
-        <p dir="auto" className={cn('font-medium', todo.completed && 'line-through text-muted-foreground')}>{todo.title}</p>
+        <p dir="auto" className={cn('font-medium transition-colors', done && 'line-through text-muted-foreground')}>{todo.title}</p>
         <div className="flex items-center gap-2 mt-1 flex-wrap">
           {editingDate ? (
             <div className="flex items-center gap-1.5">
