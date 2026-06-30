@@ -144,7 +144,8 @@ export function friendTargetIntervalDays(friend: Friend): number {
 
 export function friendLastInteractionDate(friend: Friend, interactions: FriendInteraction[]): string | null {
   const dates = interactions.filter(i => i.friend_id === friend.id).map(i => i.interaction_date)
-  return dates.length ? dates.sort().at(-1)! : null
+  const sorted = dates.sort()
+  return sorted.length ? sorted[sorted.length - 1] : null
 }
 
 export function friendDaysSinceLastInteraction(friend: Friend, interactions: FriendInteraction[]): number {
