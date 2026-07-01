@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react'
 import { format, parseISO, startOfMonth, startOfYear } from 'date-fns'
-import { Sparkles, Trash2 } from 'lucide-react'
+import { Sparkles, Trash2, Pencil } from 'lucide-react'
 import { supabase } from '../../supabase'
 import type { Friend, FriendInteraction } from '../../supabase'
 import { formatFriendGoal } from '../../utils'
@@ -8,6 +8,7 @@ import { Button } from '../../components/ui/button'
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerBody } from '../../components/ui/drawer'
 import { haptic } from '../../lib/haptics'
 import { initials } from './friends'
+import LogInteractionDrawer from './LogInteractionDrawer'
 
 type Period = 'month' | 'year' | 'all'
 
@@ -33,6 +34,7 @@ export default function InteractionHistoryDrawer({
   const [summary, setSummary] = useState<string | null>(null)
   const [summarizing, setSummarizing] = useState(false)
   const [summaryError, setSummaryError] = useState(false)
+  const [editingInteraction, setEditingInteraction] = useState<FriendInteraction | null>(null)
 
   const friendInteractions = useMemo(() =>
     interactions
@@ -101,6 +103,7 @@ export default function InteractionHistoryDrawer({
   }
 
   return (
+    <>
     <Drawer open={open} onOpenChange={onClose}>
       <DrawerContent>
         <DrawerHeader>
@@ -198,13 +201,22 @@ export default function InteractionHistoryDrawer({
                       <p className="text-sm mt-0.5 text-muted-foreground italic">No note</p>
                     )}
                   </div>
-                  <button
-                    onClick={() => deleteInteraction(i.id)}
-                    className="shrink-0 p-1.5 rounded-lg hover:bg-accent text-muted-foreground hover:text-destructive"
-                    title="Delete"
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </button>
+                  <div className="flex shrink-0 items-center gap-1">
+                    <button
+                      onClick={() => setEditingInteraction(i)}
+                      className="p-1.5 rounded-lg hover:bg-accent text-muted-foreground hover:text-foreground"
+                      title="Edit"
+                    >
+                      <Pencil className="h-3.5 w-3.5" />
+                    </button>
+                    <button
+                      onClick={() => deleteInteraction(i.id)}
+                      className="p-1.5 rounded-lg hover:bg-accent text-muted-foreground hover:text-destructive"
+                      title="Delete"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>
@@ -212,5 +224,17 @@ export default function InteractionHistoryDrawer({
         </DrawerBody>
       </DrawerContent>
     </Drawer>
+
+    {editingInteraction && (
+      <LogInteractionDrawer
+        open={!!editingInteraction}
+        onClose={() => setEditingInteraction(null)}
+        onSave={onInteractionChanged}
+        friendId={friend.id}
+        userId={userId}
+        interaction={editingInteraction}
+      />
+    )}
+    </>
   )
 }
