@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react'
 import type { MouseEvent, KeyboardEvent } from 'react'
-import { Bell, ShoppingCart, Mountain, DollarSign, Folder, X } from 'lucide-react'
+import { Bell, ShoppingCart, Mountain, DollarSign, Folder, Plus, X } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import type { User } from '@supabase/supabase-js'
 import { supabase } from '../supabase'
-import type { Habit, HabitLog, Todo, CalendarEvent, Notification } from '../supabase'
+import type { Habit, HabitLog, Todo, CalendarEvent, Notification, Friend } from '../supabase'
 import { today, tomorrow, advanceRecurrence, isHabitDueToday, cn } from '../utils'
 import { addDays, format } from 'date-fns'
 import { refreshGoogleCalendarEvents } from '../features/calendar/googleCalendar'
@@ -20,6 +20,8 @@ import ShoppingItemDrawer from '../features/shopping/ShoppingItemDrawer'
 import QuickLogSessionDrawer from '../features/climbing/QuickLogSessionDrawer'
 import FinanceQuickDrawer from '../features/finance/FinanceQuickDrawer'
 import StarredFilesDrawer from '../features/files/StarredFilesDrawer'
+import TaskDrawer from '../features/todos/TaskDrawer'
+import { Button } from '../components/ui/button'
 import { decideHabitTap, executeHabitTap } from '../features/habits/habitTaps'
 
 const USER_NAME = 'Ophir'
@@ -37,6 +39,8 @@ export default function Dashboard() {
   const [showLogSession, setShowLogSession] = useState(false)
   const [showFinanceRates, setShowFinanceRates] = useState(false)
   const [showStarredFiles, setShowStarredFiles] = useState(false)
+  const [showAddTask, setShowAddTask] = useState(false)
+  const [friends, setFriends] = useState<Friend[]>([])
 
   const navigate = useNavigate()
   const shoppingLongPress = useLongPress(() => setShowAddItem(true))
@@ -67,12 +71,13 @@ export default function Dashboard() {
     // (even 1x/week) currently sits in — see isHabitDueToday in utils.ts.
     const habitLogsSince = format(addDays(new Date(), -7), 'yyyy-MM-dd')
 
-    const [habitsRes, logsRes, todosRes, eventsRes, notificationsRes] = await Promise.all([
+    const [habitsRes, logsRes, todosRes, eventsRes, notificationsRes, friendsRes] = await Promise.all([
       supabase.from('habits').select('*').order('created_at'),
       supabase.from('habit_logs').select('*').gte('logged_date', habitLogsSince),
       supabase.from('todos').select('*').eq('completed', false).or(`due_date.eq.${t},due_date.is.null`).order('created_at'),
       supabase.from('events').select('*').gte('event_date', t).lte('event_date', in7).order('event_date').order('event_time'),
       supabase.from('notifications').select('*').eq('read', false).order('created_at', { ascending: false }),
+      supabase.from('friends').select('*').order('name'),
     ])
 
     setHabits(habitsRes.data ?? [])
@@ -80,6 +85,7 @@ export default function Dashboard() {
     setTodos(todosRes.data ?? [])
     setEvents(eventsRes.data ?? [])
     setNotifications(notificationsRes.data ?? [])
+    setFriends(friendsRes.data ?? [])
     setLoading(false)
   }
 
@@ -172,9 +178,19 @@ export default function Dashboard() {
 
   return (
     <div className="p-4 max-w-2xl mx-auto space-y-5">
-      <div className="pt-2">
-        <h1 className="text-2xl font-bold">{greetingTime(USER_NAME)}</h1>
-        <p className="text-muted-foreground text-sm">{format(new Date(), 'EEEE, MMMM d')}</p>
+      <div className="pt-2 flex items-start justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold">{greetingTime(USER_NAME)}</h1>
+          <p className="text-muted-foreground text-sm">{format(new Date(), 'EEEE, MMMM d')}</p>
+        </div>
+        <Button
+          size="icon"
+          className="shrink-0 rounded-full shadow-xl"
+          aria-label="Add task"
+          onClick={() => setShowAddTask(true)}
+        >
+          <Plus className="h-5 w-5" />
+        </Button>
       </div>
 
       {/* Notifications */}
@@ -319,6 +335,16 @@ export default function Dashboard() {
       )}
       <FinanceQuickDrawer open={showFinanceRates} onClose={() => setShowFinanceRates(false)} />
       <StarredFilesDrawer open={showStarredFiles} onClose={() => setShowStarredFiles(false)} />
+      {user && showAddTask && (
+        <TaskDrawer
+          open={showAddTask}
+          onClose={() => setShowAddTask(false)}
+          onSave={loadLocalData}
+          userId={user.id}
+          friends={friends}
+          linkedFriendIds={[]}
+        />
+      )}
     </div>
   )
 }
