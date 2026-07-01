@@ -126,7 +126,7 @@ export default function TaskDrawer({ open, onClose, onSave, todo, userId, friend
               value={title}
               onChange={e => setTitle(e.target.value)}
               placeholder="What needs doing?"
-              autoFocus
+              autoFocus={!todo}
               dir="auto"
               className="h-12 rounded-xl text-base"
             />
