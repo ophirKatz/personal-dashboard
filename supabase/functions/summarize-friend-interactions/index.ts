@@ -52,7 +52,7 @@ Deno.serve(async (req: Request) => {
 
   const now = new Date()
   if (period === 'month') {
-    const start = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10)
+    const start = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
     query = query.gte('interaction_date', start)
   } else if (period === 'year') {
     query = query.gte('interaction_date', `${now.getFullYear()}-01-01`)
