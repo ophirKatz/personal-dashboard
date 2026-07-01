@@ -136,6 +136,8 @@ export type UserSettings = {
   auto_generate_focus_summaries_daily: boolean
   auto_generate_focus_summaries_on_change: boolean
   show_focus_section: boolean
+  default_focus_period: 'today' | 'week'
+  bottom_nav_items: string[]
   updated_at: string
 }
 

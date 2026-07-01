@@ -12,8 +12,15 @@ import {
   setAutoGenerateFocusSummariesOnChange,
   getShowFocusSection,
   setShowFocusSection,
+  getDefaultFocusPeriod,
+  setDefaultFocusPeriod,
+  getBottomNavItems,
+  setBottomNavItems,
 } from '../lib/userSettings'
 import { listGoogleAccounts, connectGoogleAccount, disconnectGoogleAccount, type GoogleAccount } from '../lib/googleAccounts'
+import { ALL_NAV_KEYS, NAV_ITEMS, BOTTOM_NAV_ITEMS_CHANGED_EVENT, type NavItemKey } from '../lib/navItems'
+import { Tabs, TabsList, TabsTrigger } from '../components/ui/tabs'
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '../components/ui/select'
 import VoiceShortcutsSection from '../features/voice/VoiceShortcutsSection'
 
 const GOOGLE_CONNECT_MESSAGES: Record<string, string> = {
@@ -99,6 +106,12 @@ export default function Settings() {
   const [showFocusSectionLoading, setShowFocusSectionLoading] = useState(true)
   const [showFocusSectionBusy, setShowFocusSectionBusy] = useState(false)
 
+  const [defaultFocusPeriod, setDefaultFocusPeriodState] = useState<'today' | 'week'>('week')
+  const [defaultFocusPeriodLoading, setDefaultFocusPeriodLoading] = useState(true)
+
+  const [bottomNavItems, setBottomNavItemsState] = useState<NavItemKey[]>(['todos', 'calendar', 'files'])
+  const [bottomNavLoading, setBottomNavLoading] = useState(true)
+
   useEffect(() => {
     if (!isPushSupported()) {
       setSupported(false)
@@ -123,6 +136,14 @@ export default function Settings() {
     getShowFocusSection().then(show => {
       setShowFocusSectionState(show)
       setShowFocusSectionLoading(false)
+    })
+    getDefaultFocusPeriod().then(period => {
+      setDefaultFocusPeriodState(period)
+      setDefaultFocusPeriodLoading(false)
+    })
+    getBottomNavItems().then(items => {
+      setBottomNavItemsState(items)
+      setBottomNavLoading(false)
     })
   }, [])
 
@@ -151,6 +172,21 @@ export default function Settings() {
     await setShowFocusSection(next)
     setShowFocusSectionState(next)
     setShowFocusSectionBusy(false)
+  }
+
+  async function handleDefaultFocusPeriodChange(period: 'today' | 'week') {
+    haptic('selection')
+    setDefaultFocusPeriodState(period)
+    await setDefaultFocusPeriod(period)
+  }
+
+  async function handleBottomNavSlotChange(index: number, key: NavItemKey) {
+    haptic('selection')
+    const next = [...bottomNavItems]
+    next[index] = key
+    setBottomNavItemsState(next)
+    await setBottomNavItems(next)
+    window.dispatchEvent(new CustomEvent(BOTTOM_NAV_ITEMS_CHANGED_EVENT, { detail: next }))
   }
 
   async function toggle() {
@@ -284,6 +320,41 @@ export default function Settings() {
             </button>
           )}
         </div>
+
+        {!defaultFocusPeriodLoading && (
+          <div className="flex items-center justify-between gap-3 mt-4 pt-4 border-t border-border">
+            <p className="text-sm font-medium">Default Focus tab</p>
+            <Tabs value={defaultFocusPeriod} onValueChange={v => handleDefaultFocusPeriodChange(v as 'today' | 'week')}>
+              <TabsList>
+                <TabsTrigger value="today">Tomorrow</TabsTrigger>
+                <TabsTrigger value="week">This Week</TabsTrigger>
+              </TabsList>
+            </Tabs>
+          </div>
+        )}
+      </div>
+
+      <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2 mt-6">Bottom navigation</h2>
+      <div className="bg-card border border-border rounded-2xl p-4">
+        <p className="text-sm text-muted-foreground mb-4">
+          Choose which pages appear next to Home in the bottom navigation bar. Everything else moves into "More".
+        </p>
+        {!bottomNavLoading && (
+          <div className="space-y-2">
+            {bottomNavItems.map((key, index) => (
+              <Select key={index} value={key} onValueChange={v => handleBottomNavSlotChange(index, v as NavItemKey)}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {ALL_NAV_KEYS.filter(k => k === key || !bottomNavItems.includes(k)).map(k => (
+                    <SelectItem key={k} value={k}>{NAV_ITEMS[k].label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            ))}
+          </div>
+        )}
       </div>
 
       <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2 mt-6">Focus summaries</h2>
