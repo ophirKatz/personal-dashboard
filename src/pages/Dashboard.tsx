@@ -10,6 +10,7 @@ import { addDays, format } from 'date-fns'
 import { refreshGoogleCalendarEvents } from '../features/calendar/googleCalendar'
 import { toggleGoogleTask } from '../features/todos/googleTasks'
 import { postponeToTomorrow, postponeToDateTime } from '../features/todos/postpone'
+import { logFriendInteractionsForCompletedTask } from '../features/todos/friendInteractions'
 import FocusSection from '../features/focus/FocusSection'
 import TodaySection from '../features/today/TodaySection'
 import type { TodayEvent } from '../features/today/TodaySection'
@@ -115,8 +116,10 @@ export default function Dashboard() {
       const nextDue = advanceRecurrence(todo.due_date, todo.recurrence_interval, todo.recurrence_unit)
       const nextRemindAt = todo.remind_at && todo.due_time ? new Date(`${nextDue}T${todo.due_time}`).toISOString() : null
       await supabase.from('todos').update({ due_date: nextDue, remind_at: nextRemindAt, notified_at: null }).eq('id', id)
+      logFriendInteractionsForCompletedTask(id)
     } else {
       await supabase.from('todos').update({ completed: true, completed_at: new Date().toISOString() }).eq('id', id)
+      logFriendInteractionsForCompletedTask(id)
     }
     setTodos(prev => prev.filter(t => t.id !== id))
   }

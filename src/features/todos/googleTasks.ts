@@ -1,5 +1,6 @@
 import { supabase } from '../../supabase'
 import type { Todo } from '../../supabase'
+import { logFriendInteractionsForCompletedTask } from './friendInteractions'
 
 export async function refreshGoogleTasks(): Promise<void> {
   await supabase.functions.invoke('fetch-google-tasks')
@@ -32,6 +33,10 @@ export async function toggleGoogleTask(todo: Todo): Promise<boolean> {
     .from('todos')
     .update({ completed, completed_at: completed ? new Date().toISOString() : null })
     .eq('id', todo.id)
+
+  if (completed) {
+    logFriendInteractionsForCompletedTask(todo.id)
+  }
 
   return true
 }
