@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from 'react'
-import { Pencil, Trash2, CalendarDays, CalendarArrowUp, Check, Bell, RefreshCw } from 'lucide-react'
+import { Pencil, Trash2, CalendarDays, CalendarArrowUp, Check, Bell, RefreshCw, Users } from 'lucide-react'
 import { supabase } from '../../supabase'
-import type { Todo } from '../../supabase'
+import type { Todo, Friend } from '../../supabase'
 import { cn, formatDate, formatTime, advanceRecurrence, formatRecurrence, isOverdue } from '../../utils'
 import { Checkbox } from '../../components/ui/checkbox'
 import { Input } from '../../components/ui/input'
+import { Badge } from '../../components/ui/badge'
 import { haptic } from '../../lib/haptics'
 import { celebrateFromElement } from '../../lib/confetti'
 import { postponeToTomorrow } from './postpone'
@@ -15,12 +16,13 @@ const COMPLETE_REMOVAL_DELAY_MS = 450
 
 type Props = {
   todo: Todo
+  linkedFriends: Friend[]
   onEdit: () => void
   onDelete: () => void
   onChange: () => void
 }
 
-export default function TodoItem({ todo, onEdit, onDelete, onChange }: Props) {
+export default function TodoItem({ todo, linkedFriends, onEdit, onDelete, onChange }: Props) {
   const [editingDate, setEditingDate] = useState(false)
   const [dueDate, setDueDate] = useState(todo.due_date ?? '')
   const [dueTime, setDueTime] = useState(todo.due_time ?? '')
@@ -139,6 +141,16 @@ export default function TodoItem({ todo, onEdit, onDelete, onChange }: Props) {
           )}
         </div>
         {todo.notes && <p className="text-sm text-muted-foreground mt-1 truncate">{todo.notes}</p>}
+        {linkedFriends.length > 0 && (
+          <div className="flex items-center gap-1 flex-wrap mt-1.5">
+            <Users className="h-3 w-3 text-muted-foreground shrink-0" />
+            {linkedFriends.map(friend => (
+              <Badge key={friend.id} variant="secondary" className="px-1.5 py-0 text-[10px] font-medium">
+                {friend.name}
+              </Badge>
+            ))}
+          </div>
+        )}
       </div>
       <div className="flex items-center gap-1 shrink-0">
         {overdue && (
