@@ -9,6 +9,7 @@ import { Badge } from '../../components/ui/badge'
 import { haptic } from '../../lib/haptics'
 import { celebrateFromElement } from '../../lib/confetti'
 import { postponeToTomorrow } from './postpone'
+import { logFriendInteractionsForCompletedTask } from './friendInteractions'
 
 // Gives the user a beat to see the checkmark/celebration before the parent
 // reload removes the item from filtered views (e.g. the "Today" tab).
@@ -61,6 +62,7 @@ export default function TodoItem({ todo, linkedFriends, onEdit, onDelete, onChan
     }
 
     if (completingNow) {
+      logFriendInteractionsForCompletedTask(todo.id)
       setTimeout(onChange, COMPLETE_REMOVAL_DELAY_MS)
     } else {
       onChange()
