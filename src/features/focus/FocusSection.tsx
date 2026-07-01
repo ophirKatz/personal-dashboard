@@ -3,7 +3,7 @@ import { RefreshCw, Sparkles } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import { supabase } from '../../supabase'
 import type { FocusSummary } from '../../supabase'
-import { getAutoGenerateFocusSummariesOnChange } from '../../lib/userSettings'
+import { getAutoGenerateFocusSummariesOnChange, getDefaultFocusPeriod } from '../../lib/userSettings'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '../../components/ui/tabs'
 import { parseFocusSummary } from './parseFocusSummary'
 import FocusCardView from './FocusCardView'
@@ -30,6 +30,7 @@ export default function FocusSection() {
   useEffect(() => {
     load()
     getAutoGenerateFocusSummariesOnChange().then(setAutoGenerate)
+    getDefaultFocusPeriod().then(setTab)
   }, [])
 
   async function refresh(period: Period) {

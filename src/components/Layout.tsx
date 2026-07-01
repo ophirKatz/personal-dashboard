@@ -1,32 +1,36 @@
 import { Outlet, NavLink, useNavigate } from 'react-router-dom'
 import { useEffect, useRef, useState } from 'react'
-import {
-  Home, CheckSquare, TrendingUp, Mountain, MoreHorizontal,
-  X, ShoppingCart, Calendar, Folder, LogOut, DollarSign, Settings, Users,
-} from 'lucide-react'
+import { Home, MoreHorizontal, X, LogOut, Settings, Mountain } from 'lucide-react'
 import { supabase } from '../supabase'
 import { cn } from '../utils'
+import { ALL_NAV_KEYS, NAV_ITEMS, DEFAULT_BOTTOM_NAV_ITEMS, BOTTOM_NAV_ITEMS_CHANGED_EVENT, type NavItemKey } from '../lib/navItems'
+import { getBottomNavItems } from '../lib/userSettings'
 
-const primaryNav = [
-  { to: '/', icon: Home, label: 'Home' },
-  { to: '/todos', icon: CheckSquare, label: 'Tasks' },
-  { to: '/calendar', icon: Calendar, label: 'Calendar' },
-  { to: '/files', icon: Folder, label: 'Files' },
-]
-
-const moreNav = [
-  { to: '/habits', icon: TrendingUp, label: 'Habits' },
-  { to: '/climbing', icon: Mountain, label: 'Climbing' },
-  { to: '/shopping', icon: ShoppingCart, label: 'Shopping' },
-  { to: '/finance', icon: DollarSign, label: 'Finance' },
-  { to: '/friends', icon: Users, label: 'Friends' },
-  { to: '/settings', icon: Settings, label: 'Settings' },
-]
+const settingsNav = { to: '/settings', icon: Settings, label: 'Settings' }
 
 export default function Layout() {
   const [morePanel, setMorePanel] = useState<'closed' | 'open' | 'closing'>('closed')
+  const [bottomNavKeys, setBottomNavKeys] = useState<NavItemKey[]>(DEFAULT_BOTTOM_NAV_ITEMS)
   const navigate = useNavigate()
   const tabBarRef = useRef<HTMLElement>(null)
+
+  useEffect(() => {
+    getBottomNavItems().then(setBottomNavKeys)
+    function handleChange(e: Event) {
+      setBottomNavKeys((e as CustomEvent<NavItemKey[]>).detail)
+    }
+    window.addEventListener(BOTTOM_NAV_ITEMS_CHANGED_EVENT, handleChange)
+    return () => window.removeEventListener(BOTTOM_NAV_ITEMS_CHANGED_EVENT, handleChange)
+  }, [])
+
+  const primaryNav = [
+    { to: '/', icon: Home, label: 'Home' },
+    ...bottomNavKeys.map(key => ({ to: NAV_ITEMS[key].to, icon: NAV_ITEMS[key].icon, label: NAV_ITEMS[key].label })),
+  ]
+  const moreNav = [
+    ...ALL_NAV_KEYS.filter(key => !bottomNavKeys.includes(key)).map(key => ({ to: NAV_ITEMS[key].to, icon: NAV_ITEMS[key].icon, label: NAV_ITEMS[key].label })),
+    settingsNav,
+  ]
 
   function openMore() {
     setMorePanel('open')

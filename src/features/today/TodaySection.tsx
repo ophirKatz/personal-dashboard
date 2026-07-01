@@ -72,6 +72,7 @@ export default function TodaySection({ habits, totalHabitsCount, logs, onToggleH
   const [expandedEventId, setExpandedEventId] = useState<string | null>(null)
   const [postponingTodoId, setPostponingTodoId] = useState<string | null>(null)
   const [completingTodoIds, setCompletingTodoIds] = useState<Set<string>>(new Set())
+  const [showAllTodos, setShowAllTodos] = useState(false)
 
   function handleCompleteTodo(todo: Todo, e: MouseEvent<HTMLButtonElement>) {
     haptic('success')
@@ -175,7 +176,7 @@ export default function TodaySection({ habits, totalHabitsCount, logs, onToggleH
           <p className="text-sm text-muted-foreground">Nothing due today</p>
         ) : (
           <div className="space-y-1.5">
-            {sortedTodos.slice(0, 3).map(todo => {
+            {(showAllTodos ? sortedTodos : sortedTodos.slice(0, 3)).map(todo => {
               const overdue = isOverdue(todo.due_date) || (!!todo.due_time && minutesUntil(todo.due_time, now) < 0)
               const completing = completingTodoIds.has(todo.id)
               return (
@@ -212,7 +213,14 @@ export default function TodaySection({ habits, totalHabitsCount, logs, onToggleH
                 </div>
               )
             })}
-            {todos.length > 3 && <p className="text-xs text-muted-foreground">+{todos.length - 3} more</p>}
+            {todos.length > 3 && (
+              <button
+                onClick={() => setShowAllTodos(v => !v)}
+                className="text-xs text-muted-foreground hover:text-foreground"
+              >
+                {showAllTodos ? 'Show less' : `+${todos.length - 3} more`}
+              </button>
+            )}
           </div>
         )}
       </div>
