@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react'
-import { format, parseISO, startOfMonth, startOfYear } from 'date-fns'
+import { format, parseISO, subDays, startOfYear } from 'date-fns'
 import { Sparkles, Trash2, Pencil } from 'lucide-react'
 import { supabase } from '../../supabase'
 import type { Friend, FriendInteraction } from '../../supabase'
@@ -13,7 +13,7 @@ import LogInteractionDrawer from './LogInteractionDrawer'
 type Period = 'month' | 'year' | 'all'
 
 const PERIODS: Array<{ key: Period; label: string }> = [
-  { key: 'month', label: 'This Month' },
+  { key: 'month', label: 'Last 30 Days' },
   { key: 'year', label: 'This Year' },
   { key: 'all', label: 'All Time' },
 ]
@@ -47,14 +47,14 @@ export default function InteractionHistoryDrawer({
     if (period === 'all') return friendInteractions
     const now = new Date()
     const cutoffStr = period === 'month'
-      ? startOfMonth(now).toISOString().slice(0, 10)
+      ? subDays(now, 30).toISOString().slice(0, 10)
       : startOfYear(now).toISOString().slice(0, 10)
     return friendInteractions.filter(i => i.interaction_date >= cutoffStr)
   }, [friendInteractions, period])
 
   const periodLabel = useMemo(() => {
     const now = new Date()
-    if (period === 'month') return format(now, 'MMMM yyyy')
+    if (period === 'month') return 'the last 30 days'
     if (period === 'year') return String(now.getFullYear())
     return 'all time'
   }, [period])
