@@ -8,11 +8,13 @@ Deno.serve(async (req: Request) => {
   const anthropicApiKey = Deno.env.get('ANTHROPIC_API_KEY')
 
   if (!supabaseUrl || !serviceRoleKey) {
+    console.error('MISSING_CONFIG: SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY not set')
     return new Response(JSON.stringify({ error: 'MISSING_CONFIG' }), { status: 500 })
   }
 
   const authHeader = req.headers.get('authorization') ?? ''
   if (!authHeader.startsWith('Bearer ')) {
+    console.error('UNAUTHORIZED: missing or malformed Authorization header')
     return new Response(JSON.stringify({ error: 'UNAUTHORIZED' }), { status: 401 })
   }
 
@@ -20,6 +22,7 @@ Deno.serve(async (req: Request) => {
   const jwt = authHeader.slice('Bearer '.length)
   const { data: userData, error: userError } = await supabase.auth.getUser(jwt)
   if (userError || !userData.user) {
+    console.error('UNAUTHORIZED: getUser failed:', userError?.message)
     return new Response(JSON.stringify({ error: 'UNAUTHORIZED' }), { status: 401 })
   }
 
@@ -29,6 +32,7 @@ Deno.serve(async (req: Request) => {
 
   const { friend_id, period = 'month' } = body
   if (!friend_id) {
+    console.error('MISSING_FRIEND_ID: request body had no friend_id')
     return new Response(JSON.stringify({ error: 'MISSING_FRIEND_ID' }), { status: 400 })
   }
 
@@ -40,6 +44,7 @@ Deno.serve(async (req: Request) => {
     .single()
 
   if (friendError || !friend) {
+    console.error('NOT_FOUND: friend lookup failed:', friendError?.message, `friend_id=${friend_id}`)
     return new Response(JSON.stringify({ error: 'NOT_FOUND' }), { status: 404 })
   }
 
@@ -61,6 +66,7 @@ Deno.serve(async (req: Request) => {
   const { data: interactions, error: interactionsError } = await query
 
   if (interactionsError) {
+    console.error('DB_ERROR: interactions query failed:', interactionsError.message)
     return new Response(JSON.stringify({ error: 'DB_ERROR' }), { status: 500 })
   }
 
@@ -72,6 +78,7 @@ Deno.serve(async (req: Request) => {
   }
 
   if (!anthropicApiKey) {
+    console.error('MISSING_ANTHROPIC_API_KEY: ANTHROPIC_API_KEY secret not set')
     return new Response(JSON.stringify({ error: 'MISSING_ANTHROPIC_API_KEY' }), { status: 500 })
   }
 
