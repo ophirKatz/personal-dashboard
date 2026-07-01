@@ -1,13 +1,14 @@
 import { useState } from 'react'
-import { CalendarClock, CalendarDays, RefreshCw, Users } from 'lucide-react'
+import { CalendarClock, CalendarDays, RefreshCw, Users, ChevronDown } from 'lucide-react'
 import { supabase } from '../../supabase'
 import type { Todo, Friend } from '../../supabase'
 import { Button } from '../../components/ui/button'
 import { Input } from '../../components/ui/input'
 import { Checkbox } from '../../components/ui/checkbox'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select'
+import { Popover, PopoverTrigger, PopoverContent } from '../../components/ui/popover'
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerBody } from '../../components/ui/drawer'
-import { today } from '../../utils'
+import { today, cn } from '../../utils'
 import type { RecurrenceUnit } from '../../utils'
 import { haptic } from '../../lib/haptics'
 import { updateGoogleTask } from './googleTasks'
@@ -201,17 +202,32 @@ export default function TaskDrawer({ open, onClose, onSave, todo, userId, friend
                   <Users className="h-3.5 w-3.5" />
                   Friends (optional)
                 </label>
-                <div className="max-h-40 overflow-y-auto rounded-xl border border-border divide-y divide-border">
-                  {friends.map(friend => (
-                    <label key={friend.id} className="flex items-center gap-2 px-3 py-2 text-sm cursor-pointer">
-                      <Checkbox
-                        checked={selectedFriendIds.includes(friend.id)}
-                        onCheckedChange={checked => toggleFriend(friend.id, checked === true)}
-                      />
-                      <span dir="auto">{friend.name}</span>
-                    </label>
-                  ))}
-                </div>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <button
+                      type="button"
+                      className="flex h-11 w-full items-center justify-between rounded-xl border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring"
+                    >
+                      <span className={cn('truncate text-left', selectedFriendIds.length === 0 && 'text-muted-foreground')}>
+                        {selectedFriendIds.length === 0
+                          ? 'Select friends'
+                          : friends.filter(f => selectedFriendIds.includes(f.id)).map(f => f.name).join(', ')}
+                      </span>
+                      <ChevronDown className="h-4 w-4 opacity-50 shrink-0 ml-2" />
+                    </button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[var(--radix-popover-trigger-width)] max-h-52 overflow-y-auto">
+                    {friends.map(friend => (
+                      <label key={friend.id} className="flex items-center gap-2 rounded-lg px-2 py-2 text-sm cursor-pointer hover:bg-accent">
+                        <Checkbox
+                          checked={selectedFriendIds.includes(friend.id)}
+                          onCheckedChange={checked => toggleFriend(friend.id, checked === true)}
+                        />
+                        <span dir="auto">{friend.name}</span>
+                      </label>
+                    ))}
+                  </PopoverContent>
+                </Popover>
               </div>
             )}
             <Button type="submit" disabled={saving || !title.trim()} className="h-12 w-full rounded-xl text-base font-semibold">
