@@ -185,8 +185,7 @@ export default function Dashboard() {
         </div>
         <Button
           size="icon"
-          variant="outline"
-          className="shrink-0 rounded-full"
+          className="shrink-0 rounded-full shadow-xl"
           aria-label="Add task"
           onClick={() => setShowAddTask(true)}
         >
