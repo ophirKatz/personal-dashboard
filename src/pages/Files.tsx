@@ -163,16 +163,18 @@ export default function Files() {
     setNewFolderOpen(false)
   }
 
+  const MENU_WIDTH = 144 // w-36
+
   function FileActionsMenu({ file }: { file: FileRecord }) {
     const [open, setOpen] = useState(false)
-    const [coords, setCoords] = useState({ top: 0, right: 0 })
+    const [coords, setCoords] = useState({ top: 0, left: 0 })
     const buttonRef = useRef<HTMLButtonElement>(null)
     const menuRef = useRef<HTMLDivElement>(null)
 
     function openMenu(e: React.MouseEvent) {
       e.stopPropagation()
       const rect = buttonRef.current?.getBoundingClientRect()
-      if (rect) setCoords({ top: rect.bottom + 4, right: window.innerWidth - rect.right })
+      if (rect) setCoords({ top: rect.bottom + 4, left: Math.max(8, rect.right - MENU_WIDTH) })
       setOpen(o => !o)
     }
 
@@ -209,7 +211,7 @@ export default function Files() {
             <div className="fixed inset-0 z-40 bg-black/10" onClick={() => setOpen(false)} />
             <div
               ref={menuRef}
-              style={{ position: 'fixed', top: coords.top, right: coords.right }}
+              style={{ position: 'fixed', top: coords.top, left: coords.left }}
               className="z-50 w-36 rounded-lg border border-border bg-popover shadow-md py-1"
             >
               <button
