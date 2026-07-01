@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Plus, Link2 } from 'lucide-react'
 import { supabase } from '../supabase'
-import type { Todo } from '../supabase'
+import type { Todo, Friend, TodoFriend } from '../supabase'
 import type { User } from '@supabase/supabase-js'
 import TodoItem from '../features/todos/TodoItem'
 import TaskDrawer from '../features/todos/TaskDrawer'
@@ -28,6 +28,8 @@ const FILTERS: { key: Filter; label: string }[] = [
 export default function Todos() {
   const [user, setUser] = useState<User | null>(null)
   const [todos, setTodos] = useState<Todo[]>([])
+  const [friends, setFriends] = useState<Friend[]>([])
+  const [todoFriends, setTodoFriends] = useState<TodoFriend[]>([])
   const [googleConnected, setGoogleConnected] = useState(true)
   const [filter, setFilter] = useState<Filter>('today')
   const [showForm, setShowForm] = useState(false)
@@ -39,13 +41,22 @@ export default function Todos() {
   }, [])
 
   async function load() {
-    const [todosRes, connected] = await Promise.all([
+    const [todosRes, friendsRes, todoFriendsRes, connected] = await Promise.all([
       supabase.from('todos').select('*').order('created_at', { ascending: false }),
+      supabase.from('friends').select('*').order('name'),
+      supabase.from('todo_friends').select('*'),
       isGoogleConnected(),
     ])
     setTodos(todosRes.data ?? [])
+    setFriends(friendsRes.data ?? [])
+    setTodoFriends(todoFriendsRes.data ?? [])
     setGoogleConnected(connected)
     setLoading(false)
+  }
+
+  function friendsForTodo(todoId: string): Friend[] {
+    const ids = new Set(todoFriends.filter(tf => tf.todo_id === todoId).map(tf => tf.friend_id))
+    return friends.filter(f => ids.has(f.id))
   }
 
   useEffect(() => {
@@ -119,6 +130,7 @@ export default function Todos() {
             <TodoItem
               key={todo.id}
               todo={todo}
+              linkedFriends={friendsForTodo(todo.id)}
               onEdit={() => { setEditingTodo(todo); setShowForm(true) }}
               onDelete={() => deleteTodo(todo)}
               onChange={load}
@@ -127,6 +139,7 @@ export default function Todos() {
             <GoogleTaskItem
               key={todo.id}
               task={todo}
+              linkedFriends={friendsForTodo(todo.id)}
               onEdit={() => { setEditingTodo(todo); setShowForm(true) }}
               onDelete={() => deleteTodo(todo)}
               onChange={load}
@@ -148,6 +161,8 @@ export default function Todos() {
           onSave={load}
           todo={editingTodo}
           userId={user.id}
+          friends={friends}
+          linkedFriendIds={editingTodo ? friendsForTodo(editingTodo.id).map(f => f.id) : []}
         />
       )}
     </div>

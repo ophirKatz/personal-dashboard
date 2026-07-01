@@ -1,12 +1,14 @@
 import { useState } from 'react'
-import { CalendarClock, CalendarDays, RefreshCw } from 'lucide-react'
+import { CalendarClock, CalendarDays, RefreshCw, Users, ChevronDown } from 'lucide-react'
 import { supabase } from '../../supabase'
-import type { Todo } from '../../supabase'
+import type { Todo, Friend } from '../../supabase'
 import { Button } from '../../components/ui/button'
 import { Input } from '../../components/ui/input'
+import { Checkbox } from '../../components/ui/checkbox'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select'
+import { Popover, PopoverTrigger, PopoverContent } from '../../components/ui/popover'
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerBody } from '../../components/ui/drawer'
-import { today } from '../../utils'
+import { today, cn } from '../../utils'
 import type { RecurrenceUnit } from '../../utils'
 import { haptic } from '../../lib/haptics'
 import { updateGoogleTask } from './googleTasks'
@@ -17,6 +19,8 @@ type Props = {
   onSave: () => void
   todo?: Todo
   userId: string
+  friends: Friend[]
+  linkedFriendIds: string[]
 }
 
 type RecurrenceType = 'none' | 'daily' | 'weekly' | 'monthly' | 'custom'
@@ -35,9 +39,10 @@ function recurrenceTypeOf(todo: Todo | undefined): RecurrenceType {
   return 'custom'
 }
 
-export default function TaskDrawer({ open, onClose, onSave, todo, userId }: Props) {
+export default function TaskDrawer({ open, onClose, onSave, todo, userId, friends, linkedFriendIds }: Props) {
   const isGoogleTask = todo?.source === 'google'
   const [title, setTitle] = useState(todo?.title ?? '')
+  const [selectedFriendIds, setSelectedFriendIds] = useState<string[]>(linkedFriendIds)
   const [dueDate, setDueDate] = useState(todo?.due_date ?? today())
   const [dueAt, setDueAt] = useState(`${todo?.due_date ?? today()}T${todo?.due_time ?? nextRoundHour()}`)
   const [recurrenceType, setRecurrenceType] = useState<RecurrenceType>(recurrenceTypeOf(todo))
@@ -53,6 +58,8 @@ export default function TaskDrawer({ open, onClose, onSave, todo, userId }: Prop
     e.preventDefault()
     if (!title.trim()) return
     setSaving(true)
+
+    let todoId = todo?.id
 
     if (todo && isGoogleTask) {
       await updateGoogleTask(todo, {
@@ -83,7 +90,17 @@ export default function TaskDrawer({ open, onClose, onSave, todo, userId }: Prop
       if (todo) {
         await supabase.from('todos').update(payload).eq('id', todo.id)
       } else {
-        await supabase.from('todos').insert(payload)
+        const { data } = await supabase.from('todos').insert(payload).select('id').single()
+        todoId = data?.id
+      }
+    }
+
+    if (todoId) {
+      await supabase.from('todo_friends').delete().eq('todo_id', todoId)
+      if (selectedFriendIds.length > 0) {
+        await supabase.from('todo_friends').insert(
+          selectedFriendIds.map(friendId => ({ todo_id: todoId, friend_id: friendId, user_id: userId })),
+        )
       }
     }
 
@@ -91,6 +108,10 @@ export default function TaskDrawer({ open, onClose, onSave, todo, userId }: Prop
     setSaving(false)
     onSave()
     onClose()
+  }
+
+  function toggleFriend(friendId: string, checked: boolean) {
+    setSelectedFriendIds(prev => checked ? [...prev, friendId] : prev.filter(id => id !== friendId))
   }
 
   return (
@@ -173,6 +194,40 @@ export default function TaskDrawer({ open, onClose, onSave, todo, userId }: Prop
                     </Select>
                   </div>
                 )}
+              </div>
+            )}
+            {friends.length > 0 && (
+              <div className="space-y-1.5">
+                <label className="flex items-center gap-1 px-1 text-xs font-medium text-muted-foreground">
+                  <Users className="h-3.5 w-3.5" />
+                  Friends (optional)
+                </label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <button
+                      type="button"
+                      className="flex h-11 w-full items-center justify-between rounded-xl border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring"
+                    >
+                      <span className={cn('truncate text-left', selectedFriendIds.length === 0 && 'text-muted-foreground')}>
+                        {selectedFriendIds.length === 0
+                          ? 'Select friends'
+                          : friends.filter(f => selectedFriendIds.includes(f.id)).map(f => f.name).join(', ')}
+                      </span>
+                      <ChevronDown className="h-4 w-4 opacity-50 shrink-0 ml-2" />
+                    </button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[var(--radix-popover-trigger-width)] max-h-52 overflow-y-auto">
+                    {friends.map(friend => (
+                      <label key={friend.id} className="flex items-center gap-2 rounded-lg px-2 py-2 text-sm cursor-pointer hover:bg-accent">
+                        <Checkbox
+                          checked={selectedFriendIds.includes(friend.id)}
+                          onCheckedChange={checked => toggleFriend(friend.id, checked === true)}
+                        />
+                        <span dir="auto">{friend.name}</span>
+                      </label>
+                    ))}
+                  </PopoverContent>
+                </Popover>
               </div>
             )}
             <Button type="submit" disabled={saving || !title.trim()} className="h-12 w-full rounded-xl text-base font-semibold">

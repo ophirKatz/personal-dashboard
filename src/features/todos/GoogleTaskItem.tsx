@@ -1,12 +1,13 @@
 import { useEffect, useRef, useState } from 'react'
-import { Pencil, Trash2, CalendarArrowUp } from 'lucide-react'
+import { Pencil, Trash2, CalendarArrowUp, Users } from 'lucide-react'
 import { cn, formatDate, isOverdue } from '../../utils'
 import { Checkbox } from '../../components/ui/checkbox'
+import { Badge } from '../../components/ui/badge'
 import { haptic } from '../../lib/haptics'
 import { celebrateFromElement } from '../../lib/confetti'
 import { toggleGoogleTask } from './googleTasks'
 import { postponeToTomorrow } from './postpone'
-import type { Todo } from '../../supabase'
+import type { Todo, Friend } from '../../supabase'
 
 // Gives the user a beat to see the checkmark/celebration before the parent
 // reload removes the item from filtered views (e.g. the "Today" tab).
@@ -14,12 +15,13 @@ const COMPLETE_REMOVAL_DELAY_MS = 450
 
 type Props = {
   task: Todo
+  linkedFriends: Friend[]
   onEdit: () => void
   onDelete: () => void
   onChange: () => void
 }
 
-export default function GoogleTaskItem({ task, onEdit, onDelete, onChange }: Props) {
+export default function GoogleTaskItem({ task, linkedFriends, onEdit, onDelete, onChange }: Props) {
   const [pending, setPending] = useState(false)
   const [completing, setCompleting] = useState(false)
   const checkboxRef = useRef<HTMLButtonElement>(null)
@@ -79,6 +81,16 @@ export default function GoogleTaskItem({ task, onEdit, onDelete, onChange }: Pro
           <p className={cn('text-xs text-muted-foreground mt-1', overdue && 'text-destructive')}>{formatDate(task.due_date)}</p>
         )}
         {task.notes && <p className="text-sm text-muted-foreground mt-1 truncate">{task.notes}</p>}
+        {linkedFriends.length > 0 && (
+          <div className="flex items-center gap-1 flex-wrap mt-1.5">
+            <Users className="h-3 w-3 text-muted-foreground shrink-0" />
+            {linkedFriends.map(friend => (
+              <Badge key={friend.id} variant="secondary" className="px-1.5 py-0 text-[10px] font-medium">
+                {friend.name}
+              </Badge>
+            ))}
+          </div>
+        )}
       </div>
       <div className="flex items-center gap-1 shrink-0">
         {overdue && (
