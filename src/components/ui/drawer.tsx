@@ -20,28 +20,62 @@ const DrawerOverlay = React.forwardRef<
 ))
 DrawerOverlay.displayName = DialogPrimitive.Overlay.displayName
 
+// Tracks the on-screen keyboard: `fixed` positioning anchors to the layout
+// viewport, which doesn't shrink when the keyboard opens, so a naive
+// `bottom-0` sheet ends up parked behind the keyboard instead of above it.
+// The visual viewport does shrink, so we measure the gap and use it to pull
+// the sheet up.
+function useKeyboardInset() {
+  const [inset, setInset] = React.useState(0)
+
+  React.useEffect(() => {
+    const vv = window.visualViewport
+    if (!vv) return
+
+    function update() {
+      const offset = window.innerHeight - vv!.height - vv!.offsetTop
+      setInset(Math.max(0, Math.round(offset)))
+    }
+
+    update()
+    vv.addEventListener('resize', update)
+    vv.addEventListener('scroll', update)
+    return () => {
+      vv.removeEventListener('resize', update)
+      vv.removeEventListener('scroll', update)
+    }
+  }, [])
+
+  return inset
+}
+
 const DrawerContent = React.forwardRef<
   React.ElementRef<typeof DialogPrimitive.Content>,
   React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content>
->(({ className, children, ...props }, ref) => (
-  <DrawerPortal>
-    <DrawerOverlay />
-    <DialogPrimitive.Content
-      ref={ref}
-      className={cn(
-        // overflow-x-hidden mirrors DialogContent: a stray overflowing
-        // child (e.g. a native date/time control) gets clipped to the
-        // sheet's rounded edge instead of bleeding past the screen
-        'fixed inset-x-0 bottom-0 z-50 mx-auto w-full max-w-2xl overflow-x-hidden bg-background shadow-2xl ring-1 ring-border/50 duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:slide-out-to-bottom data-[state=open]:slide-in-from-bottom rounded-t-3xl pb-[max(1.25rem,env(safe-area-inset-bottom))]',
-        className,
-      )}
-      {...props}
-    >
-      <div className="mx-auto mt-3 h-1.5 w-10 rounded-full bg-muted" />
-      {children}
-    </DialogPrimitive.Content>
-  </DrawerPortal>
-))
+>(({ className, children, style, ...props }, ref) => {
+  const keyboardInset = useKeyboardInset()
+
+  return (
+    <DrawerPortal>
+      <DrawerOverlay />
+      <DialogPrimitive.Content
+        ref={ref}
+        style={{ bottom: keyboardInset, maxHeight: `calc(100vh - ${keyboardInset}px)`, ...style }}
+        className={cn(
+          // overflow-x-hidden mirrors DialogContent: a stray overflowing
+          // child (e.g. a native date/time control) gets clipped to the
+          // sheet's rounded edge instead of bleeding past the screen
+          'fixed inset-x-0 bottom-0 z-50 mx-auto w-full max-w-2xl overflow-x-hidden overflow-y-auto bg-background shadow-2xl ring-1 ring-border/50 duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:slide-out-to-bottom data-[state=open]:slide-in-from-bottom rounded-t-3xl pb-[max(1.25rem,env(safe-area-inset-bottom))]',
+          className,
+        )}
+        {...props}
+      >
+        <div className="mx-auto mt-3 h-1.5 w-10 rounded-full bg-muted" />
+        {children}
+      </DialogPrimitive.Content>
+    </DrawerPortal>
+  )
+})
 DrawerContent.displayName = DialogPrimitive.Content.displayName
 
 const DrawerHeader = ({ className, children, ...props }: React.HTMLAttributes<HTMLDivElement>) => (
