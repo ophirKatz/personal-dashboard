@@ -67,11 +67,22 @@ export default function InteractionHistoryDrawer({
     setSummarizing(true)
     setSummary(null)
     setSummaryError(false)
-    try {
-      const { data, error } = await supabase.functions.invoke<{ summary?: string; error?: string }>(
+
+    const invoke = () =>
+      supabase.functions.invoke<{ summary?: string }>(
         'summarize-friend-interactions',
         { body: { friend_id: friend.id, period } },
       )
+
+    try {
+      let { data, error } = await invoke()
+
+      // On transient failure (relay error, network hiccup), retry once.
+      if (error || !data?.summary) {
+        await new Promise<void>(r => setTimeout(r, 2000))
+        ;({ data, error } = await invoke())
+      }
+
       if (error || !data?.summary) {
         setSummaryError(true)
       } else {
