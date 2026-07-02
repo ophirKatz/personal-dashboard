@@ -50,7 +50,7 @@ export default function ClimbingStats() {
     : sessions
   const sessionIds = new Set(filteredSessions.map(s => s.id))
   const filteredAttempts = attempts.filter(a => sessionIds.has(a.session_id))
-  const filteredSends = filteredAttempts.filter(a => a.result === 'sent')
+  const filteredSends = filteredAttempts.filter(a => a.result === 'sent' || a.result === 'completed_project')
 
   // Sends per grade bar chart
   const sendsPerGrade = CLIMBING_GRADES.map(g => ({
