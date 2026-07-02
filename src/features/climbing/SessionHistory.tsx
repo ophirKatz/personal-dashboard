@@ -6,6 +6,7 @@ import { formatDate } from '../../utils'
 import { haptic } from '../../lib/haptics'
 import EditSessionDrawer from './EditSessionDrawer'
 import { shareSessionToWhatsApp } from './shareSession'
+import { CLIMB_RESULT_BADGE, CLIMB_RESULT_LABEL } from './climbResult'
 
 type SessionWithAttempts = ClimbingSession & { attempts: ClimbingAttempt[] }
 
@@ -67,6 +68,7 @@ export default function SessionHistory() {
       {sessions.map(session => {
         const sends = session.attempts.filter(a => a.result === 'sent')
         const projects = session.attempts.filter(a => a.result === 'project')
+        const completedProjects = session.attempts.filter(a => a.result === 'completed_project')
         const isOpen = expanded.has(session.id)
 
         const sendsByGrade = sends.reduce<Record<string, number>>((acc, a) => {
@@ -84,6 +86,7 @@ export default function SessionHistory() {
                 <div className="font-medium">{formatDate(session.session_date)}</div>
                 <div className="text-sm text-muted-foreground mt-0.5">
                   {session.attempts.length} attempts · {sends.length} sent · {projects.length} project
+                  {completedProjects.length > 0 && ` · ${completedProjects.length} completed`}
                 </div>
                 {sends.length > 0 && (
                   <div className="flex gap-1.5 mt-2 flex-wrap">
@@ -119,8 +122,8 @@ export default function SessionHistory() {
               <div className="border-t border-border px-4 pb-4 pt-3 space-y-1.5">
                 {session.attempts.map(a => (
                   <div key={a.id} className="flex items-center gap-3 text-sm">
-                    <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${a.result === 'sent' ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}`}>
-                      {a.result === 'sent' ? 'SENT' : 'PROJ'}
+                    <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${CLIMB_RESULT_BADGE[a.result]}`}>
+                      {CLIMB_RESULT_LABEL[a.result]}
                     </span>
                     <span>{a.grade}</span>
                   </div>

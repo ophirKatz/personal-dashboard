@@ -13,16 +13,22 @@ function gradeCounts(attempts: ClimbingAttempt[]): Record<string, number> {
 export function buildSessionShareText(session: SessionWithAttempts): string {
   const sends = session.attempts.filter(a => a.result === 'sent')
   const projects = session.attempts.filter(a => a.result === 'project')
+  const completedProjects = session.attempts.filter(a => a.result === 'completed_project')
 
   const lines = [
     `🧗 *Climbing Session* — ${format(parseISO(session.session_date), 'EEEE, MMM d, yyyy')}`,
     '',
-    `📊 ${session.attempts.length} attempts · ${sends.length} sent · ${projects.length} project${projects.length === 1 ? '' : 's'}`,
+    `📊 ${session.attempts.length} attempts · ${sends.length} sent · ${projects.length} project${projects.length === 1 ? '' : 's'}${completedProjects.length ? ` · ${completedProjects.length} completed` : ''}`,
   ]
 
   if (sends.length) {
     lines.push('', '✅ *Sends:*')
     for (const [grade, count] of Object.entries(gradeCounts(sends))) lines.push(`   ${grade} ×${count}`)
+  }
+
+  if (completedProjects.length) {
+    lines.push('', '🏆 *Completed Projects:*')
+    for (const [grade, count] of Object.entries(gradeCounts(completedProjects))) lines.push(`   ${grade} ×${count}`)
   }
 
   if (projects.length) {

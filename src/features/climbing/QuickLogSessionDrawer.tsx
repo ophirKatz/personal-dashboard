@@ -8,8 +8,9 @@ import { haptic } from '../../lib/haptics'
 import { today } from '../../utils'
 import QuickAttempt from './QuickAttempt'
 import AttemptsList from './AttemptsList'
+import { nextClimbResult, type ClimbResult } from './climbResult'
 
-type LocalAttempt = { grade: string; result: 'sent' | 'project' }
+type LocalAttempt = { grade: string; result: ClimbResult }
 
 type Props = {
   open: boolean
@@ -35,7 +36,7 @@ export default function QuickLogSessionDrawer({ open, onClose, onSaved, userId }
   function toggleAttemptResult(index: number) {
     haptic('light')
     setAttempts(prev =>
-      prev.map((a, i) => (i === index ? { ...a, result: a.result === 'sent' ? 'project' : 'sent' } : a)),
+      prev.map((a, i) => (i === index ? { ...a, result: nextClimbResult(a.result) } : a)),
     )
   }
 
