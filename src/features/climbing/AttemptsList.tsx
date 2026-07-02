@@ -1,6 +1,7 @@
 import { X } from 'lucide-react'
+import { CLIMB_RESULT_BADGE, CLIMB_RESULT_LABEL, type ClimbResult } from './climbResult'
 
-type Attempt = { grade: string; result: 'sent' | 'project' }
+type Attempt = { grade: string; result: ClimbResult }
 
 type Props = {
   attempts: Attempt[]
@@ -18,9 +19,9 @@ export default function AttemptsList({ attempts, onToggleResult, onRemove }: Pro
           <div key={i} className="flex items-center gap-3 px-3 py-2 bg-card border border-border rounded-lg animate-in fade-in-0 slide-in-from-top-1 duration-200">
             <button
               onClick={() => onToggleResult(i)}
-              className={`text-xs font-bold px-2 py-0.5 rounded-full ${a.result === 'sent' ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}`}
+              className={`text-xs font-bold px-2 py-0.5 rounded-full ${CLIMB_RESULT_BADGE[a.result]}`}
             >
-              {a.result === 'sent' ? 'SENT' : 'PROJ'}
+              {CLIMB_RESULT_LABEL[a.result]}
             </button>
             <span className="font-medium text-sm">{a.grade}</span>
             <button onClick={() => onRemove(i)} className="ml-auto text-muted-foreground hover:text-destructive">

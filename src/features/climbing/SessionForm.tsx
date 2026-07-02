@@ -8,6 +8,7 @@ import { today } from '../../utils'
 import { haptic } from '../../lib/haptics'
 import QuickAttempt from './QuickAttempt'
 import AttemptsList from './AttemptsList'
+import { nextClimbResult } from './climbResult'
 
 type LocalAttempt = Omit<ClimbingAttempt, 'id' | 'session_id' | 'user_id' | 'created_at'>
 
@@ -33,7 +34,7 @@ export default function SessionForm({ userId, onSaved }: Props) {
   function toggleAttemptResult(index: number) {
     haptic('light')
     setAttempts(prev =>
-      prev.map((a, i) => (i === index ? { ...a, result: a.result === 'sent' ? 'project' : 'sent' } : a)),
+      prev.map((a, i) => (i === index ? { ...a, result: nextClimbResult(a.result) } : a)),
     )
   }
 

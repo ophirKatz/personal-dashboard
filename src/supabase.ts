@@ -64,7 +64,7 @@ export type ClimbingAttempt = {
   session_id: string
   user_id: string
   grade: string
-  result: 'sent' | 'project'
+  result: 'sent' | 'project' | 'completed_project'
   created_at: string
 }
 
