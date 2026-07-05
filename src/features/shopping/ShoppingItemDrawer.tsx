@@ -55,7 +55,12 @@ export default function ShoppingItemDrawer({ open, onClose, onSave, item, userId
               autoFocus
               className="h-12 rounded-xl text-base"
             />
-            <Button type="submit" disabled={saving || !name.trim()} className="h-12 w-full rounded-xl text-base font-semibold">
+            <Button
+              type="submit"
+              disabled={saving || !name.trim()}
+              onMouseDown={e => e.preventDefault()}
+              className="h-12 w-full rounded-xl text-base font-semibold"
+            >
               {saving ? 'Saving…' : item ? 'Save' : 'Add item'}
             </Button>
           </DrawerBody>
