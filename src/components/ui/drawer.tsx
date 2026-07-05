@@ -20,21 +20,24 @@ const DrawerOverlay = React.forwardRef<
 ))
 DrawerOverlay.displayName = DialogPrimitive.Overlay.displayName
 
-// Tracks the on-screen keyboard: `fixed` positioning anchors to the layout
-// viewport, which doesn't shrink when the keyboard opens, so a naive
-// `bottom-0` sheet ends up parked behind the keyboard instead of above it.
-// The visual viewport does shrink, so we measure the gap and use it to pull
-// the sheet up.
-function useKeyboardInset() {
-  const [inset, setInset] = React.useState(0)
+// Tracks the on-screen keyboard. This app runs installed to the home
+// screen (manifest `display: 'standalone'`), and iOS's standalone WKWebView
+// doesn't keep `window.innerHeight` reliably in sync with
+// `visualViewport.height` while the keyboard animates in — the two drift
+// apart by an amount that isn't just the keyboard height. Diffing them (as
+// a naive "keyboard inset" calc would) inherits that drift and overshoots,
+// pushing the sheet's top off-screen. Sizing a wrapper straight from
+// `visualViewport`'s own top/height sidesteps the discrepancy entirely,
+// since `window.innerHeight` never enters the calculation.
+function useVisualViewportRect() {
+  const [rect, setRect] = React.useState({ top: 0, height: window.innerHeight })
 
   React.useEffect(() => {
     const vv = window.visualViewport
     if (!vv) return
 
     function update() {
-      const offset = window.innerHeight - vv!.height - vv!.offsetTop
-      setInset(Math.max(0, Math.round(offset)))
+      setRect({ top: vv!.offsetTop, height: vv!.height })
     }
 
     update()
@@ -46,33 +49,38 @@ function useKeyboardInset() {
     }
   }, [])
 
-  return inset
+  return rect
 }
 
 const DrawerContent = React.forwardRef<
   React.ElementRef<typeof DialogPrimitive.Content>,
   React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content>
 >(({ className, children, style, ...props }, ref) => {
-  const keyboardInset = useKeyboardInset()
+  const viewport = useVisualViewportRect()
 
   return (
     <DrawerPortal>
       <DrawerOverlay />
-      <DialogPrimitive.Content
-        ref={ref}
-        style={{ bottom: keyboardInset, maxHeight: `calc(100vh - ${keyboardInset}px)`, ...style }}
-        className={cn(
-          // overflow-x-hidden mirrors DialogContent: a stray overflowing
-          // child (e.g. a native date/time control) gets clipped to the
-          // sheet's rounded edge instead of bleeding past the screen
-          'fixed inset-x-0 bottom-0 z-50 mx-auto w-full max-w-2xl overflow-x-hidden overflow-y-auto bg-background shadow-2xl ring-1 ring-border/50 duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:slide-out-to-bottom data-[state=open]:slide-in-from-bottom rounded-t-3xl pb-[max(1.25rem,env(safe-area-inset-bottom))]',
-          className,
-        )}
-        {...props}
+      <div
+        style={{ top: viewport.top, height: viewport.height }}
+        className="fixed inset-x-0 z-50 flex flex-col justify-end pointer-events-none"
       >
-        <div className="mx-auto mt-3 h-1.5 w-10 rounded-full bg-muted" />
-        {children}
-      </DialogPrimitive.Content>
+        <DialogPrimitive.Content
+          ref={ref}
+          style={{ maxHeight: '100%', ...style }}
+          className={cn(
+            // overflow-x-hidden mirrors DialogContent: a stray overflowing
+            // child (e.g. a native date/time control) gets clipped to the
+            // sheet's rounded edge instead of bleeding past the screen
+            'pointer-events-auto mx-auto w-full max-w-2xl overflow-x-hidden overflow-y-auto bg-background shadow-2xl ring-1 ring-border/50 duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:slide-out-to-bottom data-[state=open]:slide-in-from-bottom rounded-t-3xl pb-[max(1.25rem,env(safe-area-inset-bottom))]',
+            className,
+          )}
+          {...props}
+        >
+          <div className="mx-auto mt-3 h-1.5 w-10 rounded-full bg-muted" />
+          {children}
+        </DialogPrimitive.Content>
+      </div>
     </DrawerPortal>
   )
 })
