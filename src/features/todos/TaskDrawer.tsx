@@ -53,6 +53,8 @@ export default function TaskDrawer({ open, onClose, onSave, todo, userId, friend
     recurrenceTypeOf(todo) === 'custom' ? todo!.recurrence_unit! : 'day',
   )
   const [saving, setSaving] = useState(false)
+  const [repeatOpen, setRepeatOpen] = useState(recurrenceTypeOf(todo) !== 'none')
+  const [friendsOpen, setFriendsOpen] = useState(linkedFriendIds.length > 0)
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -158,7 +160,31 @@ export default function TaskDrawer({ open, onClose, onSave, todo, userId, friend
                 />
               </div>
             )}
-            {!isGoogleTask && dueAt && (
+            {(!isGoogleTask && dueAt && !repeatOpen) || (friends.length > 0 && !friendsOpen) ? (
+              <div className="flex flex-wrap gap-2">
+                {!isGoogleTask && dueAt && !repeatOpen && (
+                  <button
+                    type="button"
+                    onClick={() => setRepeatOpen(true)}
+                    className="flex h-9 items-center gap-1.5 rounded-full border border-dashed border-input px-3 text-sm text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+                  >
+                    <RefreshCw className="h-3.5 w-3.5" />
+                    Repeat
+                  </button>
+                )}
+                {friends.length > 0 && !friendsOpen && (
+                  <button
+                    type="button"
+                    onClick={() => setFriendsOpen(true)}
+                    className="flex h-9 items-center gap-1.5 rounded-full border border-dashed border-input px-3 text-sm text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+                  >
+                    <Users className="h-3.5 w-3.5" />
+                    Friends
+                  </button>
+                )}
+              </div>
+            ) : null}
+            {!isGoogleTask && dueAt && repeatOpen && (
               <div className="space-y-1.5">
                 <label className="flex items-center gap-1 px-1 text-xs font-medium text-muted-foreground">
                   <RefreshCw className="h-3.5 w-3.5" />
@@ -196,7 +222,7 @@ export default function TaskDrawer({ open, onClose, onSave, todo, userId, friend
                 )}
               </div>
             )}
-            {friends.length > 0 && (
+            {friends.length > 0 && friendsOpen && (
               <div className="space-y-1.5">
                 <label className="flex items-center gap-1 px-1 text-xs font-medium text-muted-foreground">
                   <Users className="h-3.5 w-3.5" />
