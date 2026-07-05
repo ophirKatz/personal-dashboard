@@ -20,21 +20,23 @@ const DrawerOverlay = React.forwardRef<
 ))
 DrawerOverlay.displayName = DialogPrimitive.Overlay.displayName
 
-// Tracks the on-screen keyboard: `fixed` positioning anchors to the layout
-// viewport, which doesn't shrink when the keyboard opens, so a naive
-// `bottom-0` sheet ends up parked behind the keyboard instead of above it.
-// The visual viewport does shrink, so we measure the gap and use it to pull
-// the sheet up.
-function useKeyboardInset() {
-  const [inset, setInset] = React.useState(0)
+// Tracks the on-screen keyboard. `window.innerHeight` isn't a stable
+// reference on mobile Safari: it changes as the browser chrome (address
+// bar) collapses/expands, which often happens at the same time the keyboard
+// opens. Diffing it against `visualViewport.height` double-counts that
+// chrome delta and overshoots, pushing the sheet up too far. Instead we size
+// a wrapper to the visual viewport itself (top/height straight from
+// `visualViewport`) and let the sheet hug its bottom via flexbox, so the
+// sheet's position never depends on `window.innerHeight` at all.
+function useVisualViewportRect() {
+  const [rect, setRect] = React.useState({ top: 0, height: window.innerHeight })
 
   React.useEffect(() => {
     const vv = window.visualViewport
     if (!vv) return
 
     function update() {
-      const offset = window.innerHeight - vv!.height - vv!.offsetTop
-      setInset(Math.max(0, Math.round(offset)))
+      setRect({ top: vv!.offsetTop, height: vv!.height })
     }
 
     update()
@@ -46,33 +48,38 @@ function useKeyboardInset() {
     }
   }, [])
 
-  return inset
+  return rect
 }
 
 const DrawerContent = React.forwardRef<
   React.ElementRef<typeof DialogPrimitive.Content>,
   React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content>
 >(({ className, children, style, ...props }, ref) => {
-  const keyboardInset = useKeyboardInset()
+  const viewport = useVisualViewportRect()
 
   return (
     <DrawerPortal>
       <DrawerOverlay />
-      <DialogPrimitive.Content
-        ref={ref}
-        style={{ bottom: keyboardInset, maxHeight: `calc(100vh - ${keyboardInset}px)`, ...style }}
-        className={cn(
-          // overflow-x-hidden mirrors DialogContent: a stray overflowing
-          // child (e.g. a native date/time control) gets clipped to the
-          // sheet's rounded edge instead of bleeding past the screen
-          'fixed inset-x-0 bottom-0 z-50 mx-auto w-full max-w-2xl overflow-x-hidden overflow-y-auto bg-background shadow-2xl ring-1 ring-border/50 duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:slide-out-to-bottom data-[state=open]:slide-in-from-bottom rounded-t-3xl pb-[max(1.25rem,env(safe-area-inset-bottom))]',
-          className,
-        )}
-        {...props}
+      <div
+        style={{ top: viewport.top, height: viewport.height }}
+        className="fixed inset-x-0 z-50 flex flex-col justify-end pointer-events-none"
       >
-        <div className="mx-auto mt-3 h-1.5 w-10 rounded-full bg-muted" />
-        {children}
-      </DialogPrimitive.Content>
+        <DialogPrimitive.Content
+          ref={ref}
+          style={{ maxHeight: '100%', ...style }}
+          className={cn(
+            // overflow-x-hidden mirrors DialogContent: a stray overflowing
+            // child (e.g. a native date/time control) gets clipped to the
+            // sheet's rounded edge instead of bleeding past the screen
+            'pointer-events-auto mx-auto w-full max-w-2xl overflow-x-hidden overflow-y-auto bg-background shadow-2xl ring-1 ring-border/50 duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:slide-out-to-bottom data-[state=open]:slide-in-from-bottom rounded-t-3xl pb-[max(1.25rem,env(safe-area-inset-bottom))]',
+            className,
+          )}
+          {...props}
+        >
+          <div className="mx-auto mt-3 h-1.5 w-10 rounded-full bg-muted" />
+          {children}
+        </DialogPrimitive.Content>
+      </div>
     </DrawerPortal>
   )
 })
