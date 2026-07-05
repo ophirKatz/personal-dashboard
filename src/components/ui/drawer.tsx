@@ -20,14 +20,15 @@ const DrawerOverlay = React.forwardRef<
 ))
 DrawerOverlay.displayName = DialogPrimitive.Overlay.displayName
 
-// Tracks the on-screen keyboard. `window.innerHeight` isn't a stable
-// reference on mobile Safari: it changes as the browser chrome (address
-// bar) collapses/expands, which often happens at the same time the keyboard
-// opens. Diffing it against `visualViewport.height` double-counts that
-// chrome delta and overshoots, pushing the sheet up too far. Instead we size
-// a wrapper to the visual viewport itself (top/height straight from
-// `visualViewport`) and let the sheet hug its bottom via flexbox, so the
-// sheet's position never depends on `window.innerHeight` at all.
+// Tracks the on-screen keyboard. This app runs installed to the home
+// screen (manifest `display: 'standalone'`), and iOS's standalone WKWebView
+// doesn't keep `window.innerHeight` reliably in sync with
+// `visualViewport.height` while the keyboard animates in — the two drift
+// apart by an amount that isn't just the keyboard height. Diffing them (as
+// a naive "keyboard inset" calc would) inherits that drift and overshoots,
+// pushing the sheet's top off-screen. Sizing a wrapper straight from
+// `visualViewport`'s own top/height sidesteps the discrepancy entirely,
+// since `window.innerHeight` never enters the calculation.
 function useVisualViewportRect() {
   const [rect, setRect] = React.useState({ top: 0, height: window.innerHeight })
 
