@@ -16,9 +16,15 @@ type Props = {
 }
 
 const COPY: Record<Mode, { title: string; placeholder: string; label: string; multiline: boolean }> = {
-  prompt: { title: 'Prompt to recipe', placeholder: 'e.g. garlic butter shrimp pasta with lemon', label: 'Describe the dish', multiline: false },
+  prompt: { title: 'Prompt to recipe', placeholder: 'e.g. garlic butter shrimp pasta with lemon', label: 'Describe the dish', multiline: true },
   paste: { title: 'Paste recipe text', placeholder: 'Paste the full recipe text here…', label: 'Recipe text', multiline: true },
   link: { title: 'Paste a link', placeholder: 'https://example.com/recipe', label: 'Recipe URL', multiline: false },
+}
+
+const MAX_FETCH_RETRIES = 2
+
+function sleep(ms: number): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, ms))
 }
 
 export default function ImportRecipeDialog({ open, mode, onClose }: Props) {
@@ -34,15 +40,26 @@ export default function ImportRecipeDialog({ open, mode, onClose }: Props) {
     setLoading(true)
     setError(null)
     try {
-      const { data, error: fnError } = await supabase.functions.invoke('import-recipe', {
-        body: { mode, input: input.trim() },
-      })
-      if (fnError) {
+      let data: { draft: RecipeDraft; source_url?: string | null } | null = null
+      for (let attempt = 1; attempt <= MAX_FETCH_RETRIES; attempt++) {
+        const { data: fnData, error: fnError } = await supabase.functions.invoke('import-recipe', {
+          body: { mode, input: input.trim() },
+        })
+        if (!fnError) {
+          data = fnData
+          break
+        }
+        // A network-level failure to reach the Edge Function (dropped mobile connection,
+        // backgrounded PWA, etc.) is safe to retry — the function has no side effects.
+        if (fnError.name === 'FunctionsFetchError' && attempt < MAX_FETCH_RETRIES) {
+          await sleep(500 * attempt)
+          continue
+        }
         const body = await fnError.context?.json?.().catch(() => null)
         throw new Error(body?.message ?? body?.error ?? fnError.message ?? 'Import failed')
       }
-      const draft: RecipeDraft = data.draft
-      navigate('/recipes/new', { state: { draft, sourceUrl: data.source_url ?? null, importMethod: mode } })
+      const draft = data!.draft
+      navigate('/recipes/new', { state: { draft, sourceUrl: data!.source_url ?? null, importMethod: mode } })
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Import failed')
     } finally {
