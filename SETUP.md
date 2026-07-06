@@ -341,6 +341,23 @@ secret configured in step 1h, and `SUPABASE_URL`/`SUPABASE_SERVICE_ROLE_KEY` are
 
 ---
 
+## 1n. Recipe Import (AI)
+
+The Recipes page's "+" button offers three AI-assisted ways to start a new recipe, alongside a manual
+form: **Prompt to recipe** (describe a dish, Claude invents a full recipe), **Paste recipe text** (Claude
+parses freeform pasted text), and **Paste a link** (the function fetches the page server-side, strips it
+to plain text, and Claude extracts the recipe). All three share one Edge Function,
+`supabase/functions/import-recipe`, taking `{ mode: 'prompt' | 'paste' | 'link', input: string }` and
+using the `claude-haiku-4-5-20251001` model (same family as the Focus Summary and Friends summarization
+features). Unlike Shopping's photo import, this function returns a parsed **draft only** — nothing is
+written to the database. The client lands on the manual recipe editor pre-filled with the draft so you
+can review and adjust before saving.
+
+**No additional manual setup needed** — reuses the same `ANTHROPIC_API_KEY` Edge Function secret as the
+other AI features.
+
+---
+
 ## 1j. Voice Shortcuts (Siri) — Add to shopping list / log a climb / add a todo by voice
 
 You can say "Hey Siri, add to shopping list", "Hey Siri, log a climb", or "Hey Siri, add a todo"
@@ -707,6 +724,11 @@ The `vercel.json` in this repo configures SPA routing (all paths → `index.html
 | `friend_interactions` | One row per logged interaction with a friend: `interaction_date` + optional `note`. Used to compute days-since-last-interaction and decide overdue status |
 | `focus_summaries` | Cached AI-generated focus briefing per user per `period` (`today`/`week` — covering tomorrow and the week ahead, respectively), written by the `generate-focus-summary` Edge Function; `status`/`error` track the last generation attempt, `generated_at` is shown in the UI as "Updated X ago" |
 | `api_tokens` | Long-lived personal API tokens (hashed, `token_hash` only) used by external callers like an iOS Shortcut that can't hold a short-lived Supabase session JWT — see step 1j |
+| `recipes` | Recipe records: title, description, `servings` (base serving count the ingredient quantities are written for), `image_url` (uploaded to the `recipe-images` bucket or a pasted external URL), `source_url` (set when imported via "paste a link"), `import_method` (`manual`/`prompt`/`paste`/`link`), `last_viewed_at` (powers the "Recently viewed" rail) |
+| `recipe_ingredients` | Ingredient lines per recipe: nullable `quantity`/`unit` (e.g. "salt, to taste" has neither), `name`, optional `note`, `position` for display order |
+| `recipe_steps` | Ordered directions per recipe: `position` + `instruction` |
+| `recipe_collections` | User-defined recipe collections/tags (e.g. "Baking", "Dessert") — `name` + `emoji`, unique per user |
+| `recipe_collection_items` | Many-to-many join between `recipes` and `recipe_collections` |
 
 ### Storage
 
@@ -721,6 +743,12 @@ Files are accessed via signed URLs (1-hour expiry), generated on demand when a u
 **Max file size:** 5 MB (enforced in the client before upload)
 
 Avatar images are served via public URLs (`getPublicUrl`), no signed URLs needed. RLS on the storage policy restricts writes to the owning user's folder (`(storage.foldername(name))[1] = auth.uid()::text`) while reads are public.
+
+**Bucket:** `recipe-images` (public)
+**Path convention:** `{user_id}/{recipe_id}.{ext}`
+**Max file size:** 8 MB (enforced in the client before upload)
+
+Recipe hero images work the same as avatars — public URLs, writes restricted to the owning user's folder. A recipe's `image_url` can also point at an external URL (pasted by the user, or carried over from a "paste a link" import); the app only ever attempts to delete from this bucket when the URL matches its own public-URL prefix, never for an external URL.
 
 ### RLS
 
@@ -751,6 +779,7 @@ Storage objects are scoped to `(storage.foldername(name))[1] = auth.uid()::text`
 | Files | `/files` | Folder-based file storage. Also lets you recursively sync Google Drive folders (and all their subfolders/files) via a folder-tree picker — synced folders appear alongside local ones (badged "Google"); files are downloaded and stored in Supabase Storage, so they're viewable/downloadable exactly like local files, not links to Drive. Proxied server-side through `/api/google-drive-browse`, `/api/google-drive-folders`, and `/api/google-drive-sync` so tokens never reach the browser |
 | Finance | `/finance` | USD/EUR/NIS converter (free, no-key [currency-api](https://github.com/fawazahmed0/currency-api)) + TENB stock quote, proxied server-side through `/api/stock-quote` (Finnhub, needs `FINNHUB_API_KEY`) so the key never reaches the browser |
 | Settings | `/settings` | Enable/disable push notifications for habits and todos (see step 1g); manage connected Google accounts for Calendar (see step 1k); independently toggle the Focus section's daily and on-change auto-refresh (see step 1h) |
+| Recipes | `/recipes` | Collections rail, search, and a recipe grid. Add a recipe via AI (prompt/paste text/paste a link — see step 1n) or a manual form with an Ingredients/Directions editor. Recipe detail (`/recipes/:id`) has a servings scaler that multiplies ingredient quantities for display only |
 
 ---
 
