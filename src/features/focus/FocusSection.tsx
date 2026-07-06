@@ -15,7 +15,7 @@ export default function FocusSection() {
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState<Period | null>(null)
   const [tab, setTab] = useState<Period>('week')
-  const [autoGenerate, setAutoGenerate] = useState<boolean | null>(null)
+  const [autoGenerate, setAutoGenerate] = useState<Record<Period, boolean> | null>(null)
 
   async function load() {
     const { data } = await supabase.from('focus_summaries').select('*').in('period', ['today', 'week'])
@@ -29,7 +29,9 @@ export default function FocusSection() {
 
   useEffect(() => {
     load()
-    getAutoGenerateFocusSummariesOnChange().then(setAutoGenerate)
+    Promise.all([getAutoGenerateFocusSummariesOnChange('today'), getAutoGenerateFocusSummariesOnChange('week')]).then(
+      ([today, week]) => setAutoGenerate({ today, week }),
+    )
     getDefaultFocusPeriod().then(setTab)
   }, [])
 
@@ -43,7 +45,7 @@ export default function FocusSection() {
   // Auto-generate on first load (or on switching to a tab) if no cached summary exists yet,
   // unless the user disabled auto-generation in Settings (manual refresh always still works).
   useEffect(() => {
-    if (!loading && autoGenerate && !summaries[tab] && refreshing !== tab) {
+    if (!loading && autoGenerate?.[tab] && !summaries[tab] && refreshing !== tab) {
       refresh(tab)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps

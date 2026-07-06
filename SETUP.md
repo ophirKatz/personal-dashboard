@@ -290,10 +290,12 @@ and cached in a new `focus_summaries` table.
   own summary for the active tab.
 - Both the cron job and the DB triggers authenticate to the function the same way
   `send-due-notifications` does — via the `cron_secret` already stored in Supabase Vault.
-- The daily refresh and the triggered refresh are gated by two independent toggles in
-  Settings — `auto_generate_focus_summaries_daily` (checked by the edge function before the cron
-  sweep) and `auto_generate_focus_summaries_on_change` (checked by the `notify_focus_refresh`
-  trigger function) — so you can disable one without the other.
+- The daily refresh and the triggered refresh are each gated by a pair of per-period toggles in
+  Settings, one for the "Tomorrow" period and one for "This Week" —
+  `auto_generate_focus_summaries_daily_today` / `_week` (checked by the edge function before the
+  cron sweep) and `auto_generate_focus_summaries_on_change_today` / `_week` (checked by the
+  `notify_focus_refresh` trigger function) — so you can e.g. disable auto-generation for the weekly
+  summary while keeping it on for tomorrow's.
 
 **This was already set up for you (via MCPs), no action needed:**
 - The `focus_summaries` table (RLS: read-only for the owning user; all writes go through the edge

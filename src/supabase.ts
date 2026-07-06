@@ -133,8 +133,10 @@ export type GoogleDriveFolder = {
 
 export type UserSettings = {
   user_id: string
-  auto_generate_focus_summaries_daily: boolean
-  auto_generate_focus_summaries_on_change: boolean
+  auto_generate_focus_summaries_daily_today: boolean
+  auto_generate_focus_summaries_daily_week: boolean
+  auto_generate_focus_summaries_on_change_today: boolean
+  auto_generate_focus_summaries_on_change_week: boolean
   show_focus_section: boolean
   default_focus_period: 'today' | 'week'
   bottom_nav_items: string[]

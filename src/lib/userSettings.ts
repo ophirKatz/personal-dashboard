@@ -1,26 +1,42 @@
 import { supabase } from '../supabase'
 import { DEFAULT_BOTTOM_NAV_ITEMS, isNavItemKey, type NavItemKey } from './navItems'
 
-export async function getAutoGenerateFocusSummariesDaily(): Promise<boolean> {
-  const { data } = await supabase.from('user_settings').select('auto_generate_focus_summaries_daily').maybeSingle()
-  return data?.auto_generate_focus_summaries_daily ?? true
+export type FocusPeriod = 'today' | 'week'
+
+const DAILY_COLUMN: Record<FocusPeriod, 'auto_generate_focus_summaries_daily_today' | 'auto_generate_focus_summaries_daily_week'> = {
+  today: 'auto_generate_focus_summaries_daily_today',
+  week: 'auto_generate_focus_summaries_daily_week',
 }
 
-export async function setAutoGenerateFocusSummariesDaily(enabled: boolean): Promise<void> {
+const ON_CHANGE_COLUMN: Record<FocusPeriod, 'auto_generate_focus_summaries_on_change_today' | 'auto_generate_focus_summaries_on_change_week'> = {
+  today: 'auto_generate_focus_summaries_on_change_today',
+  week: 'auto_generate_focus_summaries_on_change_week',
+}
+
+export async function getAutoGenerateFocusSummariesDaily(period: FocusPeriod): Promise<boolean> {
+  const column = DAILY_COLUMN[period]
+  const { data } = await supabase.from('user_settings').select(column).maybeSingle()
+  return (data as Record<string, boolean> | null)?.[column] ?? true
+}
+
+export async function setAutoGenerateFocusSummariesDaily(period: FocusPeriod, enabled: boolean): Promise<void> {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return
-  await supabase.from('user_settings').upsert({ user_id: user.id, auto_generate_focus_summaries_daily: enabled })
+  const column = DAILY_COLUMN[period]
+  await supabase.from('user_settings').upsert({ user_id: user.id, [column]: enabled })
 }
 
-export async function getAutoGenerateFocusSummariesOnChange(): Promise<boolean> {
-  const { data } = await supabase.from('user_settings').select('auto_generate_focus_summaries_on_change').maybeSingle()
-  return data?.auto_generate_focus_summaries_on_change ?? true
+export async function getAutoGenerateFocusSummariesOnChange(period: FocusPeriod): Promise<boolean> {
+  const column = ON_CHANGE_COLUMN[period]
+  const { data } = await supabase.from('user_settings').select(column).maybeSingle()
+  return (data as Record<string, boolean> | null)?.[column] ?? true
 }
 
-export async function setAutoGenerateFocusSummariesOnChange(enabled: boolean): Promise<void> {
+export async function setAutoGenerateFocusSummariesOnChange(period: FocusPeriod, enabled: boolean): Promise<void> {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return
-  await supabase.from('user_settings').upsert({ user_id: user.id, auto_generate_focus_summaries_on_change: enabled })
+  const column = ON_CHANGE_COLUMN[period]
+  await supabase.from('user_settings').upsert({ user_id: user.id, [column]: enabled })
 }
 
 export async function getShowFocusSection(): Promise<boolean> {

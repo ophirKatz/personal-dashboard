@@ -16,6 +16,7 @@ import {
   setDefaultFocusPeriod,
   getBottomNavItems,
   setBottomNavItems,
+  type FocusPeriod,
 } from '../lib/userSettings'
 import { listGoogleAccounts, connectGoogleAccount, disconnectGoogleAccount, type GoogleAccount } from '../lib/googleAccounts'
 import { ALL_NAV_KEYS, NAV_ITEMS, BOTTOM_NAV_ITEMS_CHANGED_EVENT, type NavItemKey } from '../lib/navItems'
@@ -29,6 +30,19 @@ const GOOGLE_CONNECT_MESSAGES: Record<string, string> = {
   expired: 'That connection link expired. Please try again.',
   no_refresh_token: 'Google did not grant offline access. Please try again and accept all permissions.',
   error: 'Something went wrong connecting that account. Please try again.',
+}
+
+function ToggleSwitch({ checked, onChange, disabled }: { checked: boolean; onChange: () => void; disabled?: boolean }) {
+  return (
+    <button
+      type="button"
+      onClick={onChange}
+      disabled={disabled}
+      className={`relative w-11 h-6 rounded-full transition-colors shrink-0 ${checked ? 'bg-primary' : 'bg-muted'}`}
+    >
+      <span className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${checked ? 'translate-x-5' : ''}`} />
+    </button>
+  )
 }
 
 export default function Settings() {
@@ -94,13 +108,13 @@ export default function Settings() {
     setDisconnectingId(null)
   }
 
-  const [autoGenerateFocusDaily, setAutoGenerateFocusDaily] = useState(true)
+  const [autoGenerateFocusDaily, setAutoGenerateFocusDaily] = useState<Record<FocusPeriod, boolean>>({ today: true, week: true })
   const [focusDailyLoading, setFocusDailyLoading] = useState(true)
-  const [focusDailyBusy, setFocusDailyBusy] = useState(false)
+  const [focusDailyBusy, setFocusDailyBusy] = useState<Record<FocusPeriod, boolean>>({ today: false, week: false })
 
-  const [autoGenerateFocusOnChange, setAutoGenerateFocusOnChange] = useState(true)
+  const [autoGenerateFocusOnChange, setAutoGenerateFocusOnChange] = useState<Record<FocusPeriod, boolean>>({ today: true, week: true })
   const [focusOnChangeLoading, setFocusOnChangeLoading] = useState(true)
-  const [focusOnChangeBusy, setFocusOnChangeBusy] = useState(false)
+  const [focusOnChangeBusy, setFocusOnChangeBusy] = useState<Record<FocusPeriod, boolean>>({ today: false, week: false })
 
   const [showFocusSection, setShowFocusSectionState] = useState(true)
   const [showFocusSectionLoading, setShowFocusSectionLoading] = useState(true)
@@ -125,14 +139,18 @@ export default function Settings() {
   }, [])
 
   useEffect(() => {
-    getAutoGenerateFocusSummariesDaily().then(enabled => {
-      setAutoGenerateFocusDaily(enabled)
-      setFocusDailyLoading(false)
-    })
-    getAutoGenerateFocusSummariesOnChange().then(enabled => {
-      setAutoGenerateFocusOnChange(enabled)
-      setFocusOnChangeLoading(false)
-    })
+    Promise.all([getAutoGenerateFocusSummariesDaily('today'), getAutoGenerateFocusSummariesDaily('week')]).then(
+      ([today, week]) => {
+        setAutoGenerateFocusDaily({ today, week })
+        setFocusDailyLoading(false)
+      },
+    )
+    Promise.all([getAutoGenerateFocusSummariesOnChange('today'), getAutoGenerateFocusSummariesOnChange('week')]).then(
+      ([today, week]) => {
+        setAutoGenerateFocusOnChange({ today, week })
+        setFocusOnChangeLoading(false)
+      },
+    )
     getShowFocusSection().then(show => {
       setShowFocusSectionState(show)
       setShowFocusSectionLoading(false)
@@ -147,22 +165,22 @@ export default function Settings() {
     })
   }, [])
 
-  async function toggleAutoGenerateFocusDaily() {
-    setFocusDailyBusy(true)
+  async function toggleAutoGenerateFocusDaily(period: FocusPeriod) {
+    setFocusDailyBusy(busy => ({ ...busy, [period]: true }))
     haptic('selection')
-    const next = !autoGenerateFocusDaily
-    await setAutoGenerateFocusSummariesDaily(next)
-    setAutoGenerateFocusDaily(next)
-    setFocusDailyBusy(false)
+    const next = !autoGenerateFocusDaily[period]
+    await setAutoGenerateFocusSummariesDaily(period, next)
+    setAutoGenerateFocusDaily(state => ({ ...state, [period]: next }))
+    setFocusDailyBusy(busy => ({ ...busy, [period]: false }))
   }
 
-  async function toggleAutoGenerateFocusOnChange() {
-    setFocusOnChangeBusy(true)
+  async function toggleAutoGenerateFocusOnChange(period: FocusPeriod) {
+    setFocusOnChangeBusy(busy => ({ ...busy, [period]: true }))
     haptic('selection')
-    const next = !autoGenerateFocusOnChange
-    await setAutoGenerateFocusSummariesOnChange(next)
-    setAutoGenerateFocusOnChange(next)
-    setFocusOnChangeBusy(false)
+    const next = !autoGenerateFocusOnChange[period]
+    await setAutoGenerateFocusSummariesOnChange(period, next)
+    setAutoGenerateFocusOnChange(state => ({ ...state, [period]: next }))
+    setFocusOnChangeBusy(busy => ({ ...busy, [period]: false }))
   }
 
   async function toggleShowFocusSection() {
@@ -358,55 +376,53 @@ export default function Settings() {
       </div>
 
       <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2 mt-6">Focus summaries</h2>
-      <div className="bg-card border border-border rounded-2xl p-4">
-        <div className="flex items-center gap-3">
-          <div className="p-2.5 rounded-xl bg-muted">
-            <Sparkles className="h-5 w-5 text-muted-foreground" />
+      {([
+        { period: 'today', title: 'Tomorrow summary', tab: 'the "Tomorrow" Focus tab' },
+        { period: 'week', title: 'Weekly summary', tab: 'the "This Week" Focus tab' },
+      ] as const).map(({ period, title, tab }, i) => (
+        <div key={period} className={`bg-card border border-border rounded-2xl p-4 ${i > 0 ? 'mt-4' : ''}`}>
+          <div className="flex items-center gap-3 mb-4">
+            <div className="p-2.5 rounded-xl bg-muted">
+              <Sparkles className="h-5 w-5 text-muted-foreground" />
+            </div>
+            <p className="font-medium">{title}</p>
           </div>
-          <div className="flex-1 min-w-0">
-            <p className="font-medium">Daily focus refresh</p>
-            <p className="text-sm text-muted-foreground">
-              Automatically refresh the Focus section's AI summary once daily. Turn off to save API
-              usage — you can still refresh it manually anytime.
-            </p>
-          </div>
-          {!focusDailyLoading && (
-            <button
-              type="button"
-              onClick={toggleAutoGenerateFocusDaily}
-              disabled={focusDailyBusy}
-              className={`relative w-11 h-6 rounded-full transition-colors shrink-0 ${autoGenerateFocusDaily ? 'bg-primary' : 'bg-muted'}`}
-            >
-              <span className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${autoGenerateFocusDaily ? 'translate-x-5' : ''}`} />
-            </button>
-          )}
-        </div>
-      </div>
 
-      <div className="bg-card border border-border rounded-2xl p-4 mt-4">
-        <div className="flex items-center gap-3">
-          <div className="p-2.5 rounded-xl bg-muted">
-            <Sparkles className="h-5 w-5 text-muted-foreground" />
+          <div className="flex items-center gap-3">
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium">Daily refresh</p>
+              <p className="text-sm text-muted-foreground">
+                Automatically refresh {tab} once daily. Turn off to save API usage — you can still
+                refresh it manually anytime.
+              </p>
+            </div>
+            {!focusDailyLoading && (
+              <ToggleSwitch
+                checked={autoGenerateFocusDaily[period]}
+                disabled={focusDailyBusy[period]}
+                onChange={() => toggleAutoGenerateFocusDaily(period)}
+              />
+            )}
           </div>
-          <div className="flex-1 min-w-0">
-            <p className="font-medium">Refresh on todo/event changes</p>
-            <p className="text-sm text-muted-foreground">
-              Automatically refresh the Focus section's AI summary when todos or events change. Turn
-              off to save API usage — you can still refresh it manually anytime.
-            </p>
+
+          <div className="flex items-center gap-3 mt-4 pt-4 border-t border-border">
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium">Refresh on todo/event changes</p>
+              <p className="text-sm text-muted-foreground">
+                Automatically refresh {tab} when todos or events change. Turn off to save API usage —
+                you can still refresh it manually anytime.
+              </p>
+            </div>
+            {!focusOnChangeLoading && (
+              <ToggleSwitch
+                checked={autoGenerateFocusOnChange[period]}
+                disabled={focusOnChangeBusy[period]}
+                onChange={() => toggleAutoGenerateFocusOnChange(period)}
+              />
+            )}
           </div>
-          {!focusOnChangeLoading && (
-            <button
-              type="button"
-              onClick={toggleAutoGenerateFocusOnChange}
-              disabled={focusOnChangeBusy}
-              className={`relative w-11 h-6 rounded-full transition-colors shrink-0 ${autoGenerateFocusOnChange ? 'bg-primary' : 'bg-muted'}`}
-            >
-              <span className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${autoGenerateFocusOnChange ? 'translate-x-5' : ''}`} />
-            </button>
-          )}
         </div>
-      </div>
+      ))}
 
       {userId && (
         <>
