@@ -27,7 +27,7 @@ function addDays(dateStr: string, days: number): string {
   return d.toISOString().slice(0, 10)
 }
 
-async function getAutoGenerateEnabledUserIds(supabase: SupabaseClient): Promise<string[]> {
+async function getAutoGenerateEnabledUserIds(supabase: SupabaseClient): Promise<Record<Period, string[]>> {
   const ids = new Set<string>()
   const [todosRes, eventsRes, tokensRes] = await Promise.all([
     supabase.from('todos').select('user_id'),
@@ -38,13 +38,25 @@ async function getAutoGenerateEnabledUserIds(supabase: SupabaseClient): Promise<
     ids.add((row as { user_id: string }).user_id)
   }
 
-  const { data: disabledRows } = await supabase
+  const { data: settingsRows } = await supabase
     .from('user_settings')
-    .select('user_id')
-    .eq('auto_generate_focus_summaries_daily', false)
-  const disabled = new Set((disabledRows ?? []).map(row => (row as { user_id: string }).user_id))
+    .select('user_id, auto_generate_focus_summaries_daily_today, auto_generate_focus_summaries_daily_week')
+  const disabledToday = new Set<string>()
+  const disabledWeek = new Set<string>()
+  for (const row of settingsRows ?? []) {
+    const settings = row as {
+      user_id: string
+      auto_generate_focus_summaries_daily_today: boolean
+      auto_generate_focus_summaries_daily_week: boolean
+    }
+    if (settings.auto_generate_focus_summaries_daily_today === false) disabledToday.add(settings.user_id)
+    if (settings.auto_generate_focus_summaries_daily_week === false) disabledWeek.add(settings.user_id)
+  }
 
-  return [...ids].filter(id => !disabled.has(id))
+  return {
+    today: [...ids].filter(id => !disabledToday.has(id)),
+    week: [...ids].filter(id => !disabledWeek.has(id)),
+  }
 }
 
 async function callClaude(
@@ -242,8 +254,11 @@ Deno.serve(async (req: Request) => {
     if (body.user_id && body.period) {
       targets = [{ userId: body.user_id, period: body.period }]
     } else {
-      const userIds = await getAutoGenerateEnabledUserIds(supabase)
-      targets = userIds.flatMap(userId => [{ userId, period: 'today' as Period }, { userId, period: 'week' as Period }])
+      const enabled = await getAutoGenerateEnabledUserIds(supabase)
+      targets = [
+        ...enabled.today.map(userId => ({ userId, period: 'today' as Period })),
+        ...enabled.week.map(userId => ({ userId, period: 'week' as Period })),
+      ]
     }
   } else {
     if (!authHeader.startsWith('Bearer ')) {
