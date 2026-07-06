@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from 'react'
-import { ChevronLeft, ChevronRight, MapPin } from 'lucide-react'
+import { ChevronLeft, ChevronRight, MapPin, Users } from 'lucide-react'
 import { startOfMonth, endOfMonth, startOfWeek, endOfWeek, eachDayOfInterval, format, isSameMonth, isToday, addMonths, parseISO } from 'date-fns'
 import { supabase } from '../../supabase'
-import type { CalendarEvent } from '../../supabase'
+import type { CalendarEvent, Friend, EventFriend } from '../../supabase'
 import { Button } from '../../components/ui/button'
+import { Badge } from '../../components/ui/badge'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogBody } from '../../components/ui/dialog'
 import { cn, formatTime } from '../../utils'
 import { listGoogleAccounts, accountBadge, type GoogleAccount } from '../../lib/googleAccounts'
@@ -13,11 +14,15 @@ const WEEKDAY_LABELS = ['S', 'M', 'T', 'W', 'T', 'F', 'S']
 export default function MonthCalendar() {
   const [month, setMonth] = useState(() => startOfMonth(new Date()))
   const [events, setEvents] = useState<CalendarEvent[]>([])
+  const [friends, setFriends] = useState<Friend[]>([])
+  const [eventFriends, setEventFriends] = useState<EventFriend[]>([])
   const [accounts, setAccounts] = useState<Map<string, GoogleAccount>>(new Map())
   const [selectedDate, setSelectedDate] = useState<string | null>(null)
 
   useEffect(() => {
     listGoogleAccounts().then(googleAccounts => setAccounts(new Map(googleAccounts.map(a => [a.id, a]))))
+    supabase.from('friends').select('*').order('name').then(({ data }) => setFriends(data ?? []))
+    supabase.from('event_friends').select('*').then(({ data }) => setEventFriends(data ?? []))
   }, [])
 
   useEffect(() => {
@@ -26,6 +31,11 @@ export default function MonthCalendar() {
     supabase.from('events').select('*').gte('event_date', start).lte('event_date', end)
       .then(({ data }) => setEvents(data ?? []))
   }, [month])
+
+  function friendsForEvent(eventId: string): Friend[] {
+    const ids = new Set(eventFriends.filter(ef => ef.event_id === eventId).map(ef => ef.friend_id))
+    return friends.filter(f => ids.has(f.id))
+  }
 
   const eventsByDate = useMemo(() => {
     const map: Record<string, CalendarEvent[]> = {}
@@ -133,6 +143,16 @@ export default function MonthCalendar() {
                     </p>
                   )}
                   {event.notes && <p className="text-sm text-muted-foreground mt-1">{event.notes}</p>}
+                  {friendsForEvent(event.id).length > 0 && (
+                    <div className="flex items-center gap-1 flex-wrap mt-1.5">
+                      <Users className="h-3 w-3 text-muted-foreground shrink-0" />
+                      {friendsForEvent(event.id).map(friend => (
+                        <Badge key={friend.id} variant="secondary" className="px-1.5 py-0 text-[10px] font-medium">
+                          {friend.name}
+                        </Badge>
+                      ))}
+                    </div>
+                  )}
                   {event.source === 'google' && event.html_link && (
                     <a href={event.html_link} target="_blank" rel="noreferrer" className="text-xs text-primary mt-1 inline-block hover:underline">
                       Open in Google Calendar
