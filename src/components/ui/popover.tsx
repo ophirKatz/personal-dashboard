@@ -2,7 +2,14 @@ import * as React from 'react'
 import * as PopoverPrimitive from '@radix-ui/react-popover'
 import { cn } from '../../utils'
 
-const Popover = PopoverPrimitive.Root
+const Popover = (props: React.ComponentPropsWithoutRef<typeof PopoverPrimitive.Root>) => (
+  // `modal` by default: this popover is always used nested inside a modal Dialog/Drawer.
+  // Radix's DismissableLayer stack only promotes layers that opt into
+  // `disableOutsidePointerEvents` back to `pointer-events: auto`; a non-modal popover
+  // inherits the Dialog's `pointer-events: none` on <body> and becomes fully
+  // unclickable/unscrollable. Making the popover modal too fixes that.
+  <PopoverPrimitive.Root modal {...props} />
+)
 const PopoverTrigger = PopoverPrimitive.Trigger
 const PopoverAnchor = PopoverPrimitive.Anchor
 
