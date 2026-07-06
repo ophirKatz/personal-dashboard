@@ -20,6 +20,9 @@ const Files = lazy(() => import('./pages/Files'))
 const Finance = lazy(() => import('./pages/Finance'))
 const Settings = lazy(() => import('./pages/Settings'))
 const Friends = lazy(() => import('./pages/Friends'))
+const Recipes = lazy(() => import('./pages/Recipes'))
+const RecipeDetail = lazy(() => import('./pages/RecipeDetail'))
+const RecipeEditor = lazy(() => import('./pages/RecipeEditor'))
 
 function PageFallback() {
   return (
@@ -84,6 +87,10 @@ export default function App() {
           <Route path="finance" element={<Finance />} />
           <Route path="settings" element={<Settings />} />
           <Route path="friends" element={<Friends />} />
+          <Route path="recipes" element={<Recipes />} />
+          <Route path="recipes/new" element={<RecipeEditor />} />
+          <Route path="recipes/:id" element={<RecipeDetail />} />
+          <Route path="recipes/:id/edit" element={<RecipeEditor />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>
       </Routes>

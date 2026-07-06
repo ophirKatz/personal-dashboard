@@ -254,3 +254,53 @@ export type EventFriend = {
   user_id: string
   created_at: string
 }
+
+export type Recipe = {
+  id: string
+  user_id: string
+  title: string
+  description: string | null
+  servings: number
+  image_url: string | null
+  source_url: string | null
+  import_method: 'manual' | 'prompt' | 'paste' | 'link'
+  last_viewed_at: string | null
+  created_at: string
+}
+
+export type RecipeIngredient = {
+  id: string
+  recipe_id: string
+  user_id: string
+  quantity: number | null
+  unit: string | null
+  name: string
+  note: string | null
+  position: number
+  created_at: string
+}
+
+export type RecipeStep = {
+  id: string
+  recipe_id: string
+  user_id: string
+  position: number
+  instruction: string
+  created_at: string
+}
+
+export type RecipeCollection = {
+  id: string
+  user_id: string
+  name: string
+  emoji: string
+  created_at: string
+}
+
+export type RecipeCollectionItem = {
+  id: string
+  recipe_id: string
+  collection_id: string
+  user_id: string
+  created_at: string
+}
