@@ -1,15 +1,18 @@
 import { useEffect, useState } from 'react'
-import { Plus, Pencil, Trash2, ExternalLink, Link2, MapPin } from 'lucide-react'
+import { Plus, Pencil, Trash2, ExternalLink, Link2, MapPin, Users, ChevronDown } from 'lucide-react'
 import { supabase } from '../supabase'
-import type { CalendarEvent } from '../supabase'
+import type { CalendarEvent, Friend, EventFriend } from '../supabase'
 import type { User } from '@supabase/supabase-js'
 import { Button } from '../components/ui/button'
 import { Input } from '../components/ui/input'
 import { Label } from '../components/ui/label'
 import { Textarea } from '../components/ui/textarea'
+import { Checkbox } from '../components/ui/checkbox'
+import { Badge } from '../components/ui/badge'
+import { Popover, PopoverTrigger, PopoverContent } from '../components/ui/popover'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogBody, DialogFooter } from '../components/ui/dialog'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '../components/ui/tabs'
-import { today } from '../utils'
+import { today, cn, formatTime } from '../utils'
 import { format, parseISO, isToday, isTomorrow } from 'date-fns'
 import { refreshGoogleCalendarEvents } from '../features/calendar/googleCalendar'
 import { connectGoogle, isGoogleConnected } from '../lib/googleAuth'
@@ -17,77 +20,166 @@ import { listGoogleAccounts, accountBadge, type GoogleAccount } from '../lib/goo
 import MonthCalendar from '../features/calendar/MonthCalendar'
 import { Link } from 'react-router-dom'
 
-function EventForm({ open, onClose, onSave, event, userId }: {
+function EventForm({ open, onClose, onSave, event, userId, friends, linkedFriendIds }: {
   open: boolean; onClose: () => void; onSave: () => void; event?: CalendarEvent; userId: string
+  friends: Friend[]; linkedFriendIds: string[]
 }) {
+  const isGoogleEvent = event?.source === 'google'
   const [title, setTitle] = useState(event?.title ?? '')
   const [eventDate, setEventDate] = useState(event?.event_date ?? today())
   const [eventTime, setEventTime] = useState(event?.event_time ?? '')
   const [endTime, setEndTime] = useState(event?.event_end_time ?? '')
   const [location, setLocation] = useState(event?.location ?? '')
   const [notes, setNotes] = useState(event?.notes ?? '')
+  const [selectedFriendIds, setSelectedFriendIds] = useState<string[]>(linkedFriendIds)
+  const [friendsOpen, setFriendsOpen] = useState(linkedFriendIds.length > 0)
   const [saving, setSaving] = useState(false)
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    if (!title.trim()) return
+    if (!isGoogleEvent && !title.trim()) return
     setSaving(true)
-    const payload = {
-      title: title.trim(),
-      event_date: eventDate,
-      event_time: eventTime || null,
-      event_end_date: endTime ? eventDate : null,
-      event_end_time: endTime || null,
-      location: location.trim() || null,
-      notes: notes.trim() || null,
-      user_id: userId,
+
+    let eventId = event?.id
+
+    if (!isGoogleEvent) {
+      const payload = {
+        title: title.trim(),
+        event_date: eventDate,
+        event_time: eventTime || null,
+        event_end_date: endTime ? eventDate : null,
+        event_end_time: endTime || null,
+        location: location.trim() || null,
+        notes: notes.trim() || null,
+        user_id: userId,
+      }
+      if (event) {
+        await supabase.from('events').update(payload).eq('id', event.id)
+      } else {
+        const { data } = await supabase.from('events').insert(payload).select('id').single()
+        eventId = data?.id
+      }
     }
-    if (event) {
-      await supabase.from('events').update(payload).eq('id', event.id)
-    } else {
-      await supabase.from('events').insert(payload)
+
+    if (eventId) {
+      await supabase.from('event_friends').delete().eq('event_id', eventId)
+      if (selectedFriendIds.length > 0) {
+        await supabase.from('event_friends').insert(
+          selectedFriendIds.map(friendId => ({ event_id: eventId, friend_id: friendId, user_id: userId })),
+        )
+      }
     }
+
     setSaving(false)
     onSave()
     onClose()
   }
 
+  function toggleFriend(friendId: string, checked: boolean) {
+    setSelectedFriendIds(prev => checked ? [...prev, friendId] : prev.filter(id => id !== friendId))
+  }
+
   return (
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent>
-        <DialogHeader><DialogTitle>{event ? 'Edit Event' : 'New Event'}</DialogTitle></DialogHeader>
+        <DialogHeader><DialogTitle>{isGoogleEvent ? event.title : event ? 'Edit Event' : 'New Event'}</DialogTitle></DialogHeader>
         <form onSubmit={handleSubmit}>
           <DialogBody className="space-y-4">
-            <div className="space-y-2">
-              <Label>Title</Label>
-              <Input value={title} onChange={e => setTitle(e.target.value)} placeholder="Event name" autoFocus />
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <div className="space-y-2 min-w-0">
-                <Label>Date</Label>
-                <Input type="date" value={eventDate} onChange={e => setEventDate(e.target.value)} className="min-w-0" />
+            {isGoogleEvent ? (
+              <div className="space-y-1.5 text-sm text-muted-foreground">
+                <p>{format(parseISO(event.event_date), 'EEEE, MMMM d, yyyy')}{event.event_time ? ` · ${formatTime(event.event_time)}` : ''}</p>
+                {event.location && (
+                  <p className="flex items-center gap-1">
+                    <MapPin className="h-3.5 w-3.5 shrink-0" />
+                    <span>{event.location}</span>
+                  </p>
+                )}
+                {event.notes && <p>{event.notes}</p>}
+                {event.html_link && (
+                  <a href={event.html_link} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-primary hover:underline">
+                    <ExternalLink className="h-3.5 w-3.5" />
+                    Open in Google Calendar
+                  </a>
+                )}
               </div>
-              <div className="space-y-2 min-w-0">
-                <Label>Start time (optional)</Label>
-                <Input type="time" value={eventTime} onChange={e => setEventTime(e.target.value)} className="min-w-0" />
+            ) : (
+              <>
+                <div className="space-y-2">
+                  <Label>Title</Label>
+                  <Input value={title} onChange={e => setTitle(e.target.value)} placeholder="Event name" autoFocus />
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div className="space-y-2 min-w-0">
+                    <Label>Date</Label>
+                    <Input type="date" value={eventDate} onChange={e => setEventDate(e.target.value)} className="min-w-0" />
+                  </div>
+                  <div className="space-y-2 min-w-0">
+                    <Label>Start time (optional)</Label>
+                    <Input type="time" value={eventTime} onChange={e => setEventTime(e.target.value)} className="min-w-0" />
+                  </div>
+                  <div className="space-y-2 min-w-0">
+                    <Label>End time (optional)</Label>
+                    <Input type="time" value={endTime} onChange={e => setEndTime(e.target.value)} className="min-w-0" />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label>Location</Label>
+                  <Input value={location} onChange={e => setLocation(e.target.value)} placeholder="Optional location…" />
+                </div>
+                <div className="space-y-2">
+                  <Label>Notes</Label>
+                  <Textarea value={notes} onChange={e => setNotes(e.target.value)} placeholder="Optional notes…" rows={3} />
+                </div>
+              </>
+            )}
+            {friends.length > 0 && !friendsOpen && (
+              <button
+                type="button"
+                onClick={() => setFriendsOpen(true)}
+                className="flex h-9 items-center gap-1.5 rounded-full border border-dashed border-input px-3 text-sm text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+              >
+                <Users className="h-3.5 w-3.5" />
+                Friends
+              </button>
+            )}
+            {friends.length > 0 && friendsOpen && (
+              <div className="space-y-1.5">
+                <Label className="flex items-center gap-1">
+                  <Users className="h-3.5 w-3.5" />
+                  Friends (optional)
+                </Label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <button
+                      type="button"
+                      className="flex h-11 w-full items-center justify-between rounded-xl border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring"
+                    >
+                      <span className={cn('truncate text-left', selectedFriendIds.length === 0 && 'text-muted-foreground')}>
+                        {selectedFriendIds.length === 0
+                          ? 'Select friends'
+                          : friends.filter(f => selectedFriendIds.includes(f.id)).map(f => f.name).join(', ')}
+                      </span>
+                      <ChevronDown className="h-4 w-4 opacity-50 shrink-0 ml-2" />
+                    </button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[var(--radix-popover-trigger-width)] max-h-52 overflow-y-auto">
+                    {friends.map(friend => (
+                      <label key={friend.id} className="flex items-center gap-2 rounded-lg px-2 py-2 text-sm cursor-pointer hover:bg-accent">
+                        <Checkbox
+                          checked={selectedFriendIds.includes(friend.id)}
+                          onCheckedChange={checked => toggleFriend(friend.id, checked === true)}
+                        />
+                        <span dir="auto">{friend.name}</span>
+                      </label>
+                    ))}
+                  </PopoverContent>
+                </Popover>
               </div>
-              <div className="space-y-2 min-w-0">
-                <Label>End time (optional)</Label>
-                <Input type="time" value={endTime} onChange={e => setEndTime(e.target.value)} className="min-w-0" />
-              </div>
-            </div>
-            <div className="space-y-2">
-              <Label>Location</Label>
-              <Input value={location} onChange={e => setLocation(e.target.value)} placeholder="Optional location…" />
-            </div>
-            <div className="space-y-2">
-              <Label>Notes</Label>
-              <Textarea value={notes} onChange={e => setNotes(e.target.value)} placeholder="Optional notes…" rows={3} />
-            </div>
+            )}
           </DialogBody>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
-            <Button type="submit" disabled={saving || !title.trim()}>{saving ? 'Saving…' : event ? 'Save' : 'Create'}</Button>
+            <Button type="submit" disabled={saving || (!isGoogleEvent && !title.trim())}>{saving ? 'Saving…' : isGoogleEvent ? 'Save' : event ? 'Save' : 'Create'}</Button>
           </DialogFooter>
         </form>
       </DialogContent>
@@ -98,6 +190,8 @@ function EventForm({ open, onClose, onSave, event, userId }: {
 export default function Calendar() {
   const [user, setUser] = useState<User | null>(null)
   const [events, setEvents] = useState<CalendarEvent[]>([])
+  const [friends, setFriends] = useState<Friend[]>([])
+  const [eventFriends, setEventFriends] = useState<EventFriend[]>([])
   const [accounts, setAccounts] = useState<Map<string, GoogleAccount>>(new Map())
   const [googleConnected, setGoogleConnected] = useState(true)
   const [showForm, setShowForm] = useState(false)
@@ -109,15 +203,24 @@ export default function Calendar() {
   }, [])
 
   async function load() {
-    const [eventsRes, connected, googleAccounts] = await Promise.all([
+    const [eventsRes, friendsRes, eventFriendsRes, connected, googleAccounts] = await Promise.all([
       supabase.from('events').select('*').gte('event_date', today()).order('event_date').order('event_time'),
+      supabase.from('friends').select('*').order('name'),
+      supabase.from('event_friends').select('*'),
       isGoogleConnected(),
       listGoogleAccounts(),
     ])
     setEvents(eventsRes.data ?? [])
+    setFriends(friendsRes.data ?? [])
+    setEventFriends(eventFriendsRes.data ?? [])
     setGoogleConnected(connected)
     setAccounts(new Map(googleAccounts.map(a => [a.id, a])))
     setLoading(false)
+  }
+
+  function friendsForEvent(eventId: string): Friend[] {
+    const ids = new Set(eventFriends.filter(ef => ef.event_id === eventId).map(ef => ef.friend_id))
+    return friends.filter(f => ids.has(f.id))
   }
 
   useEffect(() => {
@@ -259,6 +362,16 @@ export default function Calendar() {
                             </p>
                           )}
                           {event.notes && <p className="text-sm text-muted-foreground mt-0.5 truncate">{event.notes}</p>}
+                          {friendsForEvent(event.id).length > 0 && (
+                            <div className="flex items-center gap-1 flex-wrap mt-1.5">
+                              <Users className="h-3 w-3 text-muted-foreground shrink-0" />
+                              {friendsForEvent(event.id).map(friend => (
+                                <Badge key={friend.id} variant="secondary" className="px-1.5 py-0 text-[10px] font-medium">
+                                  {friend.name}
+                                </Badge>
+                              ))}
+                            </div>
+                          )}
                         </div>
                         <div className="flex items-center gap-1">
                           {event.source === 'local' ? (
@@ -271,11 +384,16 @@ export default function Calendar() {
                               </button>
                             </>
                           ) : (
-                            event.html_link && (
-                              <a href={event.html_link} target="_blank" rel="noreferrer" className="p-1.5 rounded-lg hover:bg-accent text-muted-foreground">
-                                <ExternalLink className="h-4 w-4" />
-                              </a>
-                            )
+                            <>
+                              <button onClick={() => { setEditing(event); setShowForm(true) }} className="p-1.5 rounded-lg hover:bg-accent text-muted-foreground" title="Link friends">
+                                <Users className="h-4 w-4" />
+                              </button>
+                              {event.html_link && (
+                                <a href={event.html_link} target="_blank" rel="noreferrer" className="p-1.5 rounded-lg hover:bg-accent text-muted-foreground">
+                                  <ExternalLink className="h-4 w-4" />
+                                </a>
+                              )}
+                            </>
                           )}
                         </div>
                       </div>
@@ -293,7 +411,15 @@ export default function Calendar() {
       </Tabs>
 
       {user && showForm && (
-        <EventForm open={showForm} onClose={() => setShowForm(false)} onSave={load} event={editing} userId={user.id} />
+        <EventForm
+          open={showForm}
+          onClose={() => setShowForm(false)}
+          onSave={load}
+          event={editing}
+          userId={user.id}
+          friends={friends}
+          linkedFriendIds={editing ? friendsForEvent(editing.id).map(f => f.id) : []}
+        />
       )}
     </div>
   )

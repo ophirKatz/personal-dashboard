@@ -246,3 +246,11 @@ export type TodoFriend = {
   user_id: string
   created_at: string
 }
+
+export type EventFriend = {
+  id: string
+  event_id: string
+  friend_id: string
+  user_id: string
+  created_at: string
+}
