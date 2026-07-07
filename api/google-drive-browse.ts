@@ -36,7 +36,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     driveRes = await fetch(`https://www.googleapis.com/drive/v3/files?${params}`, {
       headers: { Authorization: `Bearer ${auth.accessToken}` },
     })
-  } catch {
+  } catch (err) {
+    console.error('google-drive-browse: Drive API request failed for user', auth.userId, err)
     res.status(502).json({ error: 'UPSTREAM_ERROR' })
     return
   }
@@ -46,6 +47,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return
   }
   if (!driveRes.ok) {
+    console.error('google-drive-browse: Drive API rejected request for user', auth.userId, driveRes.status, await driveRes.text())
     res.status(502).json({ error: 'UPSTREAM_ERROR' })
     return
   }

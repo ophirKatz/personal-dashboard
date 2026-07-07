@@ -1,9 +1,7 @@
 import { createClient, SupabaseClient } from 'npm:@supabase/supabase-js@2'
 import webpush from 'npm:web-push@3'
-
-// Fixed for now — single-user dashboard, same assumption as the
-// hardcoded 'Asia/Jerusalem' timezone in generate-focus-summary and fetch-weather.
-const LOCATION = { latitude: 32.0853, longitude: 34.7818 }
+import { APP_TIMEZONE, LOCATION } from '../_shared/constants.ts'
+import { todayInTZ } from '../_shared/time.ts'
 
 // Same WMO rain/drizzle/thunderstorm codes as WeatherWidget's CloudDrizzle/CloudRain/CloudLightning icons.
 const RAIN_WEATHER_CODES = new Set([51, 53, 55, 56, 57, 61, 63, 65, 66, 67, 80, 81, 82, 95, 96, 99])
@@ -11,19 +9,12 @@ const RAIN_PROBABILITY_THRESHOLD = 50
 
 type DailyForecast = { weatherCode: number; precipitationProbabilityMax: number }
 
-// Returns the current Asia/Jerusalem calendar date as YYYY-MM-DD, robust across
-// DST (matches the helper in accrue-habit-debt).
-function israelDate(date: Date): string {
-  const fmt = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jerusalem', year: 'numeric', month: '2-digit', day: '2-digit' })
-  return fmt.format(date)
-}
-
 async function fetchTodayForecast(): Promise<DailyForecast> {
   const params = new URLSearchParams({
     latitude: String(LOCATION.latitude),
     longitude: String(LOCATION.longitude),
     daily: 'weather_code,precipitation_probability_max',
-    timezone: 'Asia/Jerusalem',
+    timezone: APP_TIMEZONE,
     forecast_days: '1',
   })
   const res = await fetch(`https://api.open-meteo.com/v1/forecast?${params}`)
@@ -73,6 +64,7 @@ Deno.serve(async (req: Request) => {
   try {
     forecast = await fetchTodayForecast()
   } catch (err) {
+    console.error('send-rain-notification: forecast fetch failed', err)
     const message = err instanceof Error ? err.message : 'Unknown error'
     return new Response(JSON.stringify({ error: message }), { status: 502 })
   }
@@ -83,7 +75,7 @@ Deno.serve(async (req: Request) => {
     return new Response(JSON.stringify({ sent: 0, raining: false, forecast }), { status: 200 })
   }
 
-  const today = israelDate(new Date())
+  const today = todayInTZ()
   const userIds = await getAllUserIds(supabase)
   if (userIds.length === 0) {
     return new Response(JSON.stringify({ sent: 0, raining: true, forecast }), { status: 200 })
@@ -126,6 +118,8 @@ Deno.serve(async (req: Request) => {
         const statusCode = (err as { statusCode?: number }).statusCode
         if (statusCode === 404 || statusCode === 410) {
           await supabase.from('push_subscriptions').delete().eq('id', sub.id)
+        } else {
+          console.error('send-rain-notification: push send failed', userId, sub.id, err)
         }
       }
     }

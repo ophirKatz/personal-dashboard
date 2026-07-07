@@ -69,11 +69,13 @@ export async function authenticateGoogleRequest(req: VercelRequest): Promise<Aut
           grant_type: 'refresh_token',
         }),
       })
-    } catch {
+    } catch (err) {
+      console.error('_googleAuth: token refresh request failed for user', userData.user.id, err)
       return { ok: false, status: 502, error: 'UPSTREAM_ERROR' }
     }
 
     if (!refreshRes.ok) {
+      console.error('_googleAuth: token refresh rejected for user', userData.user.id, refreshRes.status, await refreshRes.text())
       return { ok: false, status: 502, error: 'REFRESH_FAILED' }
     }
 

@@ -1,8 +1,5 @@
 import { createClient, SupabaseClient } from 'npm:@supabase/supabase-js@2'
-
-// Fixed for now — single-user dashboard, same assumption as the
-// hardcoded 'Asia/Jerusalem' timezone in generate-focus-summary.
-const LOCATION = { latitude: 32.0853, longitude: 34.7818 }
+import { APP_TIMEZONE, LOCATION } from '../_shared/constants.ts'
 
 const WEATHER_CODE_LABELS: Record<number, string> = {
   0: 'Clear sky',
@@ -64,7 +61,7 @@ async function fetchCurrentWeather(): Promise<OpenMeteoResponse['current']> {
     latitude: String(LOCATION.latitude),
     longitude: String(LOCATION.longitude),
     current: 'temperature_2m,relative_humidity_2m,apparent_temperature,is_day,weather_code,wind_speed_10m',
-    timezone: 'Asia/Jerusalem',
+    timezone: APP_TIMEZONE,
   })
   const res = await fetch(`https://api.open-meteo.com/v1/forecast?${params}`)
   if (!res.ok) {
@@ -95,6 +92,7 @@ async function refreshWeatherForUser(supabase: SupabaseClient, userId: string) {
       updated_at: new Date().toISOString(),
     }, { onConflict: 'user_id' })
   } catch (err) {
+    console.error('fetch-weather: failed for user', userId, err)
     const message = err instanceof Error ? err.message : 'Unknown error'
     await supabase.from('weather_cache').upsert({
       user_id: userId,

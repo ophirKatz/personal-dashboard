@@ -54,6 +54,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     .select('state')
     .single()
   if (stateError || !stateRow) {
+    console.error('google-connect-start: failed to create oauth state for user', userData.user.id, stateError)
     res.status(500).json({ error: 'STATE_ERROR' })
     return
   }

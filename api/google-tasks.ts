@@ -41,7 +41,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         },
         body: JSON.stringify(body),
       })
-    } catch {
+    } catch (err) {
+      console.error('google-tasks: PATCH request failed for user', auth.userId, taskId, err)
       res.status(502).json({ error: 'UPSTREAM_ERROR' })
       return
     }
@@ -51,6 +52,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return
     }
     if (!patchRes.ok) {
+      console.error('google-tasks: PATCH rejected for user', auth.userId, taskId, patchRes.status, await patchRes.text())
       res.status(502).json({ error: 'UPSTREAM_ERROR' })
       return
     }
@@ -72,7 +74,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${auth.accessToken}` },
       })
-    } catch {
+    } catch (err) {
+      console.error('google-tasks: DELETE request failed for user', auth.userId, taskId, err)
       res.status(502).json({ error: 'UPSTREAM_ERROR' })
       return
     }
@@ -82,6 +85,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return
     }
     if (!deleteRes.ok && deleteRes.status !== 404) {
+      console.error('google-tasks: DELETE rejected for user', auth.userId, taskId, deleteRes.status, await deleteRes.text())
       res.status(502).json({ error: 'UPSTREAM_ERROR' })
       return
     }

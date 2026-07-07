@@ -18,12 +18,19 @@ export const QUICK_LOG_GRADES = [
   'v2-3', 'v3-4', 'v4-5', 'v5-6', 'v6-7', 'v7-8',
 ] as const
 
+// Mirrors supabase/functions/_shared/constants.ts's APP_TIMEZONE — this is a
+// single-user, Israel-based app, so "today" must agree with every server-side
+// cron/edge function regardless of the browser's own timezone, not just
+// format the device's local date. Duplicated rather than shared across the
+// Vite/browser and Deno Edge Function build systems, which can't share a module.
+const APP_TIMEZONE = 'Asia/Jerusalem'
+
 export function today(): string {
-  return format(new Date(), 'yyyy-MM-dd')
+  return new Intl.DateTimeFormat('en-CA', { timeZone: APP_TIMEZONE, year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date())
 }
 
 export function tomorrow(): string {
-  return format(dfnsAddDays(new Date(), 1), 'yyyy-MM-dd')
+  return format(dfnsAddDays(parseISO(today()), 1), 'yyyy-MM-dd')
 }
 
 export function isOverdue(dueDate: string | null): boolean {

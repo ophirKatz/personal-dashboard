@@ -90,7 +90,10 @@ async function getAccessToken(
       grant_type: 'refresh_token',
     }),
   })
-  if (!refreshRes.ok) return null
+  if (!refreshRes.ok) {
+    console.error('fetch-google-calendar: token refresh failed for account', account.id, refreshRes.status, await refreshRes.text())
+    return null
+  }
 
   const refreshed = await refreshRes.json()
   accessToken = refreshed.access_token
@@ -117,7 +120,11 @@ async function syncCalendarForAccount(supabase: SupabaseClient, account: Account
   })
 
   const res = await fetch(`${CALENDAR_BASE}?${params}`, { headers: { Authorization: `Bearer ${accessToken}` } })
-  if (!res.ok) return // insufficient scope / upstream error — best-effort, leave cache as-is
+  if (!res.ok) {
+    // insufficient scope / upstream error — best-effort, leave cache as-is
+    console.error('fetch-google-calendar: Calendar API request failed for account', account.id, res.status, await res.text())
+    return
+  }
 
   const data: { items?: GoogleEventItem[] } = await res.json()
   const events = (data.items ?? [])
@@ -240,6 +247,9 @@ Deno.serve(async (req: Request) => {
   if (isCron) {
     const accounts = await getAllAccounts(supabase)
     const results = await Promise.allSettled(accounts.map(account => syncCalendarForAccount(supabase, account, clientId, clientSecret)))
+    results.forEach((r, i) => {
+      if (r.status === 'rejected') console.error('fetch-google-calendar: sync failed for account', accounts[i].id, r.reason)
+    })
     const errors = results.filter(r => r.status === 'rejected').length
     return new Response(JSON.stringify({ processed: results.length, errors }), { status: 200 })
   }
@@ -258,6 +268,7 @@ Deno.serve(async (req: Request) => {
     await Promise.all(accounts.map(account => syncCalendarForAccount(supabase, account, clientId, clientSecret)))
     return new Response(JSON.stringify({ ok: true }), { status: 200 })
   } catch (err) {
+    console.error('fetch-google-calendar: sync failed for user', userData.user.id, err)
     const message = err instanceof Error ? err.message : 'Unknown error'
     return new Response(JSON.stringify({ error: message }), { status: 502 })
   }

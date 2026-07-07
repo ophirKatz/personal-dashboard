@@ -186,6 +186,8 @@ Deno.serve(async (req: Request) => {
         const statusCode = (err as { statusCode?: number }).statusCode
         if (statusCode === 404 || statusCode === 410) {
           await supabase.from('push_subscriptions').delete().eq('id', sub.id)
+        } else {
+          console.error('send-notifications: push send failed', notification.userId, sub.id, err)
         }
       }
     }

@@ -1,4 +1,5 @@
 import { createClient, SupabaseClient } from 'npm:@supabase/supabase-js@2'
+import { todayInTZ, addDaysUTC } from '../_shared/time.ts'
 
 type Period = 'today' | 'week'
 
@@ -16,16 +17,6 @@ type FocusCardItem = {
 }
 type FocusCard = { label: string; insight: string; items: FocusCardItem[] }
 type SummaryPayload = { type: 'cards'; cards: FocusCard[]; note: string | null } | { type: 'text'; text: string }
-
-function todayInTZ(tz: string): string {
-  return new Intl.DateTimeFormat('en-CA', { timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date())
-}
-
-function addDays(dateStr: string, days: number): string {
-  const d = new Date(`${dateStr}T00:00:00Z`)
-  d.setUTCDate(d.getUTCDate() + days)
-  return d.toISOString().slice(0, 10)
-}
 
 async function getAutoGenerateEnabledUserIds(supabase: SupabaseClient): Promise<Record<Period, string[]>> {
   const ids = new Set<string>()
@@ -173,10 +164,10 @@ async function generateFocusSummary(
   period: Period,
   secrets: { anthropicApiKey?: string },
 ): Promise<{ period: Period; summary: string }> {
-  const todayStr = todayInTZ('Asia/Jerusalem')
-  const tomorrowStr = addDays(todayStr, 1)
+  const todayStr = todayInTZ()
+  const tomorrowStr = addDaysUTC(todayStr, 1)
   const rangeStart = period === 'today' ? tomorrowStr : todayStr
-  const rangeEnd = period === 'today' ? tomorrowStr : addDays(todayStr, 6)
+  const rangeEnd = period === 'today' ? tomorrowStr : addDaysUTC(todayStr, 6)
 
   let todosQuery = supabase.from('todos').select('id, title, notes, due_date, due_time, priority').eq('user_id', userId).eq('completed', false)
   todosQuery = period === 'today'
@@ -282,6 +273,7 @@ Deno.serve(async (req: Request) => {
       const { summary } = await generateFocusSummary(supabase, target.userId, target.period, secrets)
       results.push({ userId: target.userId, period: target.period, summary })
     } catch (err) {
+      console.error('generate-focus-summary: failed for', target.userId, target.period, err)
       const message = err instanceof Error ? err.message : 'Unknown error'
       await upsertSummary(supabase, target.userId, target.period, { status: 'error', error: message })
       results.push({ userId: target.userId, period: target.period, error: message })

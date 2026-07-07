@@ -22,6 +22,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       .order('created_at')
 
     if (error) {
+      console.error('google-drive-folders: list failed for user', auth.userId, error)
       res.status(500).json({ error: 'DB_ERROR' })
       return
     }
@@ -61,6 +62,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       .single()
 
     if (error) {
+      console.error('google-drive-folders: upsert failed for user', auth.userId, folder_id, error)
       res.status(500).json({ error: 'DB_ERROR' })
       return
     }
@@ -94,6 +96,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       .eq('folder_id', folder_id)
 
     if (error) {
+      console.error('google-drive-folders: delete failed for user', auth.userId, folder_id, error)
       res.status(500).json({ error: 'DB_ERROR' })
       return
     }

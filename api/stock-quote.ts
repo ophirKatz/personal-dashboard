@@ -12,12 +12,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   let upstream: Response
   try {
     upstream = await fetch(`https://finnhub.io/api/v1/quote?symbol=${encodeURIComponent(symbol)}&token=${apiKey}`)
-  } catch {
+  } catch (err) {
+    console.error('stock-quote: Finnhub request failed for symbol', symbol, err)
     res.status(502).json({ error: 'UPSTREAM_ERROR' })
     return
   }
 
   if (!upstream.ok) {
+    console.error('stock-quote: Finnhub rejected request for symbol', symbol, upstream.status, await upstream.text())
     res.status(502).json({ error: 'UPSTREAM_ERROR' })
     return
   }

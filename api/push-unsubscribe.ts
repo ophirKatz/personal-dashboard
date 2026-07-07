@@ -19,6 +19,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return
   }
 
-  await auth.supabase.from('push_subscriptions').delete().eq('endpoint', endpoint).eq('user_id', auth.userId)
+  const { error } = await auth.supabase.from('push_subscriptions').delete().eq('endpoint', endpoint).eq('user_id', auth.userId)
+  if (error) console.error('push-unsubscribe: delete failed for user', auth.userId, error)
   res.status(200).json({ ok: true })
 }

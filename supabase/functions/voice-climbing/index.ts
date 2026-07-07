@@ -136,6 +136,7 @@ Deno.serve(async (req: Request) => {
   try {
     attempts = await extractAttempts(anthropicApiKey, transcript)
   } catch (err) {
+    console.error('voice-climbing: extraction failed for user', auth.userId, err)
     const message = err instanceof Error ? err.message : 'Unknown error'
     return new Response(JSON.stringify({ error: 'EXTRACTION_FAILED', message }), { status: 502 })
   }
@@ -156,6 +157,7 @@ Deno.serve(async (req: Request) => {
     .single()
 
   if (sessionError || !session) {
+    console.error('voice-climbing: session insert failed for user', auth.userId, sessionError)
     return new Response(JSON.stringify({ error: 'DB_ERROR' }), { status: 500 })
   }
 
@@ -165,6 +167,7 @@ Deno.serve(async (req: Request) => {
     .select()
 
   if (error) {
+    console.error('voice-climbing: attempts insert failed for user', auth.userId, error)
     return new Response(JSON.stringify({ error: 'DB_ERROR' }), { status: 500 })
   }
 

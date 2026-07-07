@@ -89,9 +89,20 @@ describe('decideHabitTap', () => {
   })
 
   it('does nothing when fully caught up and there is no log for today to undo', () => {
-    const habit = makeHabit({ debt: 0, frequency: 'weekly', times_per_week: 2 })
-    const logs = [makeLog({ logged_date: '2026-06-28', paid_debt: false })]
-    expect(decideHabitTap(habit, logs)).toEqual({ type: 'noop' })
+    // Pinned rather than relative to the real clock: the fixture log must land
+    // in the same 3-day period as "today" (2x/week -> floor(7/2) day periods,
+    // anchored to created_at) without being dated exactly today, which only
+    // holds for specific date/anchor combinations — this pairing was verified
+    // to satisfy that, but drifts if left to the wall clock.
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-06-29T12:00:00Z'))
+    try {
+      const habit = makeHabit({ debt: 0, frequency: 'weekly', times_per_week: 2 })
+      const logs = [makeLog({ logged_date: '2026-06-28', paid_debt: false })]
+      expect(decideHabitTap(habit, logs)).toEqual({ type: 'noop' })
+    } finally {
+      vi.useRealTimers()
+    }
   })
 })
 

@@ -125,6 +125,7 @@ Deno.serve(async (req: Request) => {
   try {
     names = await extractItems(anthropicApiKey, transcript)
   } catch (err) {
+    console.error('voice-shopping: extraction failed for user', auth.userId, err)
     const message = err instanceof Error ? err.message : 'Unknown error'
     return new Response(JSON.stringify({ error: 'EXTRACTION_FAILED', message }), { status: 502 })
   }
@@ -142,6 +143,7 @@ Deno.serve(async (req: Request) => {
     .select()
 
   if (error) {
+    console.error('voice-shopping: insert failed for user', auth.userId, error)
     return new Response(JSON.stringify({ error: 'DB_ERROR' }), { status: 500 })
   }
 

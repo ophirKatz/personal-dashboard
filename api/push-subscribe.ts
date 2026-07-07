@@ -24,6 +24,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     .upsert({ user_id: auth.userId, endpoint, p256dh, auth: authKey }, { onConflict: 'endpoint' })
 
   if (error) {
+    console.error('push-subscribe: upsert failed for user', auth.userId, error)
     res.status(500).json({ error: 'DB_ERROR' })
     return
   }

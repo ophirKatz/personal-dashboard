@@ -1,4 +1,5 @@
 import { createClient, SupabaseClient } from 'npm:@supabase/supabase-js@2'
+import { todayInTZ, addDaysUTC } from '../_shared/time.ts'
 
 type HabitRow = {
   id: string
@@ -9,21 +10,8 @@ type HabitRow = {
   times_per_week: number | null
 }
 
-// Returns the current Asia/Jerusalem calendar date as YYYY-MM-DD, robust across
-// DST (this app has a single user, based in Israel).
-function israelDate(date: Date): string {
-  const fmt = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jerusalem', year: 'numeric', month: '2-digit', day: '2-digit' })
-  return fmt.format(date) // en-CA formats as YYYY-MM-DD
-}
-
-function shiftDate(dateStr: string, days: number): string {
-  const d = new Date(`${dateStr}T00:00:00Z`)
-  d.setUTCDate(d.getUTCDate() + days)
-  return d.toISOString().slice(0, 10)
-}
-
 function dayBefore(dateStr: string): string {
-  return shiftDate(dateStr, -1)
+  return addDaysUTC(dateStr, -1)
 }
 
 function daysBetween(fromDateStr: string, toDateStr: string): number {
@@ -73,7 +61,7 @@ async function accrueDebt(supabase: SupabaseClient, checkDate: string): Promise<
       continue
     }
 
-    const periodStart = shiftDate(checkDate, -(periodLength - 1))
+    const periodStart = addDaysUTC(checkDate, -(periodLength - 1))
     const { data: log } = await supabase
       .from('habit_logs')
       .select('id')
@@ -107,7 +95,13 @@ Deno.serve(async (req: Request) => {
   }
 
   const supabase = createClient(supabaseUrl, serviceRoleKey)
-  const checkDate = dayBefore(israelDate(new Date()))
-  const result = await accrueDebt(supabase, checkDate)
-  return new Response(JSON.stringify({ checkDate, ...result }), { status: 200 })
+  const checkDate = dayBefore(todayInTZ())
+
+  try {
+    const result = await accrueDebt(supabase, checkDate)
+    return new Response(JSON.stringify({ checkDate, ...result }), { status: 200 })
+  } catch (err) {
+    console.error('accrue-habit-debt: failed for checkDate', checkDate, err)
+    return new Response(JSON.stringify({ error: 'ACCRUE_FAILED' }), { status: 500 })
+  }
 })

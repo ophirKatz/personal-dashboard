@@ -108,6 +108,7 @@ Deno.serve(async (req: Request) => {
   try {
     names = await callClaude(anthropicApiKey, image, mediaType)
   } catch (err) {
+    console.error('extract-shopping-items: extraction failed for user', userData.user.id, err)
     const message = err instanceof Error ? err.message : 'Unknown error'
     return new Response(JSON.stringify({ error: 'EXTRACTION_FAILED', message }), { status: 502 })
   }
@@ -122,6 +123,7 @@ Deno.serve(async (req: Request) => {
     .select()
 
   if (error) {
+    console.error('extract-shopping-items: insert failed for user', userData.user.id, error)
     return new Response(JSON.stringify({ error: 'DB_ERROR' }), { status: 500 })
   }
 

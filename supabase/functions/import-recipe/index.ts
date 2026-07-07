@@ -226,6 +226,7 @@ Deno.serve(async (req: Request) => {
       sourceText = input.trim()
     }
   } catch (err) {
+    console.error('import-recipe: link fetch failed for user', userData.user.id, sourceUrl, err)
     const message = err instanceof Error ? err.message : 'Could not read that link'
     return new Response(JSON.stringify({ error: 'FETCH_FAILED', message }), { status: 502 })
   }
@@ -235,6 +236,7 @@ Deno.serve(async (req: Request) => {
     const raw = await callClaude(anthropicApiKey, mode, sourceText)
     draft = toDraft(raw)
   } catch (err) {
+    console.error('import-recipe: import failed for user', userData.user.id, mode, err)
     const message = err instanceof Error ? err.message : 'Unknown error'
     return new Response(JSON.stringify({ error: 'IMPORT_FAILED', message }), { status: 502 })
   }

@@ -52,7 +52,10 @@ async function getAccessToken(
       grant_type: 'refresh_token',
     }),
   })
-  if (!refreshRes.ok) return null
+  if (!refreshRes.ok) {
+    console.error('fetch-google-tasks: token refresh failed for user', userId, refreshRes.status, await refreshRes.text())
+    return null
+  }
 
   const refreshed = await refreshRes.json()
   accessToken = refreshed.access_token
@@ -70,7 +73,11 @@ async function syncTasksForUser(supabase: SupabaseClient, userId: string, client
 
   const params = new URLSearchParams({ showCompleted: 'true', showHidden: 'true', maxResults: '100' })
   const res = await fetch(`${TASKS_BASE}?${params}`, { headers: { Authorization: `Bearer ${accessToken}` } })
-  if (!res.ok) return // insufficient scope / upstream error — best-effort, leave cache as-is
+  if (!res.ok) {
+    // insufficient scope / upstream error — best-effort, leave cache as-is
+    console.error('fetch-google-tasks: Tasks API request failed for user', userId, res.status, await res.text())
+    return
+  }
 
   const data: { items?: GoogleTaskItem[] } = await res.json()
   const tasks = (data.items ?? [])
@@ -136,6 +143,9 @@ Deno.serve(async (req: Request) => {
   if (isCron) {
     const userIds = await getAllUserIds(supabase)
     const results = await Promise.allSettled(userIds.map(userId => syncTasksForUser(supabase, userId, clientId, clientSecret)))
+    results.forEach((r, i) => {
+      if (r.status === 'rejected') console.error('fetch-google-tasks: sync failed for user', userIds[i], r.reason)
+    })
     const errors = results.filter(r => r.status === 'rejected').length
     return new Response(JSON.stringify({ processed: results.length, errors }), { status: 200 })
   }
@@ -153,6 +163,7 @@ Deno.serve(async (req: Request) => {
     await syncTasksForUser(supabase, userData.user.id, clientId, clientSecret)
     return new Response(JSON.stringify({ ok: true }), { status: 200 })
   } catch (err) {
+    console.error('fetch-google-tasks: sync failed for user', userData.user.id, err)
     const message = err instanceof Error ? err.message : 'Unknown error'
     return new Response(JSON.stringify({ error: message }), { status: 502 })
   }

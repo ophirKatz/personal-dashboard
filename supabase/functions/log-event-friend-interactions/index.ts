@@ -1,15 +1,8 @@
 import { createClient, SupabaseClient } from 'npm:@supabase/supabase-js@2'
+import { todayInTZ } from '../_shared/time.ts'
 
 type EventLink = { event_id: string; friend_id: string; user_id: string }
 type EventRow = { id: string; title: string; event_date: string }
-
-// Returns the current Asia/Jerusalem calendar date as YYYY-MM-DD, robust across
-// DST (this app has a single user, based in Israel) — same helper as
-// accrue-habit-debt, so "has this event passed" agrees with the rest of the app.
-function israelDate(date: Date): string {
-  const fmt = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jerusalem', year: 'numeric', month: '2-digit', day: '2-digit' })
-  return fmt.format(date) // en-CA formats as YYYY-MM-DD
-}
 
 // For every friend linked to a calendar event whose date has passed, logs a
 // friend_interactions row (event title as note, event date as interaction
@@ -69,7 +62,13 @@ Deno.serve(async (req: Request) => {
   }
 
   const supabase = createClient(supabaseUrl, serviceRoleKey)
-  const today = israelDate(new Date())
-  const result = await logPassedEventInteractions(supabase, today)
-  return new Response(JSON.stringify({ today, ...result }), { status: 200 })
+  const today = todayInTZ()
+
+  try {
+    const result = await logPassedEventInteractions(supabase, today)
+    return new Response(JSON.stringify({ today, ...result }), { status: 200 })
+  } catch (err) {
+    console.error('log-event-friend-interactions: failed for date', today, err)
+    return new Response(JSON.stringify({ error: 'LOG_FAILED' }), { status: 500 })
+  }
 })
