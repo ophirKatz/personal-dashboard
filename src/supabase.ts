@@ -1,162 +1,75 @@
 import { createClient } from '@supabase/supabase-js'
+import type { Database } from './database.types'
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string
 
+// Deliberately not parameterized with <Database>: several columns are backed by a
+// Postgres CHECK constraint the generator can't see, so it types them as plain
+// `string` — turning on strict client typing here would require touching every one
+// of this app's ~120 query call sites to reconcile that with the narrowed literal
+// types below. The generated Database type is still the source of truth for the
+// exported row types themselves, which is what actually catches schema drift.
 export const supabase = createClient(supabaseUrl, supabaseAnonKey)
 
-export type Habit = {
-  id: string
-  user_id: string
-  name: string
-  emoji: string
-  color: string
+type Row<T extends keyof Database['public']['Tables']> = Database['public']['Tables'][T]['Row']
+
+// Table columns backed by a Postgres CHECK constraint come back as plain `string`
+// from the generator (it doesn't parse constraint expressions), so those specific
+// columns are narrowed back to literal unions here for the ergonomics the rest of
+// the app relies on. Every other field is taken as-is from the generated row type,
+// so a column rename/drop in the live schema surfaces as a real compile error here
+// instead of silently drifting.
+
+export type Habit = Omit<Row<'habits'>, 'frequency'> & {
   frequency: 'daily' | 'weekly'
-  times_per_week: number | null
-  reminder_enabled: boolean
-  reminder_time: string | null
-  last_notified_date: string | null
-  created_at: string
-  debt: number
-  debt_checked_date: string | null
 }
 
-export type HabitLog = {
-  id: string
-  habit_id: string
-  user_id: string
-  logged_date: string
-  created_at: string
-  paid_debt: boolean
-}
+export type HabitLog = Row<'habit_logs'>
 
-export type Todo = {
-  id: string
-  user_id: string
-  title: string
-  notes: string | null
-  due_date: string | null
-  due_time: string | null
+export type Todo = Omit<Row<'todos'>, 'priority' | 'source' | 'recurrence_unit'> & {
   priority: 'low' | 'medium' | 'high'
-  completed: boolean
-  completed_at: string | null
-  created_at: string
-  reminder_enabled: boolean
-  remind_at: string | null
-  notified_at: string | null
   source: 'local' | 'google'
-  google_task_id: string | null
-  source_event_id: string | null
-  recurrence_interval: number | null
   recurrence_unit: 'day' | 'week' | 'month' | null
 }
 
-export type ClimbingSession = {
-  id: string
-  user_id: string
-  session_date: string
-  notes: string | null
-  created_at: string
-}
+export type ClimbingSession = Row<'climbing_sessions'>
 
-export type ClimbingAttempt = {
-  id: string
-  session_id: string
-  user_id: string
-  grade: string
+export type ClimbingAttempt = Omit<Row<'climbing_attempts'>, 'result'> & {
   result: 'sent' | 'project' | 'completed_project'
-  created_at: string
 }
 
-export type ShoppingItem = {
-  id: string
-  user_id: string
-  name: string
-  checked: boolean
-  created_at: string
-}
+export type ShoppingItem = Row<'shopping_items'>
 
-export type CalendarEvent = {
-  id: string
-  user_id: string
-  title: string
-  event_date: string
-  event_time: string | null
-  event_end_date: string | null
-  event_end_time: string | null
-  notes: string | null
-  location: string | null
-  created_at: string
+export type CalendarEvent = Omit<Row<'events'>, 'source'> & {
   source: 'local' | 'google'
-  google_event_id: string | null
-  google_account_id: string | null
-  html_link: string | null
 }
 
-export type FileRecord = {
-  id: string
-  user_id: string
-  name: string
-  folder: string
-  storage_path: string
-  notes: string | null
-  size_bytes: number
-  mime_type: string
-  created_at: string
+export type FileRecord = Omit<Row<'files'>, 'source'> & {
   source: 'local' | 'google_drive'
-  root_folder_id: string | null
-  drive_file_id: string | null
-  relative_path: string
-  drive_modified_time: string | null
-  is_starred: boolean
 }
 
-export type StockAlert = {
-  id: string
-  user_id: string
-  symbol: string
-  target_price: number
-  triggered_at: string | null
-  created_at: string
-}
+export type StockAlert = Row<'stock_alerts'>
 
-export type GoogleDriveFolder = {
-  id: string
-  user_id: string
-  folder_id: string
-  folder_name: string
-  created_at: string
+export type GoogleDriveFolder = Omit<Row<'google_drive_folders'>, 'sync_status'> & {
   sync_status: 'idle' | 'syncing' | 'error'
-  sync_error: string | null
-  last_synced_at: string | null
 }
 
-export type UserSettings = {
-  user_id: string
-  auto_generate_focus_summaries_daily_today: boolean
-  auto_generate_focus_summaries_daily_week: boolean
-  auto_generate_focus_summaries_on_change_today: boolean
-  auto_generate_focus_summaries_on_change_week: boolean
-  show_focus_section: boolean
+export type UserSettings = Omit<Row<'user_settings'>, 'default_focus_period' | 'bottom_nav_items'> & {
   default_focus_period: 'today' | 'week'
   bottom_nav_items: string[]
-  updated_at: string
 }
 
-export type FocusSummary = {
-  id: string
-  user_id: string
+export type FocusSummary = Omit<Row<'focus_summaries'>, 'period' | 'status'> & {
   period: 'today' | 'week'
-  summary: string | null
   status: 'ready' | 'error'
-  error: string | null
-  generated_at: string | null
-  updated_at: string
 }
 
 // `FocusSummary.summary` stores JSON.stringify(FocusSummaryPayload). The 'text'
 // variant covers both a malformed model response and summaries generated
-// before cards existed, so old cached rows keep rendering.
+// before cards existed, so old cached rows keep rendering. This shape lives
+// inside a `text` column, so the generator has no way to know about it —
+// kept hand-written rather than derived.
 export type FocusCardItem = {
   type: 'todo' | 'event'
   id: string
@@ -177,130 +90,35 @@ export type FocusSummaryPayload =
   | { type: 'cards'; cards: FocusCard[]; note: string | null }
   | { type: 'text'; text: string }
 
-export type WeatherCache = {
-  id: string
-  user_id: string
-  latitude: number
-  longitude: number
-  temperature: number | null
-  feels_like: number | null
-  weather_code: number | null
-  condition: string | null
-  is_day: boolean | null
-  humidity: number | null
-  wind_speed: number | null
+export type WeatherCache = Omit<Row<'weather_cache'>, 'status'> & {
   status: 'ready' | 'error'
-  error: string | null
-  fetched_at: string | null
-  updated_at: string
 }
 
-export type ApiToken = {
-  id: string
-  user_id: string
-  label: string
-  token_hash: string
-  last_used_at: string | null
-  created_at: string
-}
+export type ApiToken = Row<'api_tokens'>
 
-export type Notification = {
-  id: string
-  user_id: string
-  type: string
-  title: string
-  message: string
-  read: boolean
-  created_at: string
-}
+export type Notification = Row<'notifications'>
 
-export type Friend = {
-  id: string
-  user_id: string
-  name: string
-  notes: string | null
-  details: string | null
-  avatar_url: string | null
-  goal_count: number
+export type Friend = Omit<Row<'friends'>, 'goal_unit' | 'goal_mode'> & {
   goal_unit: 'day' | 'week' | 'month' | 'year'
   goal_mode: 'interval' | 'frequency' | 'none'
-  reminder_enabled: boolean
-  last_notified_date: string | null
-  reminder_notified_at: string | null
-  created_at: string
 }
 
-export type FriendInteraction = {
-  id: string
-  friend_id: string
-  user_id: string
-  interaction_date: string
-  note: string | null
-  created_at: string
-}
+export type FriendInteraction = Row<'friend_interactions'>
 
-export type TodoFriend = {
-  id: string
-  todo_id: string
-  friend_id: string
-  user_id: string
-  created_at: string
-}
+export type TodoFriend = Row<'todo_friends'>
 
-export type EventFriend = {
-  id: string
-  event_id: string
-  friend_id: string
-  user_id: string
-  created_at: string
-}
+export type EventFriend = Row<'event_friends'>
 
-export type Recipe = {
-  id: string
-  user_id: string
-  title: string
-  description: string | null
-  servings: number
-  image_url: string | null
-  source_url: string | null
+export type Recipe = Omit<Row<'recipes'>, 'import_method'> & {
   import_method: 'manual' | 'prompt' | 'paste' | 'link'
-  last_viewed_at: string | null
-  created_at: string
 }
 
-export type RecipeIngredient = {
-  id: string
-  recipe_id: string
-  user_id: string
-  quantity: number | null
-  unit: string | null
-  name: string
-  note: string | null
-  position: number
-  created_at: string
-}
+export type RecipeIngredient = Row<'recipe_ingredients'>
 
-export type RecipeStep = {
-  id: string
-  recipe_id: string
-  user_id: string
-  position: number
-  instruction: string
-  created_at: string
-}
+export type RecipeStep = Row<'recipe_steps'>
 
-export type RecipeCollection = {
-  id: string
-  user_id: string
-  name: string
-  emoji: string
-  created_at: string
-}
+export type RecipeCollection = Row<'recipe_collections'>
 
-export type RecipeCollectionItem = {
-  id: string
-  recipe_id: string
-  collection_id: string
-  user_id: string
-  created_at: string
-}
+export type RecipeCollectionItem = Row<'recipe_collection_items'>
+
+export type ClientError = Row<'client_errors'>
