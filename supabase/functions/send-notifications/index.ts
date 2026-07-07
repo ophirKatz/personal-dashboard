@@ -89,6 +89,7 @@ Deno.serve(async (req: Request) => {
     .from('friends')
     .select('id, user_id, name, goal_count, goal_unit, goal_mode, notes, reminder_enabled, last_notified_date, created_at')
     .eq('reminder_enabled', true)
+    .neq('goal_mode', 'none')
 
   const friendIds = (dueFriends ?? []).map((f: { id: string }) => f.id)
   const { data: friendInteractions } = friendIds.length

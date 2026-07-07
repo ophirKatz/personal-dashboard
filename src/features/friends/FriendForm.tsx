@@ -80,6 +80,9 @@ export default function FriendForm({ open, onClose, onSave, friend, userId }: Pr
     if (mode === 'frequency' && goalUnit === 'year') {
       setGoalUnit('month')
     }
+    if (mode === 'none') {
+      setReminderEnabled(false)
+    }
   }
 
   function handleUnitChange(u: GoalUnit) {
@@ -180,54 +183,60 @@ export default function FriendForm({ open, onClose, onSave, friend, userId }: Pr
             <div className="space-y-3">
               <Label>Goal</Label>
               <div className="flex rounded-lg border border-input p-0.5 gap-0.5">
-                {(['interval', 'frequency'] as GoalMode[]).map(mode => (
+                {(['interval', 'frequency', 'none'] as GoalMode[]).map(mode => (
                   <button
                     key={mode}
                     type="button"
                     onClick={() => handleModeChange(mode)}
                     className={`flex-1 py-1.5 text-sm font-medium rounded-md transition-colors ${goalMode === mode ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'}`}
                   >
-                    {mode === 'interval' ? 'Every N' : 'N times per'}
+                    {mode === 'interval' ? 'Every N' : mode === 'frequency' ? 'N times per' : "Don't track"}
                   </button>
                 ))}
               </div>
-              <div className="flex flex-wrap items-center gap-2">
-                {goalMode === 'interval' && (
-                  <span className="text-sm text-muted-foreground">Every</span>
-                )}
-                <button type="button" onClick={() => setGoalCount(c => Math.max(1, c - 1))} className="w-8 h-8 rounded-lg border flex items-center justify-center hover:bg-accent">−</button>
-                <span className="w-6 text-center font-medium">{goalCount}</span>
-                <button type="button" onClick={() => setGoalCount(c => Math.min(maxCount, c + 1))} className="w-8 h-8 rounded-lg border flex items-center justify-center hover:bg-accent">+</button>
-                {goalMode === 'frequency' && (
-                  <span className="text-sm text-muted-foreground">times per</span>
-                )}
-                <div className="flex gap-1 flex-wrap">
-                  {availableUnits.map(u => (
-                    <button
-                      key={u}
-                      type="button"
-                      onClick={() => handleUnitChange(u)}
-                      className={`px-3 py-1.5 rounded-lg border text-sm font-medium capitalize transition-colors ${goalUnit === u ? 'bg-primary text-primary-foreground border-primary' : 'border-input hover:bg-accent'}`}
-                    >
-                      {goalMode === 'interval'
-                        ? (goalCount === 1 ? u : u + 's')
-                        : u}
-                    </button>
-                  ))}
+              {goalMode === 'none' ? (
+                <p className="text-xs text-muted-foreground">No goal, no overdue status, no reminders. You can still link this friend to tasks and calendar events.</p>
+              ) : (
+                <div className="flex flex-wrap items-center gap-2">
+                  {goalMode === 'interval' && (
+                    <span className="text-sm text-muted-foreground">Every</span>
+                  )}
+                  <button type="button" onClick={() => setGoalCount(c => Math.max(1, c - 1))} className="w-8 h-8 rounded-lg border flex items-center justify-center hover:bg-accent">−</button>
+                  <span className="w-6 text-center font-medium">{goalCount}</span>
+                  <button type="button" onClick={() => setGoalCount(c => Math.min(maxCount, c + 1))} className="w-8 h-8 rounded-lg border flex items-center justify-center hover:bg-accent">+</button>
+                  {goalMode === 'frequency' && (
+                    <span className="text-sm text-muted-foreground">times per</span>
+                  )}
+                  <div className="flex gap-1 flex-wrap">
+                    {availableUnits.map(u => (
+                      <button
+                        key={u}
+                        type="button"
+                        onClick={() => handleUnitChange(u)}
+                        className={`px-3 py-1.5 rounded-lg border text-sm font-medium capitalize transition-colors ${goalUnit === u ? 'bg-primary text-primary-foreground border-primary' : 'border-input hover:bg-accent'}`}
+                      >
+                        {goalMode === 'interval'
+                          ? (goalCount === 1 ? u : u + 's')
+                          : u}
+                      </button>
+                    ))}
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
 
-            <div className="flex items-center justify-between">
-              <Label className="flex items-center gap-1.5"><Bell className="h-3.5 w-3.5" />Reminders</Label>
-              <button
-                type="button"
-                onClick={() => { haptic('selection'); setReminderEnabled(r => !r) }}
-                className={`relative w-11 h-6 rounded-full transition-colors ${reminderEnabled ? 'bg-primary' : 'bg-muted'}`}
-              >
-                <span className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${reminderEnabled ? 'translate-x-5' : ''}`} />
-              </button>
-            </div>
+            {goalMode !== 'none' && (
+              <div className="flex items-center justify-between">
+                <Label className="flex items-center gap-1.5"><Bell className="h-3.5 w-3.5" />Reminders</Label>
+                <button
+                  type="button"
+                  onClick={() => { haptic('selection'); setReminderEnabled(r => !r) }}
+                  className={`relative w-11 h-6 rounded-full transition-colors ${reminderEnabled ? 'bg-primary' : 'bg-muted'}`}
+                >
+                  <span className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${reminderEnabled ? 'translate-x-5' : ''}`} />
+                </button>
+              </div>
+            )}
           </DialogBody>
           {saveError && <p className="px-4 text-xs text-destructive">{saveError}</p>}
           <DialogFooter>

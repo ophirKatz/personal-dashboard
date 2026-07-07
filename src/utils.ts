@@ -132,6 +132,7 @@ export function isHabitDueToday(habit: Habit, logs: HabitLog[]): boolean {
 const FRIEND_GOAL_UNIT_DAYS: Record<Friend['goal_unit'], number> = { day: 1, week: 7, month: 30, year: 365 }
 
 export function formatFriendGoal(count: number, unit: Friend['goal_unit'], mode: Friend['goal_mode'] = 'interval'): string {
+  if (mode === 'none') return 'Not tracked'
   if (mode === 'frequency') {
     return count === 1 ? `Once a ${unit}` : `${count}x a ${unit}`
   }
@@ -139,6 +140,7 @@ export function formatFriendGoal(count: number, unit: Friend['goal_unit'], mode:
 }
 
 export function friendTargetIntervalDays(friend: Friend): number {
+  if (friend.goal_mode === 'none') return Infinity
   const days = FRIEND_GOAL_UNIT_DAYS[friend.goal_unit]
   return friend.goal_mode === 'frequency'
     ? Math.max(1, Math.round(days / friend.goal_count))
