@@ -22,22 +22,46 @@ export function decideHabitTap(habit: Habit, logs: HabitLog[]): HabitTapAction {
   return { type: 'undo', logId: mostRecentToday.id, refundDebt: mostRecentToday.paid_debt }
 }
 
-export async function executeHabitTap(habit: Habit, action: HabitTapAction): Promise<void> {
+// Lets callers update local state directly from the result instead of
+// re-fetching habits/logs after every tap — newDebt is null when the tap
+// didn't touch debt, so callers can skip that part of the state update.
+export type HabitTapResult =
+  | { type: 'insert'; log: HabitLog; newDebt: number | null }
+  | { type: 'delete'; logId: string; newDebt: number | null }
+  | { type: 'noop' }
+
+export async function executeHabitTap(habit: Habit, action: HabitTapAction): Promise<HabitTapResult> {
   if (action.type === 'pay') {
     const { data: { user } } = await supabase.auth.getUser()
-    await supabase.from('habit_logs').insert({
-      habit_id: habit.id,
-      user_id: user!.id,
-      logged_date: today(),
-      paid_debt: action.paidDebt,
-    })
+    const { data: log, error } = await supabase
+      .from('habit_logs')
+      .insert({
+        habit_id: habit.id,
+        user_id: user!.id,
+        logged_date: today(),
+        paid_debt: action.paidDebt,
+      })
+      .select()
+      .single()
+    if (error || !log) throw error ?? new Error('Failed to insert habit log')
+
+    let newDebt: number | null = null
     if (action.paidDebt) {
-      await supabase.from('habits').update({ debt: habit.debt - 1 }).eq('id', habit.id)
+      newDebt = habit.debt - 1
+      await supabase.from('habits').update({ debt: newDebt }).eq('id', habit.id)
     }
-  } else if (action.type === 'undo') {
-    await supabase.from('habit_logs').delete().eq('id', action.logId)
-    if (action.refundDebt) {
-      await supabase.from('habits').update({ debt: habit.debt + 1 }).eq('id', habit.id)
-    }
+    return { type: 'insert', log: log as HabitLog, newDebt }
   }
+
+  if (action.type === 'undo') {
+    await supabase.from('habit_logs').delete().eq('id', action.logId)
+    let newDebt: number | null = null
+    if (action.refundDebt) {
+      newDebt = habit.debt + 1
+      await supabase.from('habits').update({ debt: newDebt }).eq('id', habit.id)
+    }
+    return { type: 'delete', logId: action.logId, newDebt }
+  }
+
+  return { type: 'noop' }
 }

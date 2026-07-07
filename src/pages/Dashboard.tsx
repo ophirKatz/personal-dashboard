@@ -106,14 +106,15 @@ export default function Dashboard() {
   }, [])
 
   async function toggleHabit(habit: Habit) {
-    await executeHabitTap(habit, decideHabitTap(habit, recentHabitLogs))
-    const habitLogsSince = format(addDays(new Date(), -7), 'yyyy-MM-dd')
-    const [{ data: logsData }, { data: habitsData }] = await Promise.all([
-      supabase.from('habit_logs').select('*').gte('logged_date', habitLogsSince),
-      supabase.from('habits').select('*').order('created_at'),
-    ])
-    setRecentHabitLogs(logsData ?? [])
-    setHabits(habitsData ?? [])
+    const result = await executeHabitTap(habit, decideHabitTap(habit, recentHabitLogs))
+    if (result.type === 'insert') {
+      setRecentHabitLogs(prev => [...prev, result.log])
+    } else if (result.type === 'delete') {
+      setRecentHabitLogs(prev => prev.filter(l => l.id !== result.logId))
+    }
+    if (result.type !== 'noop' && result.newDebt !== null) {
+      setHabits(prev => prev.map(h => (h.id === habit.id ? { ...h, debt: result.newDebt! } : h)))
+    }
   }
 
   async function dismissNotification(id: string) {

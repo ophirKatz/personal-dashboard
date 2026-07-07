@@ -1,15 +1,15 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest'
-import type { Habit, HabitLog } from '../../supabase'
-import { today } from '../../utils'
+import { makeHabit, makeLog } from '../../testHelpers'
 
-const { authGetUser, fromMock, insertMock, updateMock, deleteMock, eqMock } = vi.hoisted(() => {
+const { authGetUser, fromMock, insertMock, singleMock, updateMock, deleteMock, eqMock } = vi.hoisted(() => {
   const eqMock = vi.fn().mockResolvedValue({ data: null, error: null })
-  const insertMock = vi.fn().mockResolvedValue({ data: null, error: null })
+  const singleMock = vi.fn().mockResolvedValue({ data: { id: 'log-1' }, error: null })
+  const insertMock = vi.fn(() => ({ select: () => ({ single: singleMock }) }))
   const updateMock = vi.fn(() => ({ eq: eqMock }))
   const deleteMock = vi.fn(() => ({ eq: eqMock }))
   const fromMock = vi.fn(() => ({ insert: insertMock, update: updateMock, delete: deleteMock }))
   const authGetUser = vi.fn().mockResolvedValue({ data: { user: { id: 'user-1' } } })
-  return { authGetUser, fromMock, insertMock, updateMock, deleteMock, eqMock }
+  return { authGetUser, fromMock, insertMock, singleMock, updateMock, deleteMock, eqMock }
 })
 
 vi.mock('../../supabase', () => ({
@@ -20,37 +20,6 @@ vi.mock('../../supabase', () => ({
 }))
 
 const { decideHabitTap, executeHabitTap } = await import('./habitTaps')
-
-function makeHabit(overrides: Partial<Habit> = {}): Habit {
-  return {
-    id: 'habit-1',
-    user_id: 'user-1',
-    name: 'Daily pushups',
-    emoji: '💪',
-    color: '#3b82f6',
-    frequency: 'daily',
-    times_per_week: null,
-    reminder_enabled: false,
-    reminder_time: null,
-    last_notified_date: null,
-    created_at: '2026-01-01T00:00:00.000Z',
-    debt: 0,
-    debt_checked_date: null,
-    ...overrides,
-  }
-}
-
-function makeLog(overrides: Partial<HabitLog> = {}): HabitLog {
-  return {
-    id: 'log-1',
-    habit_id: 'habit-1',
-    user_id: 'user-1',
-    logged_date: today(),
-    created_at: '2026-06-29T08:00:00.000Z',
-    paid_debt: false,
-    ...overrides,
-  }
-}
 
 describe('decideHabitTap', () => {
   it('pays down debt on the first tap of the day, without logging yet', () => {
@@ -110,6 +79,7 @@ describe('executeHabitTap', () => {
   beforeEach(() => {
     fromMock.mockClear()
     insertMock.mockClear()
+    singleMock.mockClear()
     updateMock.mockClear()
     deleteMock.mockClear()
     eqMock.mockClear()
@@ -117,39 +87,43 @@ describe('executeHabitTap', () => {
 
   it('inserts a log and decrements debt when paying down debt', async () => {
     const habit = makeHabit({ id: 'habit-1', debt: 2 })
-    await executeHabitTap(habit, { type: 'pay', paidDebt: true })
+    const result = await executeHabitTap(habit, { type: 'pay', paidDebt: true })
 
     expect(insertMock).toHaveBeenCalledWith(
       expect.objectContaining({ habit_id: 'habit-1', user_id: 'user-1', paid_debt: true }),
     )
     expect(updateMock).toHaveBeenCalledWith({ debt: 1 })
+    expect(result).toEqual({ type: 'insert', log: { id: 'log-1' }, newDebt: 1 })
   })
 
   it('inserts a log without touching debt when there is nothing to pay', async () => {
     const habit = makeHabit({ id: 'habit-1', debt: 0 })
-    await executeHabitTap(habit, { type: 'pay', paidDebt: false })
+    const result = await executeHabitTap(habit, { type: 'pay', paidDebt: false })
 
     expect(insertMock).toHaveBeenCalledWith(
       expect.objectContaining({ habit_id: 'habit-1', paid_debt: false }),
     )
     expect(updateMock).not.toHaveBeenCalled()
+    expect(result).toEqual({ type: 'insert', log: { id: 'log-1' }, newDebt: null })
   })
 
   it('deletes the log and refunds debt when undoing', async () => {
     const habit = makeHabit({ id: 'habit-1', debt: 0 })
-    await executeHabitTap(habit, { type: 'undo', logId: 'log-2', refundDebt: true })
+    const result = await executeHabitTap(habit, { type: 'undo', logId: 'log-2', refundDebt: true })
 
     expect(deleteMock).toHaveBeenCalled()
     expect(eqMock).toHaveBeenCalledWith('id', 'log-2')
     expect(updateMock).toHaveBeenCalledWith({ debt: 1 })
+    expect(result).toEqual({ type: 'delete', logId: 'log-2', newDebt: 1 })
   })
 
   it('does nothing on noop', async () => {
     const habit = makeHabit({ id: 'habit-1', debt: 0 })
-    await executeHabitTap(habit, { type: 'noop' })
+    const result = await executeHabitTap(habit, { type: 'noop' })
 
     expect(insertMock).not.toHaveBeenCalled()
     expect(deleteMock).not.toHaveBeenCalled()
     expect(updateMock).not.toHaveBeenCalled()
+    expect(result).toEqual({ type: 'noop' })
   })
 })
