@@ -127,7 +127,8 @@ export default function FriendForm({ open, onClose, onSave, friend, userId }: Pr
       : await supabase.from('friends').insert(payload)
 
     if (error) {
-      setSaveError('Could not save friend. Please try again.')
+      console.error('Could not save friend', error)
+      setSaveError(`Could not save friend: ${error.message}`)
       setSaving(false)
       return
     }
