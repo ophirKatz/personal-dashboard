@@ -637,6 +637,37 @@ step 1g's "Enabling notifications on iPhone" instructions once.
 
 ---
 
+## 1n. Friend interactions from passed calendar events
+
+When a calendar event with linked friends (the "Friends" picker on an event, backed by the
+`event_friends` table) moves into the past, each linked friend automatically gets a
+`friend_interactions` row logged for it — the event's title as the note, the event's date as the
+interaction date. No in-app action needed; this is purely time-based, the same way habit debt and
+rain notifications are.
+
+**How it works:** a new Edge Function (`supabase/functions/log-event-friend-interactions`) starts
+from `event_friends` (only events a friend was ever explicitly linked to — small, regardless of how
+large `events` grows from calendar sync) and joins into `events` to find any whose `event_date` is
+before today (Asia/Jerusalem calendar date, same helper as `accrue-habit-debt`). For every match it
+upserts a `friend_interactions` row per friend, deduped via the new `friend_id, source_event_id`
+unique index so re-running it is a no-op for events already logged.
+- **Daily 7am check:** a `pg_cron` job (`log-event-friend-interactions-daily`) calls the function
+  every day at 4am UTC — same ≈7am Asia/Jerusalem during daylight saving / ≈6am in winter caveat as
+  the other 4am-UTC crons (steps 1h, 1l, 1m).
+- Authenticates the same way every other cron-triggered function in this app does — via the
+  `cron_secret` already stored in Supabase Vault. No new secret was needed.
+
+**This was already set up for you (via MCPs), no action needed:**
+- `friend_interactions.source_event_id` (uuid, nullable, references `events.id` on delete set null)
+  and a `friend_interactions(friend_id, source_event_id)` unique index
+- The `log-event-friend-interactions` Edge Function, deployed at
+  `https://tjjvrqamitwtoslinrxy.supabase.co/functions/v1/log-event-friend-interactions`
+- The `log-event-friend-interactions-daily` cron job
+
+**No manual action required.**
+
+---
+
 ## 2. Vercel — Environment Variables
 
 As part of the import in step 0 (or right after), set these environment variables in the Vercel dashboard:
