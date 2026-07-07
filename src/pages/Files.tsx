@@ -14,6 +14,7 @@ import { DriveFolderPicker } from '../features/drive/DriveFolderPicker'
 import { fetchSelectedDriveFolders, addDriveFolder, removeDriveFolder, syncDriveFolder } from '../features/drive/googleDrive'
 import type { DriveFolder } from '../features/drive/googleDrive'
 import StarredFilesGrid from '../features/files/StarredFilesGrid'
+import { mustList } from '../lib/supabaseQuery'
 
 const FileViewer = lazy(() => import('../components/FileViewer').then(m => ({ default: m.FileViewer })))
 
@@ -39,6 +40,7 @@ export default function Files() {
   const [uploading, setUploading] = useState(false)
   const [uploadProgress, setUploadProgress] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState(false)
   const [viewingFile, setViewingFile] = useState<FileRecord | null>(null)
   const [search, setSearch] = useState('')
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -48,14 +50,20 @@ export default function Files() {
   }, [])
 
   async function load() {
-    const [filesRes, driveRes] = await Promise.all([
-      supabase.from('files').select('*').order('created_at', { ascending: false }),
-      fetchSelectedDriveFolders(),
-    ])
-    setFiles(filesRes.data ?? [])
-    setGoogleConnected(driveRes.connected)
-    setGoogleFolders(driveRes.folders)
-    setLoading(false)
+    try {
+      const [filesData, driveRes] = await Promise.all([
+        mustList<FileRecord>(supabase.from('files').select('*').order('created_at', { ascending: false }), 'load files'),
+        fetchSelectedDriveFolders(),
+      ])
+      setFiles(filesData)
+      setGoogleConnected(driveRes.connected)
+      setGoogleFolders(driveRes.folders)
+      setLoadError(false)
+    } catch {
+      setLoadError(true)
+    } finally {
+      setLoading(false)
+    }
   }
 
   useEffect(() => { load() }, [])
@@ -471,6 +479,18 @@ export default function Files() {
           ))}
         </div>
       </div>
+
+      {loadError && (
+        <div className="flex items-center justify-between gap-3 mb-5 p-3.5 rounded-xl border border-destructive/30 bg-destructive/5 text-sm">
+          <span>Couldn't load your files.</span>
+          <button
+            onClick={() => { setLoading(true); load() }}
+            className="font-medium text-primary hover:underline shrink-0"
+          >
+            Retry
+          </button>
+        </div>
+      )}
 
       <div className="relative mb-5">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />

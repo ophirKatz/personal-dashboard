@@ -8,6 +8,7 @@ import { Fab } from '../components/ui/fab'
 import RecipeCard from '../features/recipes/RecipeCard'
 import CollectionsRail from '../features/recipes/CollectionsRail'
 import AddRecipeSheet from '../features/recipes/AddRecipeSheet'
+import { mustList } from '../lib/supabaseQuery'
 
 export default function Recipes() {
   const [user, setUser] = useState<User | null>(null)
@@ -15,6 +16,7 @@ export default function Recipes() {
   const [collections, setCollections] = useState<RecipeCollection[]>([])
   const [collectionItems, setCollectionItems] = useState<RecipeCollectionItem[]>([])
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState(false)
   const [search, setSearch] = useState('')
   const [selectedCollectionId, setSelectedCollectionId] = useState<string | null>(null)
   const [showAddSheet, setShowAddSheet] = useState(false)
@@ -24,15 +26,21 @@ export default function Recipes() {
   }, [])
 
   async function load() {
-    const [recipesRes, collectionsRes, itemsRes] = await Promise.all([
-      supabase.from('recipes').select('*').order('created_at', { ascending: false }),
-      supabase.from('recipe_collections').select('*').order('name'),
-      supabase.from('recipe_collection_items').select('*'),
-    ])
-    setRecipes(recipesRes.data ?? [])
-    setCollections(collectionsRes.data ?? [])
-    setCollectionItems(itemsRes.data ?? [])
-    setLoading(false)
+    try {
+      const [recipesData, collectionsData, itemsData] = await Promise.all([
+        mustList<Recipe>(supabase.from('recipes').select('*').order('created_at', { ascending: false }), 'load recipes'),
+        mustList<RecipeCollection>(supabase.from('recipe_collections').select('*').order('name'), 'load recipe collections'),
+        mustList<RecipeCollectionItem>(supabase.from('recipe_collection_items').select('*'), 'load recipe collection items'),
+      ])
+      setRecipes(recipesData)
+      setCollections(collectionsData)
+      setCollectionItems(itemsData)
+      setLoadError(false)
+    } catch {
+      setLoadError(true)
+    } finally {
+      setLoading(false)
+    }
   }
 
   useEffect(() => { load() }, [])
@@ -70,6 +78,18 @@ export default function Recipes() {
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
         <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search recipes…" className="pl-9" />
       </div>
+
+      {loadError && (
+        <div className="flex items-center justify-between gap-3 p-3.5 rounded-xl border border-destructive/30 bg-destructive/5 text-sm">
+          <span>Couldn't load your recipes.</span>
+          <button
+            onClick={() => { setLoading(true); load() }}
+            className="font-medium text-primary hover:underline shrink-0"
+          >
+            Retry
+          </button>
+        </div>
+      )}
 
       {loading ? (
         <div className="flex justify-center py-12"><div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" /></div>

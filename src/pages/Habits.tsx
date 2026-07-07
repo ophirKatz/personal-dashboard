@@ -6,6 +6,7 @@ import type { User } from '@supabase/supabase-js'
 import HabitCard from '../features/habits/HabitCard'
 import HabitForm from '../features/habits/HabitForm'
 import { Button } from '../components/ui/button'
+import { mustList } from '../lib/supabaseQuery'
 
 export default function Habits() {
   const [user, setUser] = useState<User | null>(null)
@@ -14,19 +15,26 @@ export default function Habits() {
   const [showForm, setShowForm] = useState(false)
   const [editingHabit, setEditingHabit] = useState<Habit | undefined>()
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState(false)
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => setUser(user))
   }, [])
 
   async function load() {
-    const [habitsRes, logsRes] = await Promise.all([
-      supabase.from('habits').select('*').order('created_at'),
-      supabase.from('habit_logs').select('*').gte('logged_date', new Date(Date.now() - 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]),
-    ])
-    setHabits(habitsRes.data ?? [])
-    setLogs(logsRes.data ?? [])
-    setLoading(false)
+    try {
+      const [habitsData, logsData] = await Promise.all([
+        mustList<Habit>(supabase.from('habits').select('*').order('created_at'), 'load habits'),
+        mustList<HabitLog>(supabase.from('habit_logs').select('*').gte('logged_date', new Date(Date.now() - 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]), 'load habit logs'),
+      ])
+      setHabits(habitsData)
+      setLogs(logsData)
+      setLoadError(false)
+    } catch {
+      setLoadError(true)
+    } finally {
+      setLoading(false)
+    }
   }
 
   useEffect(() => { load() }, [])
@@ -52,6 +60,18 @@ export default function Habits() {
           <Plus className="h-5 w-5" />
         </Button>
       </div>
+
+      {loadError && (
+        <div className="flex items-center justify-between gap-3 mb-5 p-3.5 rounded-xl border border-destructive/30 bg-destructive/5 text-sm">
+          <span>Couldn't load your habits.</span>
+          <button
+            onClick={() => { setLoading(true); load() }}
+            className="font-medium text-primary hover:underline shrink-0"
+          >
+            Retry
+          </button>
+        </div>
+      )}
 
       {loading ? (
         <div className="flex justify-center py-12">

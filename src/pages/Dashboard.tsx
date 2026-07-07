@@ -23,6 +23,7 @@ import StarredFilesDrawer from '../features/files/StarredFilesDrawer'
 import TaskDrawer from '../features/todos/TaskDrawer'
 import { Button } from '../components/ui/button'
 import { decideHabitTap, executeHabitTap } from '../features/habits/habitTaps'
+import { mustList } from '../lib/supabaseQuery'
 
 const USER_NAME = 'Ophir'
 
@@ -33,6 +34,7 @@ export default function Dashboard() {
   const [events, setEvents] = useState<CalendarEvent[]>([])
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState(false)
   const [showFocusSection, setShowFocusSection] = useState(true)
   const [user, setUser] = useState<User | null>(null)
   const [showAddItem, setShowAddItem] = useState(false)
@@ -71,22 +73,28 @@ export default function Dashboard() {
     // (even 1x/week) currently sits in — see isHabitDueToday in utils.ts.
     const habitLogsSince = format(addDays(new Date(), -7), 'yyyy-MM-dd')
 
-    const [habitsRes, logsRes, todosRes, eventsRes, notificationsRes, friendsRes] = await Promise.all([
-      supabase.from('habits').select('*').order('created_at'),
-      supabase.from('habit_logs').select('*').gte('logged_date', habitLogsSince),
-      supabase.from('todos').select('*').eq('completed', false).or(`due_date.eq.${t},due_date.is.null`).order('created_at'),
-      supabase.from('events').select('*').gte('event_date', t).lte('event_date', in7).order('event_date').order('event_time'),
-      supabase.from('notifications').select('*').eq('read', false).order('created_at', { ascending: false }),
-      supabase.from('friends').select('*').order('name'),
-    ])
+    try {
+      const [habitsData, logsData, todosData, eventsData, notificationsData, friendsData] = await Promise.all([
+        mustList<Habit>(supabase.from('habits').select('*').order('created_at'), 'load habits'),
+        mustList<HabitLog>(supabase.from('habit_logs').select('*').gte('logged_date', habitLogsSince), 'load habit logs'),
+        mustList<Todo>(supabase.from('todos').select('*').eq('completed', false).or(`due_date.eq.${t},due_date.is.null`).order('created_at'), 'load todos'),
+        mustList<CalendarEvent>(supabase.from('events').select('*').gte('event_date', t).lte('event_date', in7).order('event_date').order('event_time'), 'load events'),
+        mustList<Notification>(supabase.from('notifications').select('*').eq('read', false).order('created_at', { ascending: false }), 'load notifications'),
+        mustList<Friend>(supabase.from('friends').select('*').order('name'), 'load friends'),
+      ])
 
-    setHabits(habitsRes.data ?? [])
-    setRecentHabitLogs(logsRes.data ?? [])
-    setTodos(todosRes.data ?? [])
-    setEvents(eventsRes.data ?? [])
-    setNotifications(notificationsRes.data ?? [])
-    setFriends(friendsRes.data ?? [])
-    setLoading(false)
+      setHabits(habitsData)
+      setRecentHabitLogs(logsData)
+      setTodos(todosData)
+      setEvents(eventsData)
+      setNotifications(notificationsData)
+      setFriends(friendsData)
+      setLoadError(false)
+    } catch {
+      setLoadError(true)
+    } finally {
+      setLoading(false)
+    }
   }
 
   useEffect(() => {
@@ -192,6 +200,18 @@ export default function Dashboard() {
           <Plus className="h-5 w-5" />
         </Button>
       </div>
+
+      {loadError && (
+        <div className="flex items-center justify-between gap-3 p-3.5 rounded-xl border border-destructive/30 bg-destructive/5 text-sm">
+          <span>Couldn't load your dashboard data.</span>
+          <button
+            onClick={() => { setLoading(true); loadLocalData() }}
+            className="font-medium text-primary hover:underline shrink-0"
+          >
+            Retry
+          </button>
+        </div>
+      )}
 
       {/* Notifications */}
       {!loading && notifications.length > 0 && (

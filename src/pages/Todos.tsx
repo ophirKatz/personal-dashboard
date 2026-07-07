@@ -10,6 +10,7 @@ import { refreshGoogleTasks, deleteGoogleTask } from '../features/todos/googleTa
 import { connectGoogle, isGoogleConnected } from '../lib/googleAuth'
 import { Fab } from '../components/ui/fab'
 import { today } from '../utils'
+import { mustList } from '../lib/supabaseQuery'
 
 type Filter = 'today' | 'upcoming' | 'all' | 'completed'
 
@@ -35,23 +36,30 @@ export default function Todos() {
   const [showForm, setShowForm] = useState(false)
   const [editingTodo, setEditingTodo] = useState<Todo | undefined>()
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState(false)
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => setUser(user))
   }, [])
 
   async function load() {
-    const [todosRes, friendsRes, todoFriendsRes, connected] = await Promise.all([
-      supabase.from('todos').select('*').order('created_at', { ascending: false }),
-      supabase.from('friends').select('*').order('name'),
-      supabase.from('todo_friends').select('*'),
-      isGoogleConnected(),
-    ])
-    setTodos(todosRes.data ?? [])
-    setFriends(friendsRes.data ?? [])
-    setTodoFriends(todoFriendsRes.data ?? [])
-    setGoogleConnected(connected)
-    setLoading(false)
+    try {
+      const [todosData, friendsData, todoFriendsData, connected] = await Promise.all([
+        mustList<Todo>(supabase.from('todos').select('*').order('created_at', { ascending: false }), 'load todos'),
+        mustList<Friend>(supabase.from('friends').select('*').order('name'), 'load friends'),
+        mustList<TodoFriend>(supabase.from('todo_friends').select('*'), 'load todo_friends'),
+        isGoogleConnected(),
+      ])
+      setTodos(todosData)
+      setFriends(friendsData)
+      setTodoFriends(todoFriendsData)
+      setGoogleConnected(connected)
+      setLoadError(false)
+    } catch {
+      setLoadError(true)
+    } finally {
+      setLoading(false)
+    }
   }
 
   function friendsForTodo(todoId: string): Friend[] {
@@ -103,6 +111,18 @@ export default function Todos() {
           </button>
         ))}
       </div>
+
+      {loadError && (
+        <div className="flex items-center justify-between gap-3 mb-5 p-3.5 rounded-xl border border-destructive/30 bg-destructive/5 text-sm">
+          <span>Couldn't load your tasks.</span>
+          <button
+            onClick={() => { setLoading(true); load() }}
+            className="font-medium text-primary hover:underline shrink-0"
+          >
+            Retry
+          </button>
+        </div>
+      )}
 
       {!loading && !googleConnected && (
         <button

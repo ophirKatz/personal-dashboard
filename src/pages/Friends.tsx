@@ -7,6 +7,7 @@ import FriendCard from '../features/friends/FriendCard'
 import FriendForm from '../features/friends/FriendForm'
 import { Button } from '../components/ui/button'
 import { isFriendOverdue, friendDaysSinceLastInteraction } from '../utils'
+import { mustList } from '../lib/supabaseQuery'
 
 export default function Friends() {
   const [user, setUser] = useState<User | null>(null)
@@ -15,19 +16,26 @@ export default function Friends() {
   const [showForm, setShowForm] = useState(false)
   const [editingFriend, setEditingFriend] = useState<Friend | undefined>()
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState(false)
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => setUser(user))
   }, [])
 
   async function load() {
-    const [friendsRes, interactionsRes] = await Promise.all([
-      supabase.from('friends').select('*').order('created_at'),
-      supabase.from('friend_interactions').select('*'),
-    ])
-    setFriends(friendsRes.data ?? [])
-    setInteractions(interactionsRes.data ?? [])
-    setLoading(false)
+    try {
+      const [friendsData, interactionsData] = await Promise.all([
+        mustList<Friend>(supabase.from('friends').select('*').order('created_at'), 'load friends'),
+        mustList<FriendInteraction>(supabase.from('friend_interactions').select('*'), 'load friend interactions'),
+      ])
+      setFriends(friendsData)
+      setInteractions(interactionsData)
+      setLoadError(false)
+    } catch {
+      setLoadError(true)
+    } finally {
+      setLoading(false)
+    }
   }
 
   useEffect(() => { load() }, [])
@@ -56,6 +64,18 @@ export default function Friends() {
           <Plus className="h-5 w-5" />
         </Button>
       </div>
+
+      {loadError && (
+        <div className="flex items-center justify-between gap-3 mb-5 p-3.5 rounded-xl border border-destructive/30 bg-destructive/5 text-sm">
+          <span>Couldn't load your friends.</span>
+          <button
+            onClick={() => { setLoading(true); load() }}
+            className="font-medium text-primary hover:underline shrink-0"
+          >
+            Retry
+          </button>
+        </div>
+      )}
 
       {loading ? (
         <div className="flex justify-center py-12">

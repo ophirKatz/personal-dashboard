@@ -8,6 +8,7 @@ import Dashboard from './pages/Dashboard'
 import { checkStockAlerts, checkFriendReminders } from './features/notifications/notifications'
 import { syncPushSubscription } from './lib/push'
 import { upsertPrimaryGoogleAccount } from './lib/googleAccounts'
+import { ErrorBoundary } from './components/ErrorBoundary'
 
 // Lazy-loaded so their dependencies (recharts, pdfjs/react-pdf, etc.) stay out
 // of the bundle needed for the initial Home Screen load.
@@ -49,7 +50,7 @@ export default function App() {
           email: session.user.email,
           refreshToken: session.provider_refresh_token,
           accessToken: session.provider_token ?? null,
-        }).then()
+        }).catch(err => console.error('Failed to save Google account link:', err))
       }
     })
     return () => subscription.unsubscribe()
@@ -74,26 +75,28 @@ export default function App() {
   if (!user) return <Login />
 
   return (
-    <Suspense fallback={<PageFallback />}>
-      <Routes>
-        <Route element={<Layout />}>
-          <Route index element={<Dashboard />} />
-          <Route path="habits" element={<Habits />} />
-          <Route path="todos" element={<Todos />} />
-          <Route path="climbing" element={<Climbing />} />
-          <Route path="shopping" element={<Shopping />} />
-          <Route path="calendar" element={<Calendar />} />
-          <Route path="files" element={<Files />} />
-          <Route path="finance" element={<Finance />} />
-          <Route path="settings" element={<Settings />} />
-          <Route path="friends" element={<Friends />} />
-          <Route path="recipes" element={<Recipes />} />
-          <Route path="recipes/new" element={<RecipeEditor />} />
-          <Route path="recipes/:id" element={<RecipeDetail />} />
-          <Route path="recipes/:id/edit" element={<RecipeEditor />} />
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Route>
-      </Routes>
-    </Suspense>
+    <ErrorBoundary>
+      <Suspense fallback={<PageFallback />}>
+        <Routes>
+          <Route element={<Layout />}>
+            <Route index element={<Dashboard />} />
+            <Route path="habits" element={<Habits />} />
+            <Route path="todos" element={<Todos />} />
+            <Route path="climbing" element={<Climbing />} />
+            <Route path="shopping" element={<Shopping />} />
+            <Route path="calendar" element={<Calendar />} />
+            <Route path="files" element={<Files />} />
+            <Route path="finance" element={<Finance />} />
+            <Route path="settings" element={<Settings />} />
+            <Route path="friends" element={<Friends />} />
+            <Route path="recipes" element={<Recipes />} />
+            <Route path="recipes/new" element={<RecipeEditor />} />
+            <Route path="recipes/:id" element={<RecipeDetail />} />
+            <Route path="recipes/:id/edit" element={<RecipeEditor />} />
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Route>
+        </Routes>
+      </Suspense>
+    </ErrorBoundary>
   )
 }

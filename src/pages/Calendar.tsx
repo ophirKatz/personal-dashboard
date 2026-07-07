@@ -18,6 +18,7 @@ import { refreshGoogleCalendarEvents } from '../features/calendar/googleCalendar
 import { connectGoogle, isGoogleConnected } from '../lib/googleAuth'
 import { listGoogleAccounts, accountBadge, type GoogleAccount } from '../lib/googleAccounts'
 import MonthCalendar from '../features/calendar/MonthCalendar'
+import { mustList } from '../lib/supabaseQuery'
 import { Link } from 'react-router-dom'
 
 function EventForm({ open, onClose, onSave, event, userId, friends, linkedFriendIds }: {
@@ -197,25 +198,32 @@ export default function Calendar() {
   const [showForm, setShowForm] = useState(false)
   const [editing, setEditing] = useState<CalendarEvent | undefined>()
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState(false)
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => setUser(user))
   }, [])
 
   async function load() {
-    const [eventsRes, friendsRes, eventFriendsRes, connected, googleAccounts] = await Promise.all([
-      supabase.from('events').select('*').gte('event_date', today()).order('event_date').order('event_time'),
-      supabase.from('friends').select('*').order('name'),
-      supabase.from('event_friends').select('*'),
-      isGoogleConnected(),
-      listGoogleAccounts(),
-    ])
-    setEvents(eventsRes.data ?? [])
-    setFriends(friendsRes.data ?? [])
-    setEventFriends(eventFriendsRes.data ?? [])
-    setGoogleConnected(connected)
-    setAccounts(new Map(googleAccounts.map(a => [a.id, a])))
-    setLoading(false)
+    try {
+      const [eventsData, friendsData, eventFriendsData, connected, googleAccounts] = await Promise.all([
+        mustList<CalendarEvent>(supabase.from('events').select('*').gte('event_date', today()).order('event_date').order('event_time'), 'load events'),
+        mustList<Friend>(supabase.from('friends').select('*').order('name'), 'load friends'),
+        mustList<EventFriend>(supabase.from('event_friends').select('*'), 'load event_friends'),
+        isGoogleConnected(),
+        listGoogleAccounts(),
+      ])
+      setEvents(eventsData)
+      setFriends(friendsData)
+      setEventFriends(eventFriendsData)
+      setGoogleConnected(connected)
+      setAccounts(new Map(googleAccounts.map(a => [a.id, a])))
+      setLoadError(false)
+    } catch {
+      setLoadError(true)
+    } finally {
+      setLoading(false)
+    }
   }
 
   function friendsForEvent(eventId: string): Friend[] {
@@ -282,6 +290,18 @@ export default function Calendar() {
           <Plus className="h-5 w-5" />
         </Button>
       </div>
+
+      {loadError && (
+        <div className="flex items-center justify-between gap-3 mb-6 p-3.5 rounded-xl border border-destructive/30 bg-destructive/5 text-sm">
+          <span>Couldn't load your calendar.</span>
+          <button
+            onClick={() => { setLoading(true); load() }}
+            className="font-medium text-primary hover:underline shrink-0"
+          >
+            Retry
+          </button>
+        </div>
+      )}
 
       {!loading && !googleConnected && (
         <button

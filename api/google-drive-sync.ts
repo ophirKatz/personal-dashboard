@@ -205,12 +205,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
               },
               { onConflict: 'user_id,drive_file_id' },
             )
+          } else {
+            console.error('drive-sync: storage upload failed', item.id, item.name, uploadError)
           }
         }
         seenDriveFileIds.add(item.id)
-      } catch {
+      } catch (err) {
         // Skip files that fail to download/upload (e.g. over the storage size limit)
         // rather than aborting the whole sync; they'll be retried on the next sync.
+        console.error('drive-sync: failed on file', item.id, item.name, err)
       }
       processed++
     }
