@@ -223,7 +223,7 @@ export type Friend = {
   avatar_url: string | null
   goal_count: number
   goal_unit: 'day' | 'week' | 'month' | 'year'
-  goal_mode: 'interval' | 'frequency'
+  goal_mode: 'interval' | 'frequency' | 'none'
   reminder_enabled: boolean
   last_notified_date: string | null
   reminder_notified_at: string | null
