@@ -5,6 +5,7 @@ import type { ShoppingItem } from '../supabase'
 import type { User } from '@supabase/supabase-js'
 import { Checkbox } from '../components/ui/checkbox'
 import { Fab } from '../components/ui/fab'
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '../components/ui/tabs'
 import ShoppingItemDrawer from '../features/shopping/ShoppingItemDrawer'
 
 const ALLOWED_IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif'])
@@ -90,14 +91,30 @@ export default function Shopping() {
     }
   }
 
-  const checked = items.filter(i => i.checked).length
+  const activeItems = items.filter(i => !i.checked)
+  const completedItems = items.filter(i => i.checked)
+
+  function renderItem(item: ShoppingItem) {
+    return (
+      <div key={item.id} className={`flex items-center gap-3 p-3.5 bg-card border border-border rounded-xl transition-opacity ${item.checked ? 'opacity-50' : ''}`}>
+        <Checkbox checked={item.checked} onCheckedChange={() => toggleItem(item)} />
+        <span className={`flex-1 ${item.checked ? 'line-through text-muted-foreground' : ''}`}>{item.name}</span>
+        <button onClick={() => { setEditingItem(item); setShowForm(true) }} className="p-1.5 rounded-lg hover:bg-accent text-muted-foreground">
+          <Pencil className="h-4 w-4" />
+        </button>
+        <button onClick={() => deleteItem(item.id)} className="p-1.5 rounded-lg hover:bg-accent text-muted-foreground hover:text-destructive">
+          <Trash2 className="h-4 w-4" />
+        </button>
+      </div>
+    )
+  }
 
   return (
     <div className="p-4 max-w-2xl mx-auto">
       <div className="flex items-center gap-3 mb-6">
         <div className="flex-1">
           <h1 className="text-2xl font-bold">Shopping List</h1>
-          {items.length > 0 && <p className="text-sm text-muted-foreground">{checked}/{items.length} checked</p>}
+          {items.length > 0 && <p className="text-sm text-muted-foreground">{completedItems.length}/{items.length} checked</p>}
         </div>
         <input ref={imageInputRef} type="file" accept="image/*" className="hidden" onChange={importFromImage} />
         <button
@@ -112,7 +129,7 @@ export default function Shopping() {
             <ImagePlus className="h-4 w-4" />
           )}
         </button>
-        {checked > 0 && (
+        {completedItems.length > 0 && (
           <button onClick={uncheckAll} className="p-2 rounded-lg hover:bg-accent text-muted-foreground" title="Uncheck all">
             <RotateCcw className="h-4 w-4" />
           </button>
@@ -129,26 +146,35 @@ export default function Shopping() {
       {loading ? (
         <div className="flex justify-center py-12"><div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" /></div>
       ) : (
-        <div className="space-y-2">
-          {items.map(item => (
-            <div key={item.id} className={`flex items-center gap-3 p-3.5 bg-card border border-border rounded-xl transition-opacity ${item.checked ? 'opacity-50' : ''}`}>
-              <Checkbox checked={item.checked} onCheckedChange={() => toggleItem(item)} />
-              <span className={`flex-1 ${item.checked ? 'line-through text-muted-foreground' : ''}`}>{item.name}</span>
-              <button onClick={() => { setEditingItem(item); setShowForm(true) }} className="p-1.5 rounded-lg hover:bg-accent text-muted-foreground">
-                <Pencil className="h-4 w-4" />
-              </button>
-              <button onClick={() => deleteItem(item.id)} className="p-1.5 rounded-lg hover:bg-accent text-muted-foreground hover:text-destructive">
-                <Trash2 className="h-4 w-4" />
-              </button>
+        <Tabs defaultValue="active">
+          <TabsList className="w-full mb-4">
+            <TabsTrigger value="active" className="flex-1">To buy ({activeItems.length})</TabsTrigger>
+            <TabsTrigger value="completed" className="flex-1">Completed ({completedItems.length})</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="active">
+            <div className="space-y-2">
+              {activeItems.map(renderItem)}
+              {activeItems.length === 0 && (
+                <div className="text-center py-16 text-muted-foreground">
+                  <div className="text-4xl mb-3">🛒</div>
+                  <p className="font-medium">No items yet — tap + to add one</p>
+                </div>
+              )}
             </div>
-          ))}
-          {items.length === 0 && (
-            <div className="text-center py-16 text-muted-foreground">
-              <div className="text-4xl mb-3">🛒</div>
-              <p className="font-medium">No items yet — tap + to add one</p>
+          </TabsContent>
+
+          <TabsContent value="completed">
+            <div className="space-y-2">
+              {completedItems.map(renderItem)}
+              {completedItems.length === 0 && (
+                <div className="text-center py-16 text-muted-foreground">
+                  <p className="font-medium">Nothing completed yet</p>
+                </div>
+              )}
             </div>
-          )}
-        </div>
+          </TabsContent>
+        </Tabs>
       )}
 
       {user && (
