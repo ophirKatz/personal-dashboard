@@ -1,5 +1,6 @@
 import { createClient } from 'npm:@supabase/supabase-js@2'
 import webpush from 'npm:web-push@3'
+import { todayInTZ, addDaysUTC } from '../_shared/time.ts'
 
 type PendingNotification = {
   userId: string
@@ -30,21 +31,10 @@ Deno.serve(async (req: Request) => {
   const nowDate = now.toISOString().slice(0, 10)
   const nowTime = now.toISOString().slice(11, 16)
 
-  // Single-user app, based in Israel — mirrors accrue-habit-debt's israelDate
-  // and the period math in src/utils.ts (habitPeriodLengthDays /
-  // isHabitDueToday), so a weekly habit already logged this period doesn't
-  // get re-notified on the other days of that period.
-  function israelDate(date: Date): string {
-    const fmt = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jerusalem', year: 'numeric', month: '2-digit', day: '2-digit' })
-    return fmt.format(date)
-  }
-
-  function shiftDate(dateStr: string, days: number): string {
-    const d = new Date(`${dateStr}T00:00:00Z`)
-    d.setUTCDate(d.getUTCDate() + days)
-    return d.toISOString().slice(0, 10)
-  }
-
+  // Single-user app, based in Israel — mirrors the period math in
+  // src/utils.ts (habitPeriodLengthDays / isHabitDueToday), so a weekly habit
+  // already logged this period doesn't get re-notified on the other days of
+  // that period.
   function daysBetween(fromDateStr: string, toDateStr: string): number {
     const from = new Date(`${fromDateStr}T00:00:00Z`).getTime()
     const to = new Date(`${toDateStr}T00:00:00Z`).getTime()
@@ -56,7 +46,7 @@ Deno.serve(async (req: Request) => {
     return Math.max(1, Math.floor(7 / (habit.times_per_week ?? 1)))
   }
 
-  const todayIL = israelDate(now)
+  const todayIL = todayInTZ()
 
   const pending: PendingNotification[] = []
 
@@ -101,7 +91,7 @@ Deno.serve(async (req: Request) => {
       const periodLength = habitPeriodLengthDays(habit)
       const daysSinceCreation = daysBetween(createdDate, todayIL)
       const periodIndex = Math.floor(daysSinceCreation / periodLength)
-      const periodStart = shiftDate(createdDate, periodIndex * periodLength)
+      const periodStart = addDaysUTC(createdDate, periodIndex * periodLength)
 
       const { data: log } = await supabase
         .from('habit_logs')
