@@ -2,20 +2,30 @@ import { createClient } from 'npm:@supabase/supabase-js@2'
 
 type Period = 'month' | 'year' | 'all'
 
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+}
+
 Deno.serve(async (req: Request) => {
+  if (req.method === 'OPTIONS') {
+    return new Response(null, { status: 204, headers: corsHeaders })
+  }
+
   const supabaseUrl = Deno.env.get('SUPABASE_URL')
   const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
   const anthropicApiKey = Deno.env.get('ANTHROPIC_API_KEY')
 
   if (!supabaseUrl || !serviceRoleKey) {
     console.error('MISSING_CONFIG: SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY not set')
-    return new Response(JSON.stringify({ error: 'MISSING_CONFIG' }), { status: 500 })
+    return new Response(JSON.stringify({ error: 'MISSING_CONFIG' }), { status: 500, headers: corsHeaders })
   }
 
   const authHeader = req.headers.get('authorization') ?? ''
   if (!authHeader.startsWith('Bearer ')) {
     console.error('UNAUTHORIZED: missing or malformed Authorization header')
-    return new Response(JSON.stringify({ error: 'UNAUTHORIZED' }), { status: 401 })
+    return new Response(JSON.stringify({ error: 'UNAUTHORIZED' }), { status: 401, headers: corsHeaders })
   }
 
   const supabase = createClient(supabaseUrl, serviceRoleKey)
@@ -23,7 +33,7 @@ Deno.serve(async (req: Request) => {
   const { data: userData, error: userError } = await supabase.auth.getUser(jwt)
   if (userError || !userData.user) {
     console.error('UNAUTHORIZED: getUser failed:', userError?.message)
-    return new Response(JSON.stringify({ error: 'UNAUTHORIZED' }), { status: 401 })
+    return new Response(JSON.stringify({ error: 'UNAUTHORIZED' }), { status: 401, headers: corsHeaders })
   }
 
   const userId = userData.user.id
@@ -33,7 +43,7 @@ Deno.serve(async (req: Request) => {
   const { friend_id, period = 'month' } = body
   if (!friend_id) {
     console.error('MISSING_FRIEND_ID: request body had no friend_id')
-    return new Response(JSON.stringify({ error: 'MISSING_FRIEND_ID' }), { status: 400 })
+    return new Response(JSON.stringify({ error: 'MISSING_FRIEND_ID' }), { status: 400, headers: corsHeaders })
   }
 
   const { data: friend, error: friendError } = await supabase
@@ -45,7 +55,7 @@ Deno.serve(async (req: Request) => {
 
   if (friendError || !friend) {
     console.error('NOT_FOUND: friend lookup failed:', friendError?.message, `friend_id=${friend_id}`)
-    return new Response(JSON.stringify({ error: 'NOT_FOUND' }), { status: 404 })
+    return new Response(JSON.stringify({ error: 'NOT_FOUND' }), { status: 404, headers: corsHeaders })
   }
 
   let query = supabase
@@ -67,19 +77,19 @@ Deno.serve(async (req: Request) => {
 
   if (interactionsError) {
     console.error('DB_ERROR: interactions query failed:', interactionsError.message)
-    return new Response(JSON.stringify({ error: 'DB_ERROR' }), { status: 500 })
+    return new Response(JSON.stringify({ error: 'DB_ERROR' }), { status: 500, headers: corsHeaders })
   }
 
   if (!interactions || interactions.length === 0) {
     return new Response(
       JSON.stringify({ summary: 'No interactions recorded for this period.' }),
-      { status: 200, headers: { 'Content-Type': 'application/json' } },
+      { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
     )
   }
 
   if (!anthropicApiKey) {
     console.error('MISSING_ANTHROPIC_API_KEY: ANTHROPIC_API_KEY secret not set')
-    return new Response(JSON.stringify({ error: 'MISSING_ANTHROPIC_API_KEY' }), { status: 500 })
+    return new Response(JSON.stringify({ error: 'MISSING_ANTHROPIC_API_KEY' }), { status: 500, headers: corsHeaders })
   }
 
   const interactionLines = interactions
@@ -124,13 +134,13 @@ Deno.serve(async (req: Request) => {
     })
   } catch (err) {
     console.error('Anthropic fetch error:', err)
-    return new Response(JSON.stringify({ error: 'AI_ERROR' }), { status: 502 })
+    return new Response(JSON.stringify({ error: 'AI_ERROR' }), { status: 502, headers: corsHeaders })
   }
 
   if (!aiRes.ok) {
     const errBody = await aiRes.text().catch(() => '')
     console.error(`Anthropic API ${aiRes.status}:`, errBody.slice(0, 200))
-    return new Response(JSON.stringify({ error: 'AI_ERROR' }), { status: 502 })
+    return new Response(JSON.stringify({ error: 'AI_ERROR' }), { status: 502, headers: corsHeaders })
   }
 
   let summary: string
@@ -140,7 +150,7 @@ Deno.serve(async (req: Request) => {
     console.log(`summary length=${summary.length}, stop_reason ok`)
   } catch (err) {
     console.error('Failed to parse Anthropic response:', err)
-    return new Response(JSON.stringify({ error: 'AI_ERROR' }), { status: 502 })
+    return new Response(JSON.stringify({ error: 'AI_ERROR' }), { status: 502, headers: corsHeaders })
   }
 
   if (!summary) {
@@ -149,6 +159,6 @@ Deno.serve(async (req: Request) => {
 
   return new Response(
     JSON.stringify({ summary }),
-    { status: 200, headers: { 'Content-Type': 'application/json' } },
+    { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
   )
 })
