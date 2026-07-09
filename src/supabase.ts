@@ -183,6 +183,8 @@ export type WeatherCache = {
   latitude: number
   longitude: number
   temperature: number | null
+  temperature_min: number | null
+  temperature_max: number | null
   feels_like: number | null
   weather_code: number | null
   condition: string | null

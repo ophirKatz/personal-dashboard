@@ -44,6 +44,10 @@ type OpenMeteoResponse = {
     weather_code: number
     is_day: number
   }
+  daily?: {
+    temperature_2m_min: number[]
+    temperature_2m_max: number[]
+  }
 }
 
 async function getAllUserIds(supabase: SupabaseClient): Promise<string[]> {
@@ -59,11 +63,12 @@ async function getAllUserIds(supabase: SupabaseClient): Promise<string[]> {
   return [...ids]
 }
 
-async function fetchCurrentWeather(): Promise<OpenMeteoResponse['current']> {
+async function fetchCurrentWeather(): Promise<{ current: OpenMeteoResponse['current']; daily: OpenMeteoResponse['daily'] }> {
   const params = new URLSearchParams({
     latitude: String(LOCATION.latitude),
     longitude: String(LOCATION.longitude),
     current: 'temperature_2m,relative_humidity_2m,apparent_temperature,is_day,weather_code,wind_speed_10m',
+    daily: 'temperature_2m_min,temperature_2m_max',
     timezone: 'Asia/Jerusalem',
   })
   const res = await fetch(`https://api.open-meteo.com/v1/forecast?${params}`)
@@ -72,17 +77,20 @@ async function fetchCurrentWeather(): Promise<OpenMeteoResponse['current']> {
   }
   const data: OpenMeteoResponse = await res.json()
   if (!data.current) throw new Error('Open-Meteo response missing current conditions')
-  return data.current
+  if (!data.daily) throw new Error('Open-Meteo response missing daily data')
+  return { current: data.current, daily: data.daily }
 }
 
 async function refreshWeatherForUser(supabase: SupabaseClient, userId: string) {
   try {
-    const current = await fetchCurrentWeather()
+    const { current, daily } = await fetchCurrentWeather()
     await supabase.from('weather_cache').upsert({
       user_id: userId,
       latitude: LOCATION.latitude,
       longitude: LOCATION.longitude,
       temperature: current!.temperature_2m,
+      temperature_min: daily!.temperature_2m_min[0],
+      temperature_max: daily!.temperature_2m_max[0],
       feels_like: current!.apparent_temperature,
       weather_code: current!.weather_code,
       condition: WEATHER_CODE_LABELS[current!.weather_code] ?? 'Unknown',

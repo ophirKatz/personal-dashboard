@@ -17,6 +17,7 @@ export default function WeatherWidget() {
   const [weather, setWeather] = useState<WeatherCache | null>(null)
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
+  const [showMinMax, setShowMinMax] = useState(false)
 
   async function load() {
     const { data } = await supabase.from('weather_cache').select('*').maybeSingle()
@@ -54,13 +55,23 @@ export default function WeatherWidget() {
     )
   }
 
-  const { color, emoji } = temperatureStyle(weather.temperature)
+  const displayTemp = showMinMax && weather.temperature_min !== null && weather.temperature_max !== null
+    ? `${Math.round(weather.temperature_min)}–${Math.round(weather.temperature_max)}°C`
+    : `${Math.round(weather.temperature)}°C`
+
+  const tempStyle = showMinMax && weather.temperature_min !== null
+    ? temperatureStyle(weather.temperature_min)
+    : temperatureStyle(weather.temperature)
 
   return (
     <div className="flex items-center gap-1.5">
-      <span className={`text-sm font-medium ${color}`}>
-        {emoji} {Math.round(weather.temperature)}°C
-      </span>
+      <button
+        onClick={() => setShowMinMax(!showMinMax)}
+        className={`text-sm font-medium ${tempStyle.color} hover:opacity-70 transition-opacity`}
+        title={showMinMax ? 'Current temperature' : 'Low/High temperature'}
+      >
+        {tempStyle.emoji} {displayTemp}
+      </button>
       <button
         onClick={refresh}
         disabled={refreshing}
