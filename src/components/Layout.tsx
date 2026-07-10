@@ -1,12 +1,13 @@
 import { Outlet, NavLink, useNavigate } from 'react-router-dom'
 import { useEffect, useRef, useState } from 'react'
-import { Home, MoreHorizontal, X, LogOut, Settings, Mountain } from 'lucide-react'
+import { Home, MoreHorizontal, X, LogOut, Settings, Mountain, Info } from 'lucide-react'
 import { supabase } from '../supabase'
 import { cn } from '../utils'
 import { ALL_NAV_KEYS, NAV_ITEMS, DEFAULT_BOTTOM_NAV_ITEMS, BOTTOM_NAV_ITEMS_CHANGED_EVENT, type NavItemKey } from '../lib/navItems'
 import { getBottomNavItems } from '../lib/userSettings'
 
 const settingsNav = { to: '/settings', icon: Settings, label: 'Settings' }
+const aboutNav = { to: '/about', icon: Info, label: 'About' }
 
 export default function Layout() {
   const [morePanel, setMorePanel] = useState<'closed' | 'open' | 'closing'>('closed')
@@ -29,6 +30,7 @@ export default function Layout() {
   ]
   const moreNav = [
     ...ALL_NAV_KEYS.filter(key => !bottomNavKeys.includes(key)).map(key => ({ to: NAV_ITEMS[key].to, icon: NAV_ITEMS[key].icon, label: NAV_ITEMS[key].label })),
+    aboutNav,
     settingsNav,
   ]
 

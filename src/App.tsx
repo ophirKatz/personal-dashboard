@@ -19,6 +19,7 @@ const Calendar = lazy(() => import('./pages/Calendar'))
 const Files = lazy(() => import('./pages/Files'))
 const Finance = lazy(() => import('./pages/Finance'))
 const Settings = lazy(() => import('./pages/Settings'))
+const About = lazy(() => import('./pages/About'))
 const Friends = lazy(() => import('./pages/Friends'))
 const Recipes = lazy(() => import('./pages/Recipes'))
 const RecipeDetail = lazy(() => import('./pages/RecipeDetail'))
@@ -86,6 +87,7 @@ export default function App() {
           <Route path="files" element={<Files />} />
           <Route path="finance" element={<Finance />} />
           <Route path="settings" element={<Settings />} />
+          <Route path="about" element={<About />} />
           <Route path="friends" element={<Friends />} />
           <Route path="recipes" element={<Recipes />} />
           <Route path="recipes/new" element={<RecipeEditor />} />
