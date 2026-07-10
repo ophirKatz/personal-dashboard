@@ -49,13 +49,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return
   }
 
-  // Check if user has any existing accounts. If they have no accounts, this
-  // is their first connection (primary account) and should get full scopes.
-  // Any subsequent connections are secondary accounts and only get calendar.
+  // Check if user has any active (not soft-deleted) accounts. If they have no
+  // active accounts, this is their first connection (primary) and should get
+  // full scopes. Any subsequent connections are secondary and only get calendar.
   const { count } = await supabase
     .from('google_accounts')
     .select('id', { count: 'exact', head: true })
     .eq('user_id', userData.user.id)
+    .is('deleted_at', null)
   const isPrimaryAccount = !count || count === 0
 
   // Short-lived nonce so the callback (a plain Google redirect with no

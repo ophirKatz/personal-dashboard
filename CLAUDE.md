@@ -78,3 +78,9 @@ credentials or a logged-in session:
 
 7. **Clean up**: kill the dev server, delete `.env.local`, and revert
    `src/main.tsx` before finishing.
+
+# Supabase Project Details
+
+- **Project ID**: `tjjvrqamitwtoslinrxy`
+- **Project URL**: `https://tjjvrqamitwtoslinrxy.supabase.co`
+- **Dashboard**: https://supabase.com/dashboard/project/tjjvrqamitwtoslinrxy

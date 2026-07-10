@@ -51,6 +51,7 @@ export async function authenticateGoogleRequest(req: VercelRequest): Promise<Aut
       .select('id, refresh_token, access_token, access_token_expires_at')
       .eq('user_id', userData.user.id)
       .eq('email', userEmail)
+      .is('deleted_at', null)
       .maybeSingle<GoogleTokenRow>()
     tokenRow = emailMatch
   }
@@ -60,6 +61,7 @@ export async function authenticateGoogleRequest(req: VercelRequest): Promise<Aut
       .from('google_accounts')
       .select('id, refresh_token, access_token, access_token_expires_at')
       .eq('user_id', userData.user.id)
+      .is('deleted_at', null)
       .order('created_at', { ascending: true })
       .limit(1)
       .maybeSingle<GoogleTokenRow>()

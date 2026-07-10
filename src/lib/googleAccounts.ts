@@ -14,7 +14,11 @@ export function nextAccountColor(existingCount: number): string {
 }
 
 export async function listGoogleAccounts(): Promise<GoogleAccount[]> {
-  const { data } = await supabase.from('google_accounts').select('id, email, color, created_at').order('created_at', { ascending: true })
+  const { data } = await supabase
+    .from('google_accounts')
+    .select('id, email, color, created_at')
+    .is('deleted_at', null)
+    .order('created_at', { ascending: true })
   return data ?? []
 }
 
@@ -46,7 +50,11 @@ export async function upsertPrimaryGoogleAccount(params: {
 
   let color = existing?.color
   if (!color) {
-    const { count } = await supabase.from('google_accounts').select('id', { count: 'exact', head: true }).eq('user_id', params.userId)
+    const { count } = await supabase
+      .from('google_accounts')
+      .select('id', { count: 'exact', head: true })
+      .eq('user_id', params.userId)
+      .is('deleted_at', null)
     color = nextAccountColor(count ?? 0)
   }
 
@@ -59,6 +67,7 @@ export async function upsertPrimaryGoogleAccount(params: {
       access_token: params.accessToken,
       access_token_expires_at: new Date(Date.now() + 3500 * 1000).toISOString(),
       updated_at: new Date().toISOString(),
+      deleted_at: null,
     },
     { onConflict: 'user_id,email' },
   )
@@ -85,5 +94,15 @@ export async function connectGoogleAccount(): Promise<boolean> {
 }
 
 export async function disconnectGoogleAccount(id: string): Promise<void> {
-  await supabase.from('google_accounts').delete().eq('id', id)
+  await supabase
+    .from('google_accounts')
+    .update({ deleted_at: new Date().toISOString(), updated_at: new Date().toISOString() })
+    .eq('id', id)
+}
+
+export async function updateAccountColor(id: string, color: string): Promise<void> {
+  await supabase
+    .from('google_accounts')
+    .update({ color, updated_at: new Date().toISOString() })
+    .eq('id', id)
 }
