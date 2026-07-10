@@ -38,15 +38,33 @@ export async function authenticateGoogleRequest(req: VercelRequest): Promise<Aut
     return { ok: false, status: 401, error: 'UNAUTHORIZED' }
   }
 
-  // Tasks/Drive are scoped to one account per user — the first one ever
-  // connected (i.e. the account used to sign into the dashboard).
-  const { data: tokenRow } = await supabase
-    .from('google_accounts')
-    .select('id, refresh_token, access_token, access_token_expires_at')
-    .eq('user_id', userData.user.id)
-    .order('created_at', { ascending: true })
-    .limit(1)
-    .maybeSingle<GoogleTokenRow>()
+  // Tasks/Drive are scoped to one account per user. Prefer the account that
+  // matches the user's Supabase auth email (their primary/personal account).
+  // If no email match is found, fall back to the first account by created_at
+  // for backward compatibility.
+  const userEmail = userData.user.email?.toLowerCase()
+  let tokenRow: GoogleTokenRow | null = null
+
+  if (userEmail) {
+    const { data: emailMatch } = await supabase
+      .from('google_accounts')
+      .select('id, refresh_token, access_token, access_token_expires_at')
+      .eq('user_id', userData.user.id)
+      .eq('email', userEmail)
+      .maybeSingle<GoogleTokenRow>()
+    tokenRow = emailMatch
+  }
+
+  if (!tokenRow) {
+    const { data: firstAccount } = await supabase
+      .from('google_accounts')
+      .select('id, refresh_token, access_token, access_token_expires_at')
+      .eq('user_id', userData.user.id)
+      .order('created_at', { ascending: true })
+      .limit(1)
+      .maybeSingle<GoogleTokenRow>()
+    tokenRow = firstAccount
+  }
 
   if (!tokenRow) {
     return { ok: false, status: 404, error: 'NOT_CONNECTED' }
