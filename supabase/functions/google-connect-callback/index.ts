@@ -112,7 +112,7 @@ Deno.serve(async (req: Request) => {
     color = ACCOUNT_COLOR_PALETTE[(count ?? 0) % ACCOUNT_COLOR_PALETTE.length]
   }
 
-  await supabase.from('google_accounts').upsert(
+  const { error: upsertError } = await supabase.from('google_accounts').upsert(
     {
       user_id: stateRow.user_id,
       email: userinfo.email,
@@ -125,6 +125,11 @@ Deno.serve(async (req: Request) => {
     },
     { onConflict: 'user_id,email' },
   )
+
+  if (upsertError) {
+    console.error(`google-connect-callback: upsert failed for user_id=${stateRow.user_id}, email=${userinfo.email}: ${upsertError.message}`)
+    return redirectTo(appUrl, 'error')
+  }
 
   console.log(`google-connect-callback: success for user_id=${stateRow.user_id}, email=${userinfo.email}`)
   return redirectTo(appUrl, 'success')

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { Bell, BellOff, Sparkles, Plus, X } from 'lucide-react'
+import { Bell, BellOff, Sparkles, Plus, X, Palette } from 'lucide-react'
 import { supabase } from '../supabase'
 import { Button } from '../components/ui/button'
 import { haptic } from '../lib/haptics'
@@ -80,6 +80,12 @@ export default function Settings() {
     const next = new URLSearchParams(searchParams)
     next.delete('google_connect')
     setSearchParams(next, { replace: true })
+    // Refresh accounts list after successful connection
+    if (connectStatus === 'success') {
+      listGoogleAccounts().then(accounts => {
+        setGoogleAccounts(accounts)
+      })
+    }
   }, [connectStatus])
 
   // If the user backs out of the Google redirect (e.g. taps the browser back
@@ -299,38 +305,46 @@ export default function Settings() {
         ) : (
           <div className="space-y-2 mb-4">
             {googleAccounts.map((account, i) => (
-              <div key={account.id} className="flex items-center gap-3 p-3 rounded-xl border border-border">
-                <div className="relative">
-                  <button
-                    onClick={() => setColorPickerId(colorPickerId === account.id ? null : account.id)}
-                    className="h-3 w-3 rounded-full shrink-0 hover:ring-2 hover:ring-offset-2 ring-primary transition-all"
-                    style={{ backgroundColor: account.color }}
-                    title="Click to change color"
-                  />
-                  {colorPickerId === account.id && (
-                    <div className="absolute top-full left-0 mt-2 p-2 bg-card border border-border rounded-lg shadow-lg z-10 grid grid-cols-3 gap-2">
-                      {ACCOUNT_COLOR_PALETTE.map(color => (
-                        <button
-                          key={color}
-                          onClick={() => handleUpdateAccountColor(account.id, color)}
-                          className="w-6 h-6 rounded-full hover:ring-2 hover:ring-offset-1 ring-foreground transition-all"
-                          style={{ backgroundColor: color }}
-                        />
-                      ))}
-                    </div>
-                  )}
-                </div>
+              <div key={account.id} className="flex items-center gap-2 p-3 rounded-xl border border-border">
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium truncate">{account.email}</p>
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: account.color }} />
+                    <p className="text-sm font-medium truncate">{account.email}</p>
+                  </div>
                   {i === 0 && <p className="text-xs text-muted-foreground">Primary · also used for Tasks &amp; Drive</p>}
                 </div>
-                <button
-                  onClick={() => handleDisconnectGoogleAccount(account.id)}
-                  disabled={disconnectingId === account.id}
-                  className="p-1.5 rounded-lg hover:bg-accent text-muted-foreground hover:text-destructive shrink-0"
-                >
-                  <X className="h-4 w-4" />
-                </button>
+                <div className="flex gap-1 shrink-0">
+                  <div className="relative">
+                    <button
+                      onClick={() => setColorPickerId(colorPickerId === account.id ? null : account.id)}
+                      className="p-1.5 rounded-lg hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
+                      title="Change account color"
+                    >
+                      <Palette className="h-4 w-4" />
+                    </button>
+                    {colorPickerId === account.id && (
+                      <div className="absolute top-full right-0 mt-2 p-3 bg-card border border-border rounded-lg shadow-lg z-10 grid grid-cols-3 gap-2">
+                        {ACCOUNT_COLOR_PALETTE.map(color => (
+                          <button
+                            key={color}
+                            onClick={() => handleUpdateAccountColor(account.id, color)}
+                            className="w-7 h-7 rounded-full hover:ring-2 hover:ring-offset-1 ring-foreground transition-all"
+                            style={{ backgroundColor: color }}
+                            title={`Select ${color}`}
+                          />
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  <button
+                    onClick={() => handleDisconnectGoogleAccount(account.id)}
+                    disabled={disconnectingId === account.id}
+                    className="p-1.5 rounded-lg hover:bg-accent text-muted-foreground hover:text-destructive transition-colors"
+                    title="Disconnect account"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
               </div>
             ))}
           </div>
