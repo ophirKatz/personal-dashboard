@@ -49,8 +49,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return
   }
 
-  const userEmail = userData.user.email?.toLowerCase()
-
   // Check if user has any existing accounts. If they have no accounts, this
   // is their first connection (primary account) and should get full scopes.
   // Any subsequent connections are secondary accounts and only get calendar.
@@ -62,11 +60,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   // Short-lived nonce so the callback (a plain Google redirect with no
   // Supabase session) can recover which user initiated this connection.
-  // Store the user's Supabase auth email so the callback can preserve data
-  // associations by email during upsert.
   const { data: stateRow, error: stateError } = await supabase
     .from('google_oauth_states')
-    .insert({ user_id: userData.user.id, auth_email: userEmail })
+    .insert({ user_id: userData.user.id })
     .select('state')
     .single()
   if (stateError || !stateRow) {
