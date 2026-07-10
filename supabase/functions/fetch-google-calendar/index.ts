@@ -66,7 +66,10 @@ function jerusalemWallClockToUtcIso(dateStr: string, timeStr: string): string {
 }
 
 async function getAllAccounts(supabase: SupabaseClient): Promise<AccountRow[]> {
-  const { data } = await supabase.from('google_accounts').select('id, user_id, refresh_token, access_token, access_token_expires_at')
+  const { data } = await supabase
+    .from('google_accounts')
+    .select('id, user_id, refresh_token, access_token, access_token_expires_at')
+    .is('deleted_at', null)
   return (data ?? []) as AccountRow[]
 }
 

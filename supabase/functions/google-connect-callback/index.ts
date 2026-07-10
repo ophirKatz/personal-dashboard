@@ -108,6 +108,7 @@ Deno.serve(async (req: Request) => {
       .from('google_accounts')
       .select('id', { count: 'exact', head: true })
       .eq('user_id', stateRow.user_id)
+      .is('deleted_at', null)
     color = ACCOUNT_COLOR_PALETTE[(count ?? 0) % ACCOUNT_COLOR_PALETTE.length]
   }
 
@@ -120,6 +121,7 @@ Deno.serve(async (req: Request) => {
       access_token: tokens.access_token ?? null,
       access_token_expires_at: new Date(Date.now() + (tokens.expires_in ?? 3600) * 1000).toISOString(),
       updated_at: new Date().toISOString(),
+      deleted_at: null,
     },
     { onConflict: 'user_id,email' },
   )

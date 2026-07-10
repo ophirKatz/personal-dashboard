@@ -18,7 +18,7 @@ import {
   setBottomNavItems,
   type FocusPeriod,
 } from '../lib/userSettings'
-import { listGoogleAccounts, connectGoogleAccount, disconnectGoogleAccount, type GoogleAccount } from '../lib/googleAccounts'
+import { listGoogleAccounts, connectGoogleAccount, disconnectGoogleAccount, updateAccountColor, ACCOUNT_COLOR_PALETTE, type GoogleAccount } from '../lib/googleAccounts'
 import { ALL_NAV_KEYS, NAV_ITEMS, BOTTOM_NAV_ITEMS_CHANGED_EVENT, type NavItemKey } from '../lib/navItems'
 import { Tabs, TabsList, TabsTrigger } from '../components/ui/tabs'
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '../components/ui/select'
@@ -62,6 +62,7 @@ export default function Settings() {
   const [googleAccountsLoading, setGoogleAccountsLoading] = useState(true)
   const [connecting, setConnecting] = useState(false)
   const [disconnectingId, setDisconnectingId] = useState<string | null>(null)
+  const [colorPickerId, setColorPickerId] = useState<string | null>(null)
   const [connectMessage, setConnectMessage] = useState<string | null>(null)
   const connectStatus = searchParams.get('google_connect')
 
@@ -106,6 +107,13 @@ export default function Settings() {
     await disconnectGoogleAccount(id)
     setGoogleAccounts(accounts => accounts.filter(a => a.id !== id))
     setDisconnectingId(null)
+  }
+
+  async function handleUpdateAccountColor(id: string, color: string) {
+    setColorPickerId(null)
+    haptic('selection')
+    await updateAccountColor(id, color)
+    setGoogleAccounts(accounts => accounts.map(a => a.id === id ? { ...a, color } : a))
   }
 
   const [autoGenerateFocusDaily, setAutoGenerateFocusDaily] = useState<Record<FocusPeriod, boolean>>({ today: true, week: true })
@@ -292,7 +300,26 @@ export default function Settings() {
           <div className="space-y-2 mb-4">
             {googleAccounts.map((account, i) => (
               <div key={account.id} className="flex items-center gap-3 p-3 rounded-xl border border-border">
-                <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: account.color }} />
+                <div className="relative">
+                  <button
+                    onClick={() => setColorPickerId(colorPickerId === account.id ? null : account.id)}
+                    className="h-3 w-3 rounded-full shrink-0 hover:ring-2 hover:ring-offset-2 ring-primary transition-all"
+                    style={{ backgroundColor: account.color }}
+                    title="Click to change color"
+                  />
+                  {colorPickerId === account.id && (
+                    <div className="absolute top-full left-0 mt-2 p-2 bg-card border border-border rounded-lg shadow-lg z-10 grid grid-cols-3 gap-2">
+                      {ACCOUNT_COLOR_PALETTE.map(color => (
+                        <button
+                          key={color}
+                          onClick={() => handleUpdateAccountColor(account.id, color)}
+                          className="w-6 h-6 rounded-full hover:ring-2 hover:ring-offset-1 ring-foreground transition-all"
+                          style={{ backgroundColor: color }}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium truncate">{account.email}</p>
                   {i === 0 && <p className="text-xs text-muted-foreground">Primary · also used for Tasks &amp; Drive</p>}
