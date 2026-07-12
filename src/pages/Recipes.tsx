@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react'
-import { Plus, Search } from 'lucide-react'
+import { Plus, Search, Filter } from 'lucide-react'
 import type { User } from '@supabase/supabase-js'
 import { supabase } from '../supabase'
 import type { Recipe, RecipeCollection, RecipeCollectionItem } from '../supabase'
 import { Input } from '../components/ui/input'
+import { Button } from '../components/ui/button'
 import { Fab } from '../components/ui/fab'
 import RecipeCard from '../features/recipes/RecipeCard'
 import CollectionsRail from '../features/recipes/CollectionsRail'
@@ -18,6 +19,7 @@ export default function Recipes() {
   const [search, setSearch] = useState('')
   const [selectedCollectionId, setSelectedCollectionId] = useState<string | null>(null)
   const [showAddSheet, setShowAddSheet] = useState(false)
+  const [showCollections, setShowCollections] = useState(false)
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => setUser(user))
@@ -46,11 +48,6 @@ export default function Recipes() {
     collectionNamesByRecipe.set(item.recipe_id, names)
   }
 
-  const recentlyViewed = recipes
-    .filter(r => r.last_viewed_at)
-    .sort((a, b) => (b.last_viewed_at! > a.last_viewed_at! ? 1 : -1))
-    .slice(0, 6)
-
   const filteredRecipes = recipes.filter(recipe => {
     if (selectedCollectionId) {
       const recipeCollectionIds = collectionItems.filter(i => i.recipe_id === recipe.id).map(i => i.collection_id)
@@ -66,34 +63,34 @@ export default function Recipes() {
         <h1 className="text-2xl font-bold flex-1">Recipes</h1>
       </div>
 
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-        <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search recipes…" className="pl-9" />
+      <div className="flex gap-2">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search recipes…" className="pl-9" />
+        </div>
+        <Button
+          variant="outline"
+          size="icon"
+          onClick={() => setShowCollections(!showCollections)}
+          aria-label="Toggle collections"
+          className={showCollections ? 'bg-accent' : ''}
+        >
+          <Filter className="h-4 w-4" />
+        </Button>
       </div>
 
       {loading ? (
         <div className="flex justify-center py-12"><div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" /></div>
       ) : (
         <>
-          <CollectionsRail
-            collections={collections}
-            selectedId={selectedCollectionId}
-            onSelect={setSelectedCollectionId}
-            onCreated={load}
-            userId={user?.id ?? ''}
-          />
-
-          {recentlyViewed.length > 0 && !search.trim() && !selectedCollectionId && (
-            <div className="space-y-2">
-              <h2 className="text-sm font-semibold text-muted-foreground">Recently viewed</h2>
-              <div className="flex gap-3 overflow-x-auto pb-1 -mx-4 px-4">
-                {recentlyViewed.map(recipe => (
-                  <div key={recipe.id} className="w-32 shrink-0">
-                    <RecipeCard recipe={recipe} collectionNames={collectionNamesByRecipe.get(recipe.id)} />
-                  </div>
-                ))}
-              </div>
-            </div>
+          {showCollections && (
+            <CollectionsRail
+              collections={collections}
+              selectedId={selectedCollectionId}
+              onSelect={setSelectedCollectionId}
+              onCreated={load}
+              userId={user?.id ?? ''}
+            />
           )}
 
           <div className="space-y-2">
