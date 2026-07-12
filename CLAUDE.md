@@ -84,3 +84,31 @@ credentials or a logged-in session:
 - **Project ID**: `tjjvrqamitwtoslinrxy`
 - **Project URL**: `https://tjjvrqamitwtoslinrxy.supabase.co`
 - **Dashboard**: https://supabase.com/dashboard/project/tjjvrqamitwtoslinrxy
+
+# Debugging Recipe Import Issues
+
+If "Prompt to recipe" or "Paste recipe text" fail with "Failed to send a request to the Edge Function":
+
+1. **Check browser console** (F12 → Console tab):
+   - Look for the full error object logged by ImportRecipeDialog
+   - The error will contain details about what failed
+
+2. **Check browser Network tab** (F12 → Network tab):
+   - Look for a failed request to `/functions/v1/import-recipe`
+   - Check the response status code and body
+   - This shows the actual HTTP error from the edge function
+
+3. **Check Supabase Edge Function logs**:
+   - Dashboard → Edge Functions → `import-recipe` → Logs
+   - Look for recent execution records and any error messages
+   - This shows what happened inside the function itself
+
+4. **Verify prerequisites**:
+   - Other ANTHROPIC_API_KEY features work (Focus Summaries, Shopping photo import)
+   - User is logged in (auth is working for other features)
+   - Browser has active internet connection
+
+5. **If no logs appear**:
+   - The request isn't reaching the edge function
+   - Check Supabase client configuration in `src/supabase.ts`
+   - Verify `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` are correctly set

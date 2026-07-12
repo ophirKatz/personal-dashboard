@@ -61,47 +61,83 @@ async function callClaude(apiKey: string, base64: string, mediaType: string): Pr
     .slice(0, MAX_ITEMS)
 }
 
+function corsHeaders() {
+  return {
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+    'Access-Control-Allow-Headers': 'authorization, content-type',
+  }
+}
+
 Deno.serve(async (req: Request) => {
+  if (req.method === 'OPTIONS') {
+    return new Response(null, { headers: corsHeaders() })
+  }
+
   const supabaseUrl = Deno.env.get('SUPABASE_URL')
   const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
   const anthropicApiKey = Deno.env.get('ANTHROPIC_API_KEY')
 
   if (!supabaseUrl || !serviceRoleKey) {
-    return new Response(JSON.stringify({ error: 'MISSING_CONFIG' }), { status: 500 })
+    return new Response(JSON.stringify({ error: 'MISSING_CONFIG' }), {
+      status: 500,
+      headers: { 'content-type': 'application/json', ...corsHeaders() },
+    })
   }
 
   const authHeader = req.headers.get('authorization') ?? ''
   if (!authHeader.startsWith('Bearer ')) {
-    return new Response(JSON.stringify({ error: 'UNAUTHORIZED' }), { status: 401 })
+    return new Response(JSON.stringify({ error: 'UNAUTHORIZED' }), {
+      status: 401,
+      headers: { 'content-type': 'application/json', ...corsHeaders() },
+    })
   }
 
   const supabase = createClient(supabaseUrl, serviceRoleKey)
   const jwt = authHeader.slice('Bearer '.length)
   const { data: userData, error: userError } = await supabase.auth.getUser(jwt)
   if (userError || !userData.user) {
-    return new Response(JSON.stringify({ error: 'UNAUTHORIZED' }), { status: 401 })
+    return new Response(JSON.stringify({ error: 'UNAUTHORIZED' }), {
+      status: 401,
+      headers: { 'content-type': 'application/json', ...corsHeaders() },
+    })
   }
 
   if (!anthropicApiKey) {
-    return new Response(JSON.stringify({ error: 'MISSING_ANTHROPIC_API_KEY' }), { status: 500 })
+    return new Response(JSON.stringify({ error: 'MISSING_ANTHROPIC_API_KEY' }), {
+      status: 500,
+      headers: { 'content-type': 'application/json', ...corsHeaders() },
+    })
   }
 
   let body: { image?: string; mediaType?: string } = {}
   try {
     body = await req.json()
   } catch {
-    return new Response(JSON.stringify({ error: 'INVALID_BODY' }), { status: 400 })
+    return new Response(JSON.stringify({ error: 'INVALID_BODY' }), {
+      status: 400,
+      headers: { 'content-type': 'application/json', ...corsHeaders() },
+    })
   }
 
   const { image, mediaType } = body
   if (typeof image !== 'string' || !image) {
-    return new Response(JSON.stringify({ error: 'INVALID_BODY' }), { status: 400 })
+    return new Response(JSON.stringify({ error: 'INVALID_BODY' }), {
+      status: 400,
+      headers: { 'content-type': 'application/json', ...corsHeaders() },
+    })
   }
   if (typeof mediaType !== 'string' || !ALLOWED_MEDIA_TYPES.has(mediaType)) {
-    return new Response(JSON.stringify({ error: 'UNSUPPORTED_MEDIA_TYPE' }), { status: 400 })
+    return new Response(JSON.stringify({ error: 'UNSUPPORTED_MEDIA_TYPE' }), {
+      status: 400,
+      headers: { 'content-type': 'application/json', ...corsHeaders() },
+    })
   }
   if (image.length > MAX_BASE64_LENGTH) {
-    return new Response(JSON.stringify({ error: 'IMAGE_TOO_LARGE' }), { status: 413 })
+    return new Response(JSON.stringify({ error: 'IMAGE_TOO_LARGE' }), {
+      status: 413,
+      headers: { 'content-type': 'application/json', ...corsHeaders() },
+    })
   }
 
   let names: string[]
@@ -109,11 +145,17 @@ Deno.serve(async (req: Request) => {
     names = await callClaude(anthropicApiKey, image, mediaType)
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Unknown error'
-    return new Response(JSON.stringify({ error: 'EXTRACTION_FAILED', message }), { status: 502 })
+    return new Response(JSON.stringify({ error: 'EXTRACTION_FAILED', message }), {
+      status: 502,
+      headers: { 'content-type': 'application/json', ...corsHeaders() },
+    })
   }
 
   if (names.length === 0) {
-    return new Response(JSON.stringify({ items: [] }), { status: 200 })
+    return new Response(JSON.stringify({ items: [] }), {
+      status: 200,
+      headers: { 'content-type': 'application/json', ...corsHeaders() },
+    })
   }
 
   const { data, error } = await supabase
@@ -122,8 +164,14 @@ Deno.serve(async (req: Request) => {
     .select()
 
   if (error) {
-    return new Response(JSON.stringify({ error: 'DB_ERROR' }), { status: 500 })
+    return new Response(JSON.stringify({ error: 'DB_ERROR' }), {
+      status: 500,
+      headers: { 'content-type': 'application/json', ...corsHeaders() },
+    })
   }
 
-  return new Response(JSON.stringify({ items: data }), { status: 200 })
+  return new Response(JSON.stringify({ items: data }), {
+    status: 200,
+    headers: { 'content-type': 'application/json', ...corsHeaders() },
+  })
 })
