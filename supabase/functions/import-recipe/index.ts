@@ -172,47 +172,83 @@ function toDraft(raw: string): RecipeDraft {
   return { title, description, servings, ingredients, steps, suggested_collections }
 }
 
+function corsHeaders() {
+  return {
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+    'Access-Control-Allow-Headers': 'authorization, content-type',
+  }
+}
+
 Deno.serve(async (req: Request) => {
+  if (req.method === 'OPTIONS') {
+    return new Response(null, { headers: corsHeaders() })
+  }
+
   const supabaseUrl = Deno.env.get('SUPABASE_URL')
   const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
   const anthropicApiKey = Deno.env.get('ANTHROPIC_API_KEY')
 
   if (!supabaseUrl || !serviceRoleKey) {
-    return new Response(JSON.stringify({ error: 'MISSING_CONFIG' }), { status: 500 })
+    return new Response(JSON.stringify({ error: 'MISSING_CONFIG' }), {
+      status: 500,
+      headers: { 'content-type': 'application/json', ...corsHeaders() },
+    })
   }
 
   const authHeader = req.headers.get('authorization') ?? ''
   if (!authHeader.startsWith('Bearer ')) {
-    return new Response(JSON.stringify({ error: 'UNAUTHORIZED' }), { status: 401 })
+    return new Response(JSON.stringify({ error: 'UNAUTHORIZED' }), {
+      status: 401,
+      headers: { 'content-type': 'application/json', ...corsHeaders() },
+    })
   }
 
   const supabase = createClient(supabaseUrl, serviceRoleKey)
   const jwt = authHeader.slice('Bearer '.length)
   const { data: userData, error: userError } = await supabase.auth.getUser(jwt)
   if (userError || !userData.user) {
-    return new Response(JSON.stringify({ error: 'UNAUTHORIZED' }), { status: 401 })
+    return new Response(JSON.stringify({ error: 'UNAUTHORIZED' }), {
+      status: 401,
+      headers: { 'content-type': 'application/json', ...corsHeaders() },
+    })
   }
 
   if (!anthropicApiKey) {
-    return new Response(JSON.stringify({ error: 'MISSING_ANTHROPIC_API_KEY' }), { status: 500 })
+    return new Response(JSON.stringify({ error: 'MISSING_ANTHROPIC_API_KEY' }), {
+      status: 500,
+      headers: { 'content-type': 'application/json', ...corsHeaders() },
+    })
   }
 
   let body: { mode?: string; input?: string } = {}
   try {
     body = await req.json()
   } catch {
-    return new Response(JSON.stringify({ error: 'INVALID_BODY' }), { status: 400 })
+    return new Response(JSON.stringify({ error: 'INVALID_BODY' }), {
+      status: 400,
+      headers: { 'content-type': 'application/json', ...corsHeaders() },
+    })
   }
 
   const { mode, input } = body
   if (mode !== 'prompt' && mode !== 'paste' && mode !== 'link') {
-    return new Response(JSON.stringify({ error: 'INVALID_MODE' }), { status: 400 })
+    return new Response(JSON.stringify({ error: 'INVALID_MODE' }), {
+      status: 400,
+      headers: { 'content-type': 'application/json', ...corsHeaders() },
+    })
   }
   if (typeof input !== 'string' || !input.trim()) {
-    return new Response(JSON.stringify({ error: 'INVALID_BODY' }), { status: 400 })
+    return new Response(JSON.stringify({ error: 'INVALID_BODY' }), {
+      status: 400,
+      headers: { 'content-type': 'application/json', ...corsHeaders() },
+    })
   }
   if (input.length > MAX_INPUT_LENGTH) {
-    return new Response(JSON.stringify({ error: 'INPUT_TOO_LARGE' }), { status: 413 })
+    return new Response(JSON.stringify({ error: 'INPUT_TOO_LARGE' }), {
+      status: 413,
+      headers: { 'content-type': 'application/json', ...corsHeaders() },
+    })
   }
 
   let sourceText: string
@@ -227,7 +263,10 @@ Deno.serve(async (req: Request) => {
     }
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Could not read that link'
-    return new Response(JSON.stringify({ error: 'FETCH_FAILED', message }), { status: 502 })
+    return new Response(JSON.stringify({ error: 'FETCH_FAILED', message }), {
+      status: 502,
+      headers: { 'content-type': 'application/json', ...corsHeaders() },
+    })
   }
 
   let draft: RecipeDraft
@@ -236,12 +275,21 @@ Deno.serve(async (req: Request) => {
     draft = toDraft(raw)
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Unknown error'
-    return new Response(JSON.stringify({ error: 'IMPORT_FAILED', message }), { status: 502 })
+    return new Response(JSON.stringify({ error: 'IMPORT_FAILED', message }), {
+      status: 502,
+      headers: { 'content-type': 'application/json', ...corsHeaders() },
+    })
   }
 
   if (draft.ingredients.length === 0 && draft.steps.length === 0) {
-    return new Response(JSON.stringify({ error: 'NO_RECIPE_FOUND' }), { status: 422 })
+    return new Response(JSON.stringify({ error: 'NO_RECIPE_FOUND' }), {
+      status: 422,
+      headers: { 'content-type': 'application/json', ...corsHeaders() },
+    })
   }
 
-  return new Response(JSON.stringify({ draft, source_url: sourceUrl }), { status: 200 })
+  return new Response(JSON.stringify({ draft, source_url: sourceUrl }), {
+    status: 200,
+    headers: { 'content-type': 'application/json', ...corsHeaders() },
+  })
 })
