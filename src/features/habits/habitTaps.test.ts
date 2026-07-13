@@ -131,6 +131,44 @@ describe('Multiple debt payments on same day', () => {
     // So next tap should undo, not pay
     expect(decideHabitTap(habitAfterSecondTap, logsAfterSecondTap)).toEqual({ type: 'undo', logId: 'log-2', refundDebt: true })
   })
+
+  it('correctly accumulates and pays debt over multiple missed periods', () => {
+    // Scenario: User misses 3 days of daily pushups (debt accumulates to 3)
+    // Then on day 4, user completes the habit 3 times to pay off all debt
+
+    const todayStr = today()
+    const habit = makeHabit({ debt: 3 }) // 3 days of accumulated debt
+
+    // First completion: debt = 3, period not done
+    // habitDebtOwedToday = 3 + 1 = 4, so pay with paidDebt: true
+    expect(decideHabitTap(habit, [])).toEqual({ type: 'pay', paidDebt: true })
+
+    // After first completion: debt = 2, period is now done by first log
+    const habitAfter1st = makeHabit({ debt: 2 })
+    const logsAfter1st = [makeLog({ id: 'log-1', logged_date: todayStr, paid_debt: true })]
+    // habitDebtOwedToday = 2 + 0 = 2 (debt still owed, period done)
+    expect(decideHabitTap(habitAfter1st, logsAfter1st)).toEqual({ type: 'pay', paidDebt: true })
+
+    // After second completion: debt = 1
+    const habitAfter2nd = makeHabit({ debt: 1 })
+    const logsAfter2nd = [
+      makeLog({ id: 'log-1', logged_date: todayStr, paid_debt: true }),
+      makeLog({ id: 'log-2', logged_date: todayStr, paid_debt: true, created_at: '2026-06-29T08:01:00.000Z' })
+    ]
+    // habitDebtOwedToday = 1 + 0 = 1 (still owed)
+    expect(decideHabitTap(habitAfter2nd, logsAfter2nd)).toEqual({ type: 'pay', paidDebt: true })
+
+    // After third completion: debt = 0, fully paid
+    const habitAfter3rd = makeHabit({ debt: 0 })
+    const logsAfter3rd = [
+      makeLog({ id: 'log-1', logged_date: todayStr, paid_debt: true }),
+      makeLog({ id: 'log-2', logged_date: todayStr, paid_debt: true, created_at: '2026-06-29T08:01:00.000Z' }),
+      makeLog({ id: 'log-3', logged_date: todayStr, paid_debt: true, created_at: '2026-06-29T08:02:00.000Z' })
+    ]
+    // habitDebtOwedToday = 0 + 0 = 0 (fully paid, period done)
+    // Next tap should undo the last log
+    expect(decideHabitTap(habitAfter3rd, logsAfter3rd)).toEqual({ type: 'undo', logId: 'log-3', refundDebt: true })
+  })
 })
 
 describe('executeHabitTap', () => {
