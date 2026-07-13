@@ -75,9 +75,10 @@ describe('decideHabitTap', () => {
     expect(decideHabitTap(habitAfterSecondTap, logsAfterSecondTap)).toEqual({ type: 'pay', paidDebt: true })
   })
 
-  it('marks today done without touching debt once debt is already zero', () => {
+  it('does nothing when debt is zero and nothing is owed', () => {
     const habit = makeHabit({ debt: 0 })
-    expect(decideHabitTap(habit, [])).toEqual({ type: 'pay', paidDebt: false })
+    // With debt = 0 (fully caught up), nothing is owed, so tap does nothing
+    expect(decideHabitTap(habit, [])).toEqual({ type: 'noop' })
   })
 
   it('undoes the most recent log once nothing is owed today', () => {
