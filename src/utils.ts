@@ -114,12 +114,11 @@ export function isHabitDoneThisPeriod(habit: Habit, logs: HabitLog[]): boolean {
   return logs.some(l => l.habit_id === habit.id && l.logged_date >= periodStart && l.logged_date <= todayStr)
 }
 
-// Total units owed right now: debt carried over from past missed periods,
-// plus one more if the current period hasn't been logged yet. This is the
-// single number that decides both whether a habit shows up as "due today"
-// and how much further debt-paying it still needs.
+// Total units owed right now: just the accumulated debt. This represents
+// how many more completions are needed to get to zero. Debt includes all
+// missed periods. Once debt = 0, the habit is fully caught up and not due.
 export function habitDebtOwedToday(habit: Habit, logs: HabitLog[]): number {
-  return habit.debt + (isHabitDoneThisPeriod(habit, logs) ? 0 : 1)
+  return habit.debt
 }
 
 // A habit only needs attention today when there's actually something to pay
