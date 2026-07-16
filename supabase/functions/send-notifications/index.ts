@@ -123,6 +123,50 @@ Deno.serve(async (req: Request) => {
     await supabase.from('habits').update({ last_notified_date: todayIL }).eq('id', habit.id)
   }
 
+  // Check for calendar event reminders that are due
+  const { data: dueEventReminders } = await supabase
+    .from('event_reminders')
+    .select('id, user_id, event_id, reminder_days_before, events(title, event_date, event_time)')
+    .eq('reminder_type', 'calendar_event')
+    .is('notified_at', null)
+
+  for (const reminder of dueEventReminders ?? []) {
+    const event = reminder.events as unknown as { title: string; event_date: string; event_time: string | null }
+    if (!event) continue
+
+    // Calculate if reminder is due today
+    const reminderDate = shiftDate(event.event_date, -reminder.reminder_days_before)
+    if (reminderDate !== todayIL) continue
+
+    // Create in-app notification
+    const daysUntilEvent = reminder.reminder_days_before
+    let messagePrefix: string
+    if (daysUntilEvent === 0) messagePrefix = 'Today'
+    else if (daysUntilEvent === 1) messagePrefix = 'Tomorrow'
+    else messagePrefix = `In ${daysUntilEvent} days`
+
+    const timeStr = event.event_time ? ` at ${event.event_time.slice(0, 5)}` : ''
+    const message = `${messagePrefix}${timeStr}`
+
+    await supabase.from('notifications').insert({
+      user_id: reminder.user_id,
+      type: 'calendar_event_reminder',
+      title: `Reminder: ${event.title}`,
+      message: message,
+      read: false,
+    })
+
+    // Mark reminder as notified
+    await supabase.from('event_reminders').update({ notified_at: now.toISOString() }).eq('id', reminder.id)
+
+    pending.push({
+      userId: reminder.user_id,
+      title: `Reminder: ${event.title}`,
+      body: message,
+      url: '/calendar',
+    })
+  }
+
   const { data: dueFriends } = await supabase
     .from('friends')
     .select('id, user_id, name, goal_count, goal_unit, goal_mode, notes, reminder_enabled, last_notified_date, created_at')
