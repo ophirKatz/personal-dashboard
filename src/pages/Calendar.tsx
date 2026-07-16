@@ -18,6 +18,7 @@ import { refreshGoogleCalendarEvents } from '../features/calendar/googleCalendar
 import { connectGoogle, isGoogleConnected } from '../lib/googleAuth'
 import { listGoogleAccounts, accountBadge, type GoogleAccount } from '../lib/googleAccounts'
 import MonthCalendar from '../features/calendar/MonthCalendar'
+import EventReminders, { type EventReminder } from '../features/calendar/EventReminders'
 import { Link } from 'react-router-dom'
 
 function EventForm({ open, onClose, onSave, event, userId, friends, linkedFriendIds }: {
@@ -34,6 +35,24 @@ function EventForm({ open, onClose, onSave, event, userId, friends, linkedFriend
   const [selectedFriendIds, setSelectedFriendIds] = useState<string[]>(linkedFriendIds)
   const [friendsOpen, setFriendsOpen] = useState(linkedFriendIds.length > 0)
   const [saving, setSaving] = useState(false)
+  const [reminders, setReminders] = useState<EventReminder[]>([])
+  const [loadingReminders, setLoadingReminders] = useState(false)
+
+  useEffect(() => {
+    if (event?.id && open) {
+      setLoadingReminders(true)
+      supabase
+        .from('event_reminders')
+        .select('reminder_days_before')
+        .eq('event_id', event.id)
+        .then(({ data }) => {
+          setReminders(data?.map(r => ({ days: r.reminder_days_before })) ?? [])
+          setLoadingReminders(false)
+        })
+    } else {
+      setReminders([])
+    }
+  }, [event?.id, open])
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -66,6 +85,19 @@ function EventForm({ open, onClose, onSave, event, userId, friends, linkedFriend
       if (selectedFriendIds.length > 0) {
         await supabase.from('event_friends').insert(
           selectedFriendIds.map(friendId => ({ event_id: eventId, friend_id: friendId, user_id: userId })),
+        )
+      }
+
+      // Save reminders
+      await supabase.from('event_reminders').delete().eq('event_id', eventId)
+      if (reminders.length > 0) {
+        await supabase.from('event_reminders').insert(
+          reminders.map(reminder => ({
+            event_id: eventId,
+            user_id: userId,
+            reminder_days_before: reminder.days,
+            reminder_type: 'calendar_event',
+          })),
         )
       }
     }
@@ -129,6 +161,9 @@ function EventForm({ open, onClose, onSave, event, userId, friends, linkedFriend
                 <div className="space-y-2">
                   <Label>Notes</Label>
                   <Textarea value={notes} onChange={e => setNotes(e.target.value)} placeholder="Optional notes…" rows={3} />
+                </div>
+                <div className="pt-2">
+                  <EventReminders reminders={reminders} onRemindersChange={setReminders} disabled={loadingReminders} />
                 </div>
               </>
             )}
