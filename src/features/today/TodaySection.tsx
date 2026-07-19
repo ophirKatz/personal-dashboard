@@ -2,8 +2,8 @@ import { useEffect, useState } from 'react'
 import type { MouseEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { AlertCircle, CalendarArrowUp, CheckCircle2, ChevronRight, Clock, MapPin } from 'lucide-react'
-import type { Habit, HabitLog, Todo } from '../../supabase'
-import { formatTime, isHabitDoneThisPeriod, isOverdue, today } from '../../utils'
+import type { HabitStatus, Todo } from '../../supabase'
+import { formatTime, isOverdue, today } from '../../utils'
 import WeatherWidget from '../weather/WeatherWidget'
 import { celebrateFromElement } from '../../lib/confetti'
 import { haptic } from '../../lib/haptics'
@@ -24,10 +24,9 @@ export type TodayEvent = {
 }
 
 type Props = {
-  habits: Habit[]
+  habits: HabitStatus[]
   totalHabitsCount: number
-  logs: HabitLog[]
-  onToggleHabit: (habit: Habit) => void
+  onToggleHabit: (habit: HabitStatus) => void
   todos: Todo[]
   onCompleteTodo: (id: string) => void
   onPostponeTodo: (id: string, target: Date | 'tomorrow') => void
@@ -63,7 +62,7 @@ function hasEventEnded(event: TodayEvent, now: Date): boolean {
   return new Date(`${endDate}T${endTime}`).getTime() < now.getTime()
 }
 
-export default function TodaySection({ habits, totalHabitsCount, logs, onToggleHabit, todos, onCompleteTodo, onPostponeTodo, events }: Props) {
+export default function TodaySection({ habits, totalHabitsCount, onToggleHabit, todos, onCompleteTodo, onPostponeTodo, events }: Props) {
   const [now, setNow] = useState(() => new Date())
   useEffect(() => {
     const id = setInterval(() => setNow(new Date()), 30_000)
@@ -233,10 +232,9 @@ export default function TodaySection({ habits, totalHabitsCount, logs, onToggleH
           </div>
           <div className="flex gap-3 overflow-x-auto -mt-2 pt-2 pb-1 -mx-1 px-1">
             {habits.map(habit => {
-              const loggedToday = logs.some(l => l.habit_id === habit.id && l.logged_date === today())
-              const doneThisPeriod = isHabitDoneThisPeriod(habit, logs)
-              const fullyDone = doneThisPeriod && habit.debt === 0
-              const partiallyDone = doneThisPeriod && habit.debt > 0
+              const loggedToday = habit.logged_today
+              const fullyDone = loggedToday && habit.owed_count === 0
+              const partiallyDone = loggedToday && habit.owed_count > 0
               return (
                 <button
                   key={habit.id}
@@ -244,7 +242,7 @@ export default function TodaySection({ habits, totalHabitsCount, logs, onToggleH
                     if (!loggedToday) celebrateFromElement(e.currentTarget)
                     onToggleHabit(habit)
                   }}
-                  title={partiallyDone ? `${habit.debt} owed still` : undefined}
+                  title={partiallyDone ? `${habit.owed_count} owed still` : undefined}
                   className="flex flex-col items-center gap-1 shrink-0 relative"
                 >
                   <div
@@ -258,9 +256,9 @@ export default function TodaySection({ habits, totalHabitsCount, logs, onToggleH
                   {fullyDone && (
                     <CheckCircle2 className="h-3.5 w-3.5 text-primary absolute -top-1 -right-1 bg-background rounded-full" />
                   )}
-                  {habit.debt > 0 && (
+                  {habit.owed_count > 0 && (
                     <span className="h-4 min-w-4 px-0.5 rounded-full bg-destructive text-destructive-foreground text-[9px] font-bold absolute -top-1 -left-1 flex items-center justify-center">
-                      {habit.debt}
+                      {habit.owed_count}
                     </span>
                   )}
                   <span className="text-[10px] text-muted-foreground max-w-[48px] truncate">{habit.name}</span>

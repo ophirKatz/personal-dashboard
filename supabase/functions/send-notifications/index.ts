@@ -1,5 +1,6 @@
 import { createClient } from 'npm:@supabase/supabase-js@2'
 import webpush from 'npm:web-push@3'
+import { todayInTZ, addDaysUTC } from '../_shared/time.ts'
 
 type PendingNotification = {
   userId: string
@@ -30,21 +31,10 @@ Deno.serve(async (req: Request) => {
   const nowDate = now.toISOString().slice(0, 10)
   const nowTime = now.toISOString().slice(11, 16)
 
-  // Single-user app, based in Israel — mirrors accrue-habit-debt's israelDate
-  // and the period math in src/utils.ts (habitPeriodLengthDays /
-  // isHabitDueToday), so a weekly habit already logged this period doesn't
-  // get re-notified on the other days of that period.
-  function israelDate(date: Date): string {
-    const fmt = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jerusalem', year: 'numeric', month: '2-digit', day: '2-digit' })
-    return fmt.format(date)
-  }
-
-  function shiftDate(dateStr: string, days: number): string {
-    const d = new Date(`${dateStr}T00:00:00Z`)
-    d.setUTCDate(d.getUTCDate() + days)
-    return d.toISOString().slice(0, 10)
-  }
-
+  // Single-user app, based in Israel — mirrors the period math in
+  // src/utils.ts (habitPeriodLengthDays / isHabitDueToday), so a weekly habit
+  // already logged this period doesn't get re-notified on the other days of
+  // that period. Only used by the v1 (habits_v2_enabled = false) branch below.
   function daysBetween(fromDateStr: string, toDateStr: string): number {
     const from = new Date(`${fromDateStr}T00:00:00Z`).getTime()
     const to = new Date(`${toDateStr}T00:00:00Z`).getTime()
@@ -56,7 +46,7 @@ Deno.serve(async (req: Request) => {
     return Math.max(1, Math.floor(7 / (habit.times_per_week ?? 1)))
   }
 
-  const todayIL = israelDate(now)
+  const todayIL = todayInTZ()
 
   const pending: PendingNotification[] = []
 
@@ -86,41 +76,71 @@ Deno.serve(async (req: Request) => {
     await supabase.from('todos').update({ notified_at: now.toISOString() }).eq('id', todo.id)
   }
 
-  const { data: dueHabits } = await supabase
-    .from('habits')
-    .select('id, user_id, name, emoji, reminder_time, last_notified_date, frequency, times_per_week, created_at')
-    .eq('reminder_enabled', true)
-    .not('reminder_time', 'is', null)
+  // habits_v2_enabled controls which of the two habit implementations is
+  // live app-wide (see supabase/migrations/*_habit_v2_derived_state.sql).
+  // v1's debt/period math stays untouched below; v2 just reads the
+  // server-computed is_due_today off the habit_status view instead of
+  // reimplementing the period math a third time.
+  const { data: appSettings } = await supabase.from('app_settings').select('habits_v2_enabled').eq('id', true).maybeSingle()
+  const habitsV2Enabled = appSettings?.habits_v2_enabled ?? false
 
-  for (const habit of dueHabits ?? []) {
-    if ((habit.reminder_time as string).slice(0, 5) !== nowTime) continue
-    if (habit.last_notified_date === todayIL) continue
+  if (habitsV2Enabled) {
+    const { data: dueHabits } = await supabase
+      .from('habit_status')
+      .select('id, user_id, name, emoji, reminder_time, last_notified_date, is_due_today')
+      .eq('reminder_enabled', true)
+      .not('reminder_time', 'is', null)
 
-    const createdDate = (habit.created_at as string).slice(0, 10)
-    if (createdDate <= todayIL) {
-      const periodLength = habitPeriodLengthDays(habit)
-      const daysSinceCreation = daysBetween(createdDate, todayIL)
-      const periodIndex = Math.floor(daysSinceCreation / periodLength)
-      const periodStart = shiftDate(createdDate, periodIndex * periodLength)
+    for (const habit of dueHabits ?? []) {
+      if ((habit.reminder_time as string).slice(0, 5) !== nowTime) continue
+      if (habit.last_notified_date === todayIL) continue
+      if (!habit.is_due_today) continue
 
-      const { data: log } = await supabase
-        .from('habit_logs')
-        .select('id')
-        .eq('habit_id', habit.id)
-        .gte('logged_date', periodStart)
-        .lte('logged_date', todayIL)
-        .limit(1)
-        .maybeSingle()
-      if (log) continue
+      pending.push({
+        userId: habit.user_id,
+        title: `${habit.emoji} ${habit.name}`,
+        body: "Don't forget your habit today.",
+        url: '/habits',
+      })
+      await supabase.from('habits').update({ last_notified_date: todayIL }).eq('id', habit.id)
     }
+  } else {
+    const { data: dueHabits } = await supabase
+      .from('habits')
+      .select('id, user_id, name, emoji, reminder_time, last_notified_date, frequency, times_per_week, created_at')
+      .eq('reminder_enabled', true)
+      .not('reminder_time', 'is', null)
 
-    pending.push({
-      userId: habit.user_id,
-      title: `${habit.emoji} ${habit.name}`,
-      body: "Don't forget your habit today.",
-      url: '/habits',
-    })
-    await supabase.from('habits').update({ last_notified_date: todayIL }).eq('id', habit.id)
+    for (const habit of dueHabits ?? []) {
+      if ((habit.reminder_time as string).slice(0, 5) !== nowTime) continue
+      if (habit.last_notified_date === todayIL) continue
+
+      const createdDate = (habit.created_at as string).slice(0, 10)
+      if (createdDate <= todayIL) {
+        const periodLength = habitPeriodLengthDays(habit)
+        const daysSinceCreation = daysBetween(createdDate, todayIL)
+        const periodIndex = Math.floor(daysSinceCreation / periodLength)
+        const periodStart = addDaysUTC(createdDate, periodIndex * periodLength)
+
+        const { data: log } = await supabase
+          .from('habit_logs')
+          .select('id')
+          .eq('habit_id', habit.id)
+          .gte('logged_date', periodStart)
+          .lte('logged_date', todayIL)
+          .limit(1)
+          .maybeSingle()
+        if (log) continue
+      }
+
+      pending.push({
+        userId: habit.user_id,
+        title: `${habit.emoji} ${habit.name}`,
+        body: "Don't forget your habit today.",
+        url: '/habits',
+      })
+      await supabase.from('habits').update({ last_notified_date: todayIL }).eq('id', habit.id)
+    }
   }
 
   // Check for calendar event reminders that are due
@@ -135,7 +155,7 @@ Deno.serve(async (req: Request) => {
     if (!event) continue
 
     // Calculate if reminder is due today
-    const reminderDate = shiftDate(event.event_date, -reminder.reminder_days_before)
+    const reminderDate = addDaysUTC(event.event_date, -reminder.reminder_days_before)
     if (reminderDate !== todayIL) continue
 
     // Create in-app notification
@@ -230,6 +250,8 @@ Deno.serve(async (req: Request) => {
         const statusCode = (err as { statusCode?: number }).statusCode
         if (statusCode === 404 || statusCode === 410) {
           await supabase.from('push_subscriptions').delete().eq('id', sub.id)
+        } else {
+          console.error('send-notifications: push send failed', notification.userId, sub.id, err)
         }
       }
     }

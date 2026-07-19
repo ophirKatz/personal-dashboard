@@ -31,6 +31,7 @@ function makeHabit(overrides: Partial<Habit> = {}): Habit {
     color: '#3b82f6',
     frequency: 'daily',
     times_per_week: null,
+    interval_days: null,
     reminder_enabled: false,
     reminder_time: null,
     last_notified_date: null,
