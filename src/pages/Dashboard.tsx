@@ -4,8 +4,8 @@ import { Bell, ShoppingCart, Mountain, DollarSign, Folder, Plus, X } from 'lucid
 import { useNavigate } from 'react-router-dom'
 import type { User } from '@supabase/supabase-js'
 import { supabase } from '../supabase'
-import type { Habit, HabitLog, Todo, CalendarEvent, Notification, Friend } from '../supabase'
-import { today, tomorrow, advanceRecurrence, isHabitDueToday, cn } from '../utils'
+import type { HabitLog, HabitStatus, Todo, CalendarEvent, Notification, Friend } from '../supabase'
+import { today, tomorrow, advanceRecurrence, cn } from '../utils'
 import { addDays, format } from 'date-fns'
 import { refreshGoogleCalendarEvents } from '../features/calendar/googleCalendar'
 import { toggleGoogleTask } from '../features/todos/googleTasks'
@@ -22,13 +22,14 @@ import FinanceQuickDrawer from '../features/finance/FinanceQuickDrawer'
 import StarredFilesDrawer from '../features/files/StarredFilesDrawer'
 import TaskDrawer from '../features/todos/TaskDrawer'
 import { Button } from '../components/ui/button'
-import { decideHabitTap, executeHabitTap } from '../features/habits/habitTaps'
+import { fetchHabitsV2Enabled, loadHabitStatuses, toggleHabitCompletion } from '../features/habits/habitStatus'
 
 const USER_NAME = 'Ophir'
 
 export default function Dashboard() {
-  const [habits, setHabits] = useState<Habit[]>([])
+  const [habits, setHabits] = useState<HabitStatus[]>([])
   const [recentHabitLogs, setRecentHabitLogs] = useState<HabitLog[]>([])
+  const [habitsV2Enabled, setHabitsV2Enabled] = useState(false)
   const [todos, setTodos] = useState<Todo[]>([])
   const [events, setEvents] = useState<CalendarEvent[]>([])
   const [notifications, setNotifications] = useState<Notification[]>([])
@@ -71,17 +72,19 @@ export default function Dashboard() {
     // (even 1x/week) currently sits in — see isHabitDueToday in utils.ts.
     const habitLogsSince = format(addDays(new Date(), -7), 'yyyy-MM-dd')
 
-    const [habitsRes, logsRes, todosRes, eventsRes, notificationsRes, friendsRes] = await Promise.all([
-      supabase.from('habits').select('*').order('created_at'),
-      supabase.from('habit_logs').select('*').gte('logged_date', habitLogsSince),
+    const v2 = await fetchHabitsV2Enabled()
+    setHabitsV2Enabled(v2)
+
+    const [{ statuses: habitStatuses, logs: habitLogs }, todosRes, eventsRes, notificationsRes, friendsRes] = await Promise.all([
+      loadHabitStatuses(v2, habitLogsSince),
       supabase.from('todos').select('*').eq('completed', false).or(`due_date.eq.${t},due_date.is.null`).order('created_at'),
       supabase.from('events').select('*').gte('event_date', t).lte('event_date', in7).order('event_date').order('event_time'),
       supabase.from('notifications').select('*').eq('read', false).order('created_at', { ascending: false }),
       supabase.from('friends').select('*').order('name'),
     ])
 
-    setHabits(habitsRes.data ?? [])
-    setRecentHabitLogs(logsRes.data ?? [])
+    setHabits(habitStatuses)
+    setRecentHabitLogs(habitLogs)
     setTodos(todosRes.data ?? [])
     setEvents(eventsRes.data ?? [])
     setNotifications(notificationsRes.data ?? [])
@@ -97,15 +100,13 @@ export default function Dashboard() {
     supabase.auth.getUser().then(({ data: { user } }) => setUser(user))
   }, [])
 
-  async function toggleHabit(habit: Habit) {
-    await executeHabitTap(habit, decideHabitTap(habit, recentHabitLogs))
+  async function toggleHabit(habit: HabitStatus) {
+    const habitLogs = recentHabitLogs.filter(l => l.habit_id === habit.id)
+    await toggleHabitCompletion(habit, habitLogs, habitsV2Enabled)
     const habitLogsSince = format(addDays(new Date(), -7), 'yyyy-MM-dd')
-    const [{ data: logsData }, { data: habitsData }] = await Promise.all([
-      supabase.from('habit_logs').select('*').gte('logged_date', habitLogsSince),
-      supabase.from('habits').select('*').order('created_at'),
-    ])
-    setRecentHabitLogs(logsData ?? [])
-    setHabits(habitsData ?? [])
+    const { statuses, logs } = await loadHabitStatuses(habitsV2Enabled, habitLogsSince)
+    setRecentHabitLogs(logs)
+    setHabits(statuses)
   }
 
   async function dismissNotification(id: string) {
@@ -163,7 +164,7 @@ export default function Dashboard() {
   })
 
   const t = today()
-  const dueHabits = habits.filter(h => isHabitDueToday(h, recentHabitLogs))
+  const dueHabits = habits.filter(h => h.is_due_today)
   const todayEvents: TodayEvent[] = sortedEvents
     .filter(event => event.event_date === t)
     .map(event => ({
@@ -291,7 +292,6 @@ export default function Dashboard() {
         <TodaySection
           habits={dueHabits}
           totalHabitsCount={habits.length}
-          logs={recentHabitLogs}
           onToggleHabit={toggleHabit}
           todos={todos}
           onCompleteTodo={completeTodo}

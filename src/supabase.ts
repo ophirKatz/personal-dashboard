@@ -5,14 +5,22 @@ const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey)
 
+export type HabitFrequency = 'daily' | 'weekly' | 'every_n_days'
+
+// debt/debt_checked_date are the old mutable-counter fields, still read and
+// written by the v1 implementation (src/features/habits/habitTaps.ts,
+// src/utils.ts) whenever the habits_v2_enabled app_settings flag is off.
+// interval_days only applies to the 'every_n_days' frequency, which is only
+// creatable when the flag is on (see HabitForm.tsx).
 export type Habit = {
   id: string
   user_id: string
   name: string
   emoji: string
   color: string
-  frequency: 'daily' | 'weekly'
+  frequency: HabitFrequency
   times_per_week: number | null
+  interval_days: number | null
   reminder_enabled: boolean
   reminder_time: string | null
   last_notified_date: string | null
@@ -28,6 +36,23 @@ export type HabitLog = {
   logged_date: string
   created_at: string
   paid_debt: boolean
+}
+
+// Shape returned by the `habit_status` view (v2) and produced client-side
+// for v1 by computeHabitStatusV1 (src/features/habits/habitStatus.ts) — the
+// uniform shape both implementations feed to HabitCard/TodaySection so
+// those components stay agnostic to which one is active.
+export type HabitStatus = Habit & {
+  owed_count: number
+  is_due_today: boolean
+  streak: number
+  logged_today: boolean
+  logged_today_count: number
+}
+
+export type AppSettings = {
+  id: true
+  habits_v2_enabled: boolean
 }
 
 export type Todo = {

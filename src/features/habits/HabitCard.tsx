@@ -1,58 +1,34 @@
 import { useState } from 'react'
 import { Flame, Trash2, Pencil, Bell } from 'lucide-react'
-import type { Habit, HabitLog } from '../../supabase'
-import { today, formatTime, utcTimeToLocalTime } from '../../utils'
+import type { HabitLog, HabitStatus } from '../../supabase'
+import { formatTime, utcTimeToLocalTime } from '../../utils'
 import { haptic } from '../../lib/haptics'
 import { celebrateFromElement } from '../../lib/confetti'
-import { decideHabitTap, executeHabitTap } from './habitTaps'
+import { toggleHabitCompletion } from './habitStatus'
 import HabitHeatmap from './HabitHeatmap'
 
 type Props = {
-  habit: Habit
+  habit: HabitStatus
   logs: HabitLog[]
+  v2Enabled: boolean
   onEdit: () => void
   onDelete: () => void
   onLogChange: () => void
 }
 
-function computeStreak(logs: HabitLog[], frequency: 'daily' | 'weekly'): number {
-  if (!logs.length) return 0
-  const sorted = [...logs].sort((a, b) => b.logged_date.localeCompare(a.logged_date))
-  if (frequency === 'daily') {
-    let streak = 0
-    const d = new Date()
-    for (const log of sorted) {
-      const expected = new Date(d)
-      expected.setHours(0, 0, 0, 0)
-      const logDate = new Date(log.logged_date)
-      logDate.setHours(0, 0, 0, 0)
-      if (logDate.getTime() === expected.getTime()) {
-        streak++
-        d.setDate(d.getDate() - 1)
-      } else if (logDate.getTime() < expected.getTime()) {
-        break
-      }
-    }
-    return streak
-  }
-  return sorted.length
-}
-
-export default function HabitCard({ habit, logs, onEdit, onDelete, onLogChange }: Props) {
+export default function HabitCard({ habit, logs, v2Enabled, onEdit, onDelete, onLogChange }: Props) {
   const [expanded, setExpanded] = useState(false)
-  const todayLogs = logs.filter(l => l.logged_date === today())
-  const todayLogged = todayLogs.length > 0
-  const paidToday = todayLogs.filter(l => l.paid_debt).length
-  const fullyDone = todayLogged && habit.debt === 0
-  const partiallyDone = todayLogged && habit.debt > 0
-  const streak = computeStreak(logs, habit.frequency)
+  const todayLogged = habit.logged_today
+  const fullyDone = todayLogged && habit.owed_count === 0
+  const partiallyDone = todayLogged && habit.owed_count > 0
+  const streak = habit.streak
   const logDates = logs.map(l => l.logged_date)
 
   async function toggleToday(e: React.MouseEvent<HTMLButtonElement>) {
-    const action = decideHabitTap(habit, logs)
-    haptic(action.type === 'pay' ? 'success' : 'light')
-    if (action.type === 'pay') celebrateFromElement(e.currentTarget)
-    await executeHabitTap(habit, action)
+    const willLog = habit.owed_count > 0
+    haptic(willLog ? 'success' : 'light')
+    if (willLog) celebrateFromElement(e.currentTarget)
+    await toggleHabitCompletion(habit, logs, v2Enabled)
     onLogChange()
   }
 
@@ -66,7 +42,7 @@ export default function HabitCard({ habit, logs, onEdit, onDelete, onLogChange }
       <div className="flex items-center gap-3 p-4">
         <button
           onClick={toggleToday}
-          title={partiallyDone ? `Logged today — ${habit.debt} owed still` : undefined}
+          title={partiallyDone ? `Logged today — ${habit.owed_count} owed still` : undefined}
           className={`w-12 h-12 rounded-xl flex items-center justify-center text-2xl shrink-0 transition-transform active:scale-95 ${
             partiallyDone ? 'border-2 border-dashed border-destructive' : ''
           }`}
@@ -86,7 +62,11 @@ export default function HabitCard({ habit, logs, onEdit, onDelete, onLogChange }
             </span>
             <span className="whitespace-nowrap">
               <span className="text-border">· </span>
-              {habit.frequency === 'daily' ? 'Daily' : `${habit.times_per_week}×/week`}
+              {habit.frequency === 'daily'
+                ? 'Daily'
+                : habit.frequency === 'weekly'
+                ? `${habit.times_per_week}×/week`
+                : `Every ${habit.interval_days} days`}
             </span>
             {habit.reminder_enabled && habit.reminder_time && (
               <span className="inline-flex items-center gap-1 whitespace-nowrap">
@@ -95,14 +75,14 @@ export default function HabitCard({ habit, logs, onEdit, onDelete, onLogChange }
                 {formatTime(utcTimeToLocalTime(habit.reminder_time.slice(0, 5)))}
               </span>
             )}
-            {habit.debt > 0 && (
+            {habit.owed_count > 0 && (
               <span className="inline-flex items-center whitespace-nowrap rounded-full bg-destructive/10 px-2 py-0.5 text-xs font-medium text-destructive">
-                {habit.debt} owed
+                {habit.owed_count} owed
               </span>
             )}
-            {paidToday > 0 && (
+            {habit.logged_today_count > 0 && (
               <span className="inline-flex items-center whitespace-nowrap rounded-full bg-emerald-500/10 px-2 py-0.5 text-xs font-medium text-emerald-600 dark:text-emerald-400">
-                paid {paidToday} today
+                {habit.logged_today_count}× today
               </span>
             )}
           </div>

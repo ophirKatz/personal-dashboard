@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { supabase } from '../../supabase'
-import type { Habit } from '../../supabase'
+import type { Habit, HabitFrequency } from '../../supabase'
 import { Button } from '../../components/ui/button'
 import { Input } from '../../components/ui/input'
 import { Label } from '../../components/ui/label'
@@ -22,14 +22,16 @@ type Props = {
   onSave: () => void
   habit?: Habit
   userId: string
+  v2Enabled: boolean
 }
 
-export default function HabitForm({ open, onClose, onSave, habit, userId }: Props) {
+export default function HabitForm({ open, onClose, onSave, habit, userId, v2Enabled }: Props) {
   const [name, setName] = useState(habit?.name ?? '')
   const [emoji, setEmoji] = useState(habit?.emoji ?? '✅')
   const [color, setColor] = useState(habit?.color ?? '#3b82f6')
-  const [frequency, setFrequency] = useState<'daily' | 'weekly'>(habit?.frequency ?? 'daily')
+  const [frequency, setFrequency] = useState<HabitFrequency>(habit?.frequency ?? 'daily')
   const [timesPerWeek, setTimesPerWeek] = useState(habit?.times_per_week ?? 3)
+  const [intervalDays, setIntervalDays] = useState(habit?.interval_days ?? 3)
   const [reminderEnabled, setReminderEnabled] = useState(habit?.reminder_enabled ?? false)
   const [reminderTime, setReminderTime] = useState(
     habit?.reminder_time ? utcTimeToLocalTime(habit.reminder_time.slice(0, 5)) : '09:00',
@@ -46,6 +48,7 @@ export default function HabitForm({ open, onClose, onSave, habit, userId }: Prop
       color,
       frequency,
       times_per_week: frequency === 'weekly' ? timesPerWeek : null,
+      interval_days: frequency === 'every_n_days' ? intervalDays : null,
       reminder_enabled: reminderEnabled,
       reminder_time: reminderEnabled ? localTimeToUtcTime(reminderTime) : null,
       last_notified_date: null,
@@ -125,6 +128,15 @@ export default function HabitForm({ open, onClose, onSave, habit, userId }: Prop
                 >
                   Weekly
                 </button>
+                {v2Enabled && (
+                  <button
+                    type="button"
+                    onClick={() => { haptic('selection'); setFrequency('every_n_days') }}
+                    className={`flex-1 py-2 rounded-lg border text-sm font-medium transition-colors ${frequency === 'every_n_days' ? 'bg-primary text-primary-foreground border-primary' : 'border-input hover:bg-accent'}`}
+                  >
+                    Every N days
+                  </button>
+                )}
               </div>
               {frequency === 'weekly' && (
                 <div className="flex items-center gap-3 pt-1">
@@ -134,6 +146,17 @@ export default function HabitForm({ open, onClose, onSave, habit, userId }: Prop
                     <span className="w-6 text-center font-medium">{timesPerWeek}</span>
                     <button type="button" onClick={() => setTimesPerWeek(Math.min(7, timesPerWeek + 1))} className="w-8 h-8 rounded-lg border flex items-center justify-center hover:bg-accent">+</button>
                   </div>
+                </div>
+              )}
+              {frequency === 'every_n_days' && (
+                <div className="flex items-center gap-3 pt-1">
+                  <Label className="shrink-0">Every</Label>
+                  <div className="flex items-center gap-2 ml-auto">
+                    <button type="button" onClick={() => setIntervalDays(Math.max(2, intervalDays - 1))} className="w-8 h-8 rounded-lg border flex items-center justify-center hover:bg-accent">−</button>
+                    <span className="w-6 text-center font-medium">{intervalDays}</span>
+                    <button type="button" onClick={() => setIntervalDays(Math.min(30, intervalDays + 1))} className="w-8 h-8 rounded-lg border flex items-center justify-center hover:bg-accent">+</button>
+                  </div>
+                  <span className="text-sm text-muted-foreground">days</span>
                 </div>
               )}
             </div>

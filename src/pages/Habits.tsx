@@ -1,16 +1,18 @@
 import { useEffect, useState } from 'react'
 import { Plus } from 'lucide-react'
 import { supabase } from '../supabase'
-import type { Habit, HabitLog } from '../supabase'
+import type { Habit, HabitLog, HabitStatus } from '../supabase'
 import type { User } from '@supabase/supabase-js'
 import HabitCard from '../features/habits/HabitCard'
 import HabitForm from '../features/habits/HabitForm'
 import { Button } from '../components/ui/button'
+import { fetchHabitsV2Enabled, loadHabitStatuses } from '../features/habits/habitStatus'
 
 export default function Habits() {
   const [user, setUser] = useState<User | null>(null)
-  const [habits, setHabits] = useState<Habit[]>([])
+  const [habits, setHabits] = useState<HabitStatus[]>([])
   const [logs, setLogs] = useState<HabitLog[]>([])
+  const [habitsV2Enabled, setHabitsV2Enabled] = useState(false)
   const [showForm, setShowForm] = useState(false)
   const [editingHabit, setEditingHabit] = useState<Habit | undefined>()
   const [loading, setLoading] = useState(true)
@@ -20,12 +22,12 @@ export default function Habits() {
   }, [])
 
   async function load() {
-    const [habitsRes, logsRes] = await Promise.all([
-      supabase.from('habits').select('*').order('created_at'),
-      supabase.from('habit_logs').select('*').gte('logged_date', new Date(Date.now() - 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]),
-    ])
-    setHabits(habitsRes.data ?? [])
-    setLogs(logsRes.data ?? [])
+    const sinceDate = new Date(Date.now() - 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+    const v2 = await fetchHabitsV2Enabled()
+    setHabitsV2Enabled(v2)
+    const { statuses, logs } = await loadHabitStatuses(v2, sinceDate)
+    setHabits(statuses)
+    setLogs(logs)
     setLoading(false)
   }
 
@@ -70,6 +72,7 @@ export default function Habits() {
               key={habit.id}
               habit={habit}
               logs={logsForHabit(habit.id)}
+              v2Enabled={habitsV2Enabled}
               onEdit={() => { setEditingHabit(habit); setShowForm(true) }}
               onDelete={() => deleteHabit(habit.id)}
               onLogChange={load}
@@ -85,6 +88,7 @@ export default function Habits() {
           onSave={load}
           habit={editingHabit}
           userId={user.id}
+          v2Enabled={habitsV2Enabled}
         />
       )}
     </div>
