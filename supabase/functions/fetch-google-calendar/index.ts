@@ -93,7 +93,11 @@ async function getAccessToken(
       grant_type: 'refresh_token',
     }),
   })
-  if (!refreshRes.ok) return null
+  if (!refreshRes.ok) {
+    const body = await refreshRes.text()
+    console.error(`[fetch-google-calendar] token refresh failed for account ${account.id}: ${refreshRes.status} ${body}`)
+    return null
+  }
 
   const refreshed = await refreshRes.json()
   accessToken = refreshed.access_token
@@ -105,9 +109,19 @@ async function getAccessToken(
   return accessToken
 }
 
+async function debugLog(supabase: SupabaseClient, accountId: string, step: string, detail: string) {
+  await supabase.from('_debug_calendar_sync').insert({ account_id: accountId, step, detail })
+}
+
 async function syncCalendarForAccount(supabase: SupabaseClient, account: AccountRow, clientId: string, clientSecret: string) {
+  await debugLog(supabase, account.id, 'start', 'entered syncCalendarForAccount')
   const accessToken = await getAccessToken(supabase, account, clientId, clientSecret)
-  if (!accessToken) return
+  if (!accessToken) {
+    console.error(`[fetch-google-calendar] no access token for account ${account.id}, skipping`)
+    await debugLog(supabase, account.id, 'no_access_token', 'getAccessToken returned null')
+    return
+  }
+  await debugLog(supabase, account.id, 'got_token', 'access token acquired')
 
   const timeMin = new Date(new Date().toISOString().slice(0, 10)).toISOString()
   const timeMax = new Date(Date.now() + SYNC_DAYS * 24 * 60 * 60 * 1000).toISOString()
@@ -120,7 +134,13 @@ async function syncCalendarForAccount(supabase: SupabaseClient, account: Account
   })
 
   const res = await fetch(`${CALENDAR_BASE}?${params}`, { headers: { Authorization: `Bearer ${accessToken}` } })
-  if (!res.ok) return // insufficient scope / upstream error — best-effort, leave cache as-is
+  if (!res.ok) {
+    const body = await res.text()
+    console.error(`[fetch-google-calendar] calendar API failed for account ${account.id}: ${res.status} ${body}`)
+    await debugLog(supabase, account.id, 'calendar_api_failed', `status=${res.status} body=${body.slice(0, 500)}`)
+    return // insufficient scope / upstream error — best-effort, leave cache as-is
+  }
+  await debugLog(supabase, account.id, 'calendar_api_ok', `timeMin=${timeMin} timeMax=${timeMax}`)
 
   const data: { items?: GoogleEventItem[] } = await res.json()
   const events = (data.items ?? [])
@@ -141,8 +161,13 @@ async function syncCalendarForAccount(supabase: SupabaseClient, account: Account
     .select('google_event_id')
     .eq('user_id', account.user_id)
     .eq('google_account_id', account.id)
-  if (selectError) return
+  if (selectError) {
+    console.error(`[fetch-google-calendar] select existing events failed for account ${account.id}: ${JSON.stringify(selectError)}`)
+    await debugLog(supabase, account.id, 'select_failed', JSON.stringify(selectError).slice(0, 500))
+    return
+  }
   const existingIds = new Set((existingRows ?? []).map(r => r.google_event_id).filter((id): id is string => id !== null))
+  await debugLog(supabase, account.id, 'fetched_events', `google_returned=${events.length} existing_in_db=${existingIds.size}`)
 
   const rows = events.map(e => ({
     user_id: account.user_id,
@@ -160,8 +185,14 @@ async function syncCalendarForAccount(supabase: SupabaseClient, account: Account
 
   if (rows.length > 0) {
     const { error: upsertError } = await supabase.from('events').upsert(rows, { onConflict: 'user_id,google_account_id,google_event_id' })
-    if (upsertError) return
+    if (upsertError) {
+      console.error(`[fetch-google-calendar] upsert failed for account ${account.id}: ${JSON.stringify(upsertError)}`)
+      await debugLog(supabase, account.id, 'upsert_failed', JSON.stringify(upsertError).slice(0, 500))
+      return
+    }
   }
+  console.log(`[fetch-google-calendar] synced ${rows.length} events for account ${account.id}`)
+  await debugLog(supabase, account.id, 'upsert_ok', `rows=${rows.length}`)
 
   const currentIds = new Set(events.map(e => e.id))
   const staleIds = [...existingIds].filter(id => !currentIds.has(id))
