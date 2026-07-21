@@ -2,21 +2,21 @@
 -- This ensures each Google event is only synced once per account per user
 -- The constraint is necessary for the upsert operation in fetch-google-calendar
 
--- Remove older duplicates if they exist (keep only the latest occurrence)
+-- Remove older duplicates if they exist (keep only the most recently created row)
 -- This is safe because Google Calendar events are immutable and we refetch them anyway
-DELETE FROM events e1
-WHERE e1.source = 'google'
-  AND e1.user_id IS NOT NULL
-  AND e1.google_account_id IS NOT NULL
-  AND e1.google_event_id IS NOT NULL
-  AND e1.id < (
-    SELECT MAX(e2.id)
-    FROM events e2
-    WHERE e2.source = 'google'
-      AND e2.user_id = e1.user_id
-      AND e2.google_account_id = e1.google_account_id
-      AND e2.google_event_id = e1.google_event_id
-  );
+WITH ranked AS (
+  SELECT id, ROW_NUMBER() OVER (
+    PARTITION BY user_id, google_account_id, google_event_id
+    ORDER BY created_at DESC
+  ) AS rn
+  FROM events
+  WHERE source = 'google'
+    AND user_id IS NOT NULL
+    AND google_account_id IS NOT NULL
+    AND google_event_id IS NOT NULL
+)
+DELETE FROM events
+WHERE id IN (SELECT id FROM ranked WHERE rn > 1);
 
 -- Add the unique constraint
 ALTER TABLE events
