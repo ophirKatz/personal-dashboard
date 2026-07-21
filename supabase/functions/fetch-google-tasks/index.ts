@@ -16,7 +16,7 @@ type GoogleTaskItem = {
 }
 
 async function getAllUserIds(supabase: SupabaseClient): Promise<string[]> {
-  const { data } = await supabase.from('google_accounts').select('user_id')
+  const { data } = await supabase.from('google_accounts').select('user_id').is('deleted_at', null)
   return [...new Set((data ?? []).map(row => row.user_id as string))]
 }
 
@@ -33,6 +33,7 @@ async function getAccessToken(
     .from('google_accounts')
     .select('id, refresh_token, access_token, access_token_expires_at')
     .eq('user_id', userId)
+    .is('deleted_at', null)
     .order('created_at', { ascending: true })
     .limit(1)
     .maybeSingle<TokenRow & { id: string }>()

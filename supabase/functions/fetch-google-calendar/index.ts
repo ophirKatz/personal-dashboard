@@ -136,12 +136,13 @@ async function syncCalendarForAccount(supabase: SupabaseClient, account: Account
       htmlLink: ev.htmlLink,
     }))
 
-  const { data: existingRows } = await supabase
+  const { data: existingRows, error: selectError } = await supabase
     .from('events')
     .select('google_event_id')
     .eq('user_id', account.user_id)
     .eq('google_account_id', account.id)
-  const existingIds = new Set((existingRows ?? []).map(r => r.google_event_id as string))
+  if (selectError) return
+  const existingIds = new Set((existingRows ?? []).map(r => r.google_event_id).filter((id): id is string => id !== null))
 
   const rows = events.map(e => ({
     user_id: account.user_id,
@@ -158,7 +159,8 @@ async function syncCalendarForAccount(supabase: SupabaseClient, account: Account
   }))
 
   if (rows.length > 0) {
-    await supabase.from('events').upsert(rows, { onConflict: 'user_id,google_account_id,google_event_id' })
+    const { error: upsertError } = await supabase.from('events').upsert(rows, { onConflict: 'user_id,google_account_id,google_event_id' })
+    if (upsertError) return
   }
 
   const currentIds = new Set(events.map(e => e.id))
