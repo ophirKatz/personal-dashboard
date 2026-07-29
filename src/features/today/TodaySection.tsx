@@ -72,6 +72,7 @@ export default function TodaySection({ habits, totalHabitsCount, onToggleHabit, 
   const [postponingTodoId, setPostponingTodoId] = useState<string | null>(null)
   const [completingTodoIds, setCompletingTodoIds] = useState<Set<string>>(new Set())
   const [showAllTodos, setShowAllTodos] = useState(false)
+  const [showAllEvents, setShowAllEvents] = useState(false)
 
   function handleCompleteTodo(todo: Todo, e: MouseEvent<HTMLButtonElement>) {
     haptic('success')
@@ -136,7 +137,7 @@ export default function TodaySection({ habits, totalHabitsCount, onToggleHabit, 
           <p className="text-sm text-muted-foreground">No events today</p>
         ) : (
           <div className="space-y-1.5">
-            {visibleEvents.slice(0, 3).map(event => (
+            {(showAllEvents ? visibleEvents : visibleEvents.slice(0, 3)).map(event => (
               <div key={event.id}>
                 <button
                   onClick={() => event.location && setExpandedEventId(id => (id === event.id ? null : event.id))}
@@ -159,7 +160,14 @@ export default function TodaySection({ habits, totalHabitsCount, onToggleHabit, 
                 )}
               </div>
             ))}
-            {visibleEvents.length > 3 && <p className="text-xs text-muted-foreground">+{visibleEvents.length - 3} more</p>}
+            {visibleEvents.length > 3 && (
+              <button
+                onClick={() => setShowAllEvents(v => !v)}
+                className="text-xs text-muted-foreground hover:text-foreground"
+              >
+                {showAllEvents ? 'Show less' : `+${visibleEvents.length - 3} more`}
+              </button>
+            )}
           </div>
         )}
       </div>
