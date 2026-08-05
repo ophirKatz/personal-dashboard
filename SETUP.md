@@ -365,14 +365,13 @@ and dictate freeform text (e.g. "milk, eggs, and bananas", "three v three, one v
 the dentist tomorrow at 3pm, high priority") — it gets parsed by Claude and written directly into
 your `shopping_items` / `climbing_sessions`+`climbing_attempts` / `todos` tables, no need to open
 the app. You can also say "Hey Siri, what's my day look like" for a spoken AI summary of today's
-weather, calendar events, and tasks (including anything overdue) — nothing is written anywhere for
-this one, it's read-only.
+calendar events and tasks — nothing is written anywhere for this one, it's read-only.
 
 **How it works:** four Supabase Edge Functions. `voice-shopping`, `voice-climbing`, and
 `voice-todo` each take a `{"transcript": "..."}` POST body, parsed by Claude and written to your
-tables. `daily` takes no body — it pulls your `weather_cache`, today's `events`, and today's (plus
-any overdue) `todos`, hands them to Claude Haiku, and returns a short spoken-style summary. Since a
-Siri Shortcut can't hold a short-lived Supabase session JWT, all four authenticate with a separate
+tables. `daily` takes no body — it pulls today's `events` and today's `todos`, hands them to Claude
+Haiku, and returns a short spoken-style summary. Since a Siri Shortcut can't hold a short-lived
+Supabase session JWT, all four authenticate with a separate
 long-lived **personal API token** instead (`api_tokens` table — `token_hash` only, the raw token is
 never stored). Generate one in **Settings → Voice shortcuts (Siri) → Generate new token**; it's
 shown once, so copy it immediately.
@@ -513,8 +512,8 @@ todo"**, or **"Hey Siri, what's my day look like"**, then speak naturally where 
 Siri dictates, sends it to the matching Edge Function, and speaks back a confirmation like
 *"Added Milk, Eggs, Bananas to your shopping list."*, *"Logged 3 climbs: v2-3, v5-6, v6-7
 (project)."*, *"Added 1 task: Call the dentist."*, or, for the daily briefing, a couple of sentences
-covering the weather, today's events, and today's (plus overdue) tasks. Entries appear in the app
-the next time the Shopping, Climbing, or Todos page loads.
+covering today's events and today's tasks. Entries appear in the app the next time the Shopping,
+Climbing, or Todos page loads.
 
 **Climbing grade parsing rule:** a single spoken grade always rounds *up* to the band where it's
 the upper bound — "v4" → `v3-4`, "v7" → `v6-7` — except "v0", which has no band below it and maps
