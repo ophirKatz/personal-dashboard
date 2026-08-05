@@ -358,31 +358,37 @@ other AI features.
 
 ---
 
-## 1j. Voice Shortcuts (Siri) — Add to shopping list / log a climb / add a todo by voice
+## 1j. Voice Shortcuts (Siri) — Add to shopping list / log a climb / add a todo / daily briefing
 
 You can say "Hey Siri, add to shopping list", "Hey Siri, log a climb", or "Hey Siri, add a todo"
 and dictate freeform text (e.g. "milk, eggs, and bananas", "three v three, one v five six", or "call
 the dentist tomorrow at 3pm, high priority") — it gets parsed by Claude and written directly into
 your `shopping_items` / `climbing_sessions`+`climbing_attempts` / `todos` tables, no need to open
-the app.
+the app. You can also say "Hey Siri, what's my day look like" for a spoken AI summary of today's
+weather, calendar events, and tasks (including anything overdue) — nothing is written anywhere for
+this one, it's read-only.
 
-**How it works:** three Supabase Edge Functions, `voice-shopping`, `voice-climbing`, and
-`voice-todo`, each take a `{"transcript": "..."}` POST body. Since a Siri Shortcut can't hold a
-short-lived Supabase session JWT, they authenticate with a separate long-lived **personal API
-token** instead (`api_tokens` table — `token_hash` only, the raw token is never stored). Generate
-one in **Settings → Voice shortcuts (Siri) → Generate new token**; it's shown once, so copy it
-immediately.
+**How it works:** four Supabase Edge Functions. `voice-shopping`, `voice-climbing`, and
+`voice-todo` each take a `{"transcript": "..."}` POST body, parsed by Claude and written to your
+tables. `daily` takes no body — it pulls your `weather_cache`, today's `events`, and today's (plus
+any overdue) `todos`, hands them to Claude Haiku, and returns a short spoken-style summary. Since a
+Siri Shortcut can't hold a short-lived Supabase session JWT, all four authenticate with a separate
+long-lived **personal API token** instead (`api_tokens` table — `token_hash` only, the raw token is
+never stored). Generate one in **Settings → Voice shortcuts (Siri) → Generate new token**; it's
+shown once, so copy it immediately.
 
 **This was already set up for you (via MCPs), no action needed:**
 - The `api_tokens` table (RLS: each user manages only their own rows)
-- The `voice-shopping`, `voice-climbing`, and `voice-todo` Edge Functions, deployed with
+- The `voice-shopping`, `voice-climbing`, `voice-todo`, and `daily` Edge Functions, deployed with
   `verify_jwt: false` (they do their own auth via the token hash, not Supabase's built-in JWT
   check), at:
   - `https://tjjvrqamitwtoslinrxy.supabase.co/functions/v1/voice-shopping`
   - `https://tjjvrqamitwtoslinrxy.supabase.co/functions/v1/voice-climbing`
   - `https://tjjvrqamitwtoslinrxy.supabase.co/functions/v1/voice-todo`
-- All three reuse the existing `ANTHROPIC_API_KEY` Edge Function secret (step 1h) — no new secret
-  needed
+  - `https://tjjvrqamitwtoslinrxy.supabase.co/functions/v1/daily`
+- All four reuse the existing `ANTHROPIC_API_KEY` Edge Function secret (step 1h) — no new secret
+  needed. `daily` uses the `claude-haiku-4-5-20251001` model (same family as the Focus Summary
+  feature) to keep the briefing fast and cheap.
 
 **What still requires manual action — building the iOS Shortcuts themselves can't be done via
 MCP, it's a one-time setup in the Shortcuts app on your iPhone.**
@@ -470,19 +476,45 @@ Duplicate the shortcut again and rename it `Add a todo`, then edit Action 2:
 
 Leave Actions 3–4 as-is.
 
-### Step 5 — Use it
+### Step 5 — Build "Daily briefing"
 
-Say **"Hey Siri, add to shopping list"**, **"Hey Siri, log a climb"**, or **"Hey Siri, add a
-todo"**, then speak naturally:
+This one skips dictation entirely — there's no transcript to send, just a request for the day's
+summary. Create a new shortcut named e.g. `What's my day look like` with two actions:
+
+**Action 1: Get Contents of URL**
+
+| Field | Value |
+|---|---|
+| URL | `https://tjjvrqamitwtoslinrxy.supabase.co/functions/v1/daily` |
+| Method | `POST` |
+| Headers | `Authorization` = `Bearer <YOUR_TOKEN>` |
+| Headers | `Content-Type` = `application/json` |
+
+Leave the request body empty — the function doesn't need one.
+
+**Action 2: Get Dictionary Value**
+- Get → `Value for Key`, key = `message`, dictionary = the output of Action 1
+
+**Action 3: Speak Text**
+- Input = the output of Action 2
+
+Name the shortcut whatever phrase you want to say to Siri, same as Step 2's naming note.
+
+### Step 6 — Use it
+
+Say **"Hey Siri, add to shopping list"**, **"Hey Siri, log a climb"**, **"Hey Siri, add a
+todo"**, or **"Hey Siri, what's my day look like"**, then speak naturally where dictation applies:
 
 - Shopping: *"milk, eggs, and bananas"*
 - Climbing: *"three v three, one v five six, fell on a v six seven"*
 - Todo: *"call the dentist tomorrow at 3pm, high priority"*
+- Daily briefing: nothing to say — it just runs and speaks back
 
 Siri dictates, sends it to the matching Edge Function, and speaks back a confirmation like
 *"Added Milk, Eggs, Bananas to your shopping list."*, *"Logged 3 climbs: v2-3, v5-6, v6-7
-(project)."*, or *"Added 1 task: Call the dentist."* Entries appear in the app the next time the
-Shopping, Climbing, or Todos page loads.
+(project)."*, *"Added 1 task: Call the dentist."*, or, for the daily briefing, a couple of sentences
+covering the weather, today's events, and today's (plus overdue) tasks. Entries appear in the app
+the next time the Shopping, Climbing, or Todos page loads.
 
 **Climbing grade parsing rule:** a single spoken grade always rounds *up* to the band where it's
 the upper bound — "v4" → `v3-4`, "v7" → `v6-7` — except "v0", which has no band below it and maps
@@ -937,12 +969,15 @@ Common causes: unused imports (the tsconfig is set to `noUnusedLocals: false` to
 - Check the browser's notification permission for the site hasn't been previously denied
 
 **Voice shortcut says nothing happened / Siri shortcut fails:**
-- A `401` from `voice-shopping`/`voice-climbing` means the token in the Shortcut's Authorization
-  header doesn't match any row in `api_tokens` — regenerate one in Settings and update the Shortcut
+- A `401` from `voice-shopping`/`voice-climbing`/`voice-todo`/`daily` means the token in the
+  Shortcut's Authorization header doesn't match any row in `api_tokens` — regenerate one in
+  Settings and update the Shortcut
 - A `502 EXTRACTION_FAILED` means Claude couldn't parse the transcript as JSON, or didn't return any
   items/attempts — try dictating more clearly (e.g. "milk, eggs" or "three v three")
+- A `502 SUMMARY_FAILED` from `daily` means Claude failed to generate the briefing — check the
+  Edge Function logs for the underlying Anthropic API error
 - Check the Edge Function's logs (Dashboard → Edge Functions → `voice-shopping` / `voice-climbing`
-  → Logs) for the exact error
+  / `voice-todo` / `daily` → Logs) for the exact error
 - Confirm `ANTHROPIC_API_KEY` is set as a Supabase Edge Function secret (step 1h)
 
 **Notifications never arrive even though "Enable notifications" succeeded:**
