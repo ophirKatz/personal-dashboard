@@ -11,7 +11,7 @@ import { connectGoogle, isGoogleConnected } from '../lib/googleAuth'
 import { Fab } from '../components/ui/fab'
 import { today } from '../utils'
 
-type Filter = 'today' | 'upcoming' | 'all' | 'completed'
+type Filter = 'overdue' | 'today' | 'upcoming' | 'all' | 'completed'
 
 function dueSortKey(todo: Todo): string {
   if (!todo.due_date) return '9999-12-31T23:59'
@@ -19,6 +19,7 @@ function dueSortKey(todo: Todo): string {
 }
 
 const FILTERS: { key: Filter; label: string }[] = [
+  { key: 'overdue', label: 'Overdue' },
   { key: 'today', label: 'Today' },
   { key: 'upcoming', label: 'Upcoming' },
   { key: 'all', label: 'All' },
@@ -31,7 +32,7 @@ export default function Todos() {
   const [friends, setFriends] = useState<Friend[]>([])
   const [todoFriends, setTodoFriends] = useState<TodoFriend[]>([])
   const [googleConnected, setGoogleConnected] = useState(true)
-  const [filter, setFilter] = useState<Filter>('today')
+  const [filter, setFilter] = useState<Filter>('upcoming')
   const [showForm, setShowForm] = useState(false)
   const [editingTodo, setEditingTodo] = useState<Todo | undefined>()
   const [loading, setLoading] = useState(true)
@@ -80,6 +81,7 @@ export default function Todos() {
     if (filter === 'completed') return todo.completed
     if (todo.completed) return false
     const due = todo.due_date
+    if (filter === 'overdue') return due && due < t
     if (filter === 'today') return !due || due === t
     if (filter === 'upcoming') return due && due > t
     return true
