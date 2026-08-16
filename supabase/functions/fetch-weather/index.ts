@@ -4,6 +4,41 @@ import { createClient, SupabaseClient } from 'npm:@supabase/supabase-js@2'
 // hardcoded 'Asia/Jerusalem' timezone in generate-focus-summary.
 const LOCATION = { latitude: 32.0853, longitude: 34.7818 }
 
+function sleep(ms: number): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, ms))
+}
+
+// Full jitter exponential backoff: 1s, 2s, 4s (+/- up to 250ms), capped so a
+// flaky upstream can't stall the function past its execution limit.
+function backoffMs(attempt: number): number {
+  return Math.min(1000 * 2 ** (attempt - 1), 4000) + Math.floor(Math.random() * 250)
+}
+
+// Retries transient failures (network errors, timeouts, 5xx, 429) with backoff.
+// Leaves 4xx client errors (other than 429) alone since retrying won't help.
+async function fetchWithRetry(url: string, attempts = 3, timeoutMs = 10_000): Promise<Response> {
+  let lastError: unknown
+  for (let attempt = 1; attempt <= attempts; attempt++) {
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), timeoutMs)
+    try {
+      const res = await fetch(url, { signal: controller.signal })
+      if (!res.ok && (res.status >= 500 || res.status === 429) && attempt < attempts) {
+        await sleep(backoffMs(attempt))
+        continue
+      }
+      return res
+    } catch (err) {
+      lastError = err
+      if (attempt === attempts) throw err
+      await sleep(backoffMs(attempt))
+    } finally {
+      clearTimeout(timeout)
+    }
+  }
+  throw lastError
+}
+
 const WEATHER_CODE_LABELS: Record<number, string> = {
   0: 'Clear sky',
   1: 'Mainly clear',
@@ -71,7 +106,7 @@ async function fetchCurrentWeather(): Promise<{ current: OpenMeteoResponse['curr
     daily: 'temperature_2m_min,temperature_2m_max',
     timezone: 'Asia/Jerusalem',
   })
-  const res = await fetch(`https://api.open-meteo.com/v1/forecast?${params}`)
+  const res = await fetchWithRetry(`https://api.open-meteo.com/v1/forecast?${params}`)
   if (!res.ok) {
     throw new Error(`Open-Meteo error ${res.status}: ${await res.text()}`)
   }
