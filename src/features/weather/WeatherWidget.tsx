@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { RefreshCw } from 'lucide-react'
+import { RefreshCw, AlertTriangle } from 'lucide-react'
 import { supabase } from '../../supabase'
 import type { WeatherCache } from '../../supabase'
 
@@ -11,6 +11,15 @@ function temperatureStyle(celsius: number) {
   if (celsius < 30) return { color: 'text-amber-500', emoji: '☀️' }
   if (celsius < 35) return { color: 'text-orange-500', emoji: '🥵' }
   return { color: 'text-red-600', emoji: '🔥' }
+}
+
+function formatAgo(iso: string): string {
+  const minutes = Math.floor((Date.now() - new Date(iso).getTime()) / 60_000)
+  if (minutes < 1) return 'just now'
+  if (minutes < 60) return `${minutes}m ago`
+  const hours = Math.floor(minutes / 60)
+  if (hours < 24) return `${hours}h ago`
+  return `${Math.floor(hours / 24)}d ago`
 }
 
 export default function WeatherWidget() {
@@ -46,14 +55,25 @@ export default function WeatherWidget() {
     return <div className="h-5 w-20 bg-muted rounded animate-pulse" />
   }
 
-  if (!weather || weather.status === 'error' || weather.temperature === null) {
+  // No reading has ever succeeded for this row — nothing to fall back to.
+  if (!weather || weather.temperature === null) {
     return (
-      <button onClick={refresh} disabled={refreshing} className="flex items-center gap-1.5 text-xs text-muted-foreground disabled:opacity-40">
+      <button
+        onClick={refresh}
+        disabled={refreshing}
+        className="flex items-center gap-1.5 text-xs text-muted-foreground disabled:opacity-40"
+        title={weather?.error ?? undefined}
+      >
         Weather unavailable
         <RefreshCw className={`h-3.5 w-3.5 ${refreshing ? 'animate-spin' : ''}`} />
       </button>
     )
   }
+
+  // The latest refresh failed, but a previous good reading is still cached — show it
+  // instead of blanking out, since it's still roughly right for anything less than a
+  // few hours stale.
+  const stale = weather.status === 'error'
 
   const displayTemp = showMinMax && weather.temperature_min !== null && weather.temperature_max !== null
     ? `${Math.round(weather.temperature_min)}–${Math.round(weather.temperature_max)}°C`
@@ -67,11 +87,20 @@ export default function WeatherWidget() {
     <div className="flex items-center gap-1.5">
       <button
         onClick={() => setShowMinMax(!showMinMax)}
-        className={`text-sm font-medium ${tempStyle.color} hover:opacity-70 transition-opacity`}
+        className={`text-sm font-medium ${stale ? 'text-muted-foreground' : tempStyle.color} hover:opacity-70 transition-opacity`}
         title={showMinMax ? 'Current temperature' : 'Low/High temperature'}
       >
         {tempStyle.emoji} {displayTemp}
       </button>
+      {stale && weather.fetched_at && (
+        <span
+          className="flex items-center gap-0.5 text-xs text-muted-foreground"
+          title={`Couldn't refresh${weather.error ? `: ${weather.error}` : ''} — showing the last known reading`}
+        >
+          <AlertTriangle className="h-3 w-3" />
+          {formatAgo(weather.fetched_at)}
+        </span>
+      )}
       <button
         onClick={refresh}
         disabled={refreshing}
