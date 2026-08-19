@@ -1,5 +1,6 @@
 import { supabase } from '../../supabase'
 import { fetchQuote } from '../finance/stocks'
+import { fetchRate, type CurrencyCode } from '../finance/currency'
 import { isFriendOverdue, formatFriendGoal } from '../../utils'
 import type { FriendInteraction } from '../../supabase'
 
@@ -23,6 +24,31 @@ export async function checkStockAlerts(userId: string) {
       }
     } catch {
       // skip symbols that fail to fetch (e.g. missing API key)
+    }
+  }
+}
+
+export async function checkCurrencyAlerts(userId: string) {
+  const { data: alerts } = await supabase.from('currency_alerts').select('*').eq('user_id', userId)
+  if (!alerts) return
+
+  for (const alert of alerts) {
+    try {
+      const rate = await fetchRate(alert.from_currency as CurrencyCode, alert.to_currency as CurrencyCode)
+      const hit = alert.direction === 'above' ? rate >= alert.target_rate : rate <= alert.target_rate
+      if (hit && !alert.triggered_at) {
+        await supabase.from('notifications').insert({
+          user_id: userId,
+          type: 'currency_alert',
+          title: `${alert.from_currency.toUpperCase()}/${alert.to_currency.toUpperCase()} hit your target`,
+          message: `1 ${alert.from_currency.toUpperCase()} is now ${rate.toFixed(4)} ${alert.to_currency.toUpperCase()}, ${alert.direction} your alert level of ${alert.target_rate}.`,
+        })
+        await supabase.from('currency_alerts').update({ triggered_at: new Date().toISOString() }).eq('id', alert.id)
+      } else if (!hit && alert.triggered_at) {
+        await supabase.from('currency_alerts').update({ triggered_at: null }).eq('id', alert.id)
+      }
+    } catch {
+      // skip pairs that fail to fetch (e.g. rate API unreachable)
     }
   }
 }
