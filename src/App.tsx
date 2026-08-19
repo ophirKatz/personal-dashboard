@@ -5,7 +5,7 @@ import { supabase } from './supabase'
 import Layout from './components/Layout'
 import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
-import { checkStockAlerts, checkFriendReminders } from './features/notifications/notifications'
+import { checkStockAlerts, checkCurrencyAlerts, checkFriendReminders } from './features/notifications/notifications'
 import { syncPushSubscription } from './lib/push'
 import { upsertPrimaryGoogleAccount } from './lib/googleAccounts'
 
@@ -59,6 +59,7 @@ export default function App() {
   useEffect(() => {
     if (user) {
       checkStockAlerts(user.id)
+      checkCurrencyAlerts(user.id)
       checkFriendReminders(user.id)
       syncPushSubscription()
     }

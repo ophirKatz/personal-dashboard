@@ -145,6 +145,17 @@ export type StockAlert = {
   created_at: string
 }
 
+export type CurrencyAlert = {
+  id: string
+  user_id: string
+  from_currency: string
+  to_currency: string
+  target_rate: number
+  direction: 'above' | 'below'
+  triggered_at: string | null
+  created_at: string
+}
+
 export type GoogleDriveFolder = {
   id: string
   user_id: string
