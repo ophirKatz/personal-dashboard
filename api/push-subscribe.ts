@@ -19,6 +19,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return
   }
 
+  // A device's push endpoint can rotate (iOS does this periodically for PWAs).
+  // Drop this user's other subscriptions first so a rotation replaces the old
+  // endpoint instead of accumulating alongside it — otherwise every due
+  // notification fans out to each stale endpoint still on file.
+  await auth.supabase
+    .from('push_subscriptions')
+    .delete()
+    .eq('user_id', auth.userId)
+    .neq('endpoint', endpoint)
+
   const { error } = await auth.supabase
     .from('push_subscriptions')
     .upsert({ user_id: auth.userId, endpoint, p256dh, auth: authKey }, { onConflict: 'endpoint' })
