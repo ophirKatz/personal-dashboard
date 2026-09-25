@@ -1,0 +1,80 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300" width="400" height="300">
+  <defs>
+    <radialGradient id="felt" cx="50%" cy="40%" r="75%">
+      <stop offset="0" stop-color="#14b8a6"/>
+      <stop offset="0.55" stop-color="#0f766e"/>
+      <stop offset="1" stop-color="#134e4a"/>
+    </radialGradient>
+    <linearGradient id="top" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#f5f5f4"/>
+    </linearGradient>
+    <linearGradient id="left" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#e7e5e4"/>
+      <stop offset="1" stop-color="#d6d3d1"/>
+    </linearGradient>
+    <linearGradient id="right" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#d6d3d1"/>
+      <stop offset="1" stop-color="#b8b3ae"/>
+    </linearGradient>
+    <radialGradient id="shadow" cx="50%" cy="50%" r="50%">
+      <stop offset="0" stop-color="#042f2e" stop-opacity="0.55"/>
+      <stop offset="1" stop-color="#042f2e" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="400" height="300" fill="url(#felt)"/>
+  <g fill="#ffffff" opacity="0.18">
+    <circle cx="48" cy="52" r="3"/>
+    <circle cx="352" cy="44" r="4"/>
+    <circle cx="370" cy="236" r="2.5"/>
+    <circle cx="36" cy="238" r="3.5"/>
+    <circle cx="210" cy="30" r="2"/>
+  </g>
+  <ellipse cx="150" cy="236" rx="92" ry="22" fill="url(#shadow)"/>
+  <ellipse cx="282" cy="258" rx="74" ry="18" fill="url(#shadow)"/>
+  <g transform="translate(142 50) scale(0.86)">
+    <polygon points="0,4 83,50 83,148 0,196 -83,148 -83,50" fill="#d6d3d1"/>
+    <g transform="matrix(0.866 0.5 -0.866 0.5 0 0)">
+      <rect x="2" y="2" width="96" height="96" rx="16" fill="url(#top)"/>
+      <circle cx="27" cy="27" r="9" fill="#1c1917"/>
+      <circle cx="73" cy="27" r="9" fill="#1c1917"/>
+      <circle cx="27" cy="50" r="9" fill="#1c1917"/>
+      <circle cx="73" cy="50" r="9" fill="#1c1917"/>
+      <circle cx="27" cy="73" r="9" fill="#1c1917"/>
+      <circle cx="73" cy="73" r="9" fill="#1c1917"/>
+    </g>
+    <g transform="matrix(0.866 0.5 0 1 -86.6 50)">
+      <rect x="2" y="2" width="96" height="96" rx="16" fill="url(#left)"/>
+      <circle cx="27" cy="27" r="9" fill="#1c1917"/>
+      <circle cx="73" cy="73" r="9" fill="#1c1917"/>
+    </g>
+    <g transform="matrix(0.866 -0.5 0 1 0 100)">
+      <rect x="2" y="2" width="96" height="96" rx="16" fill="url(#right)"/>
+      <circle cx="27" cy="27" r="9" fill="#1c1917"/>
+      <circle cx="73" cy="27" r="9" fill="#1c1917"/>
+      <circle cx="27" cy="73" r="9" fill="#1c1917"/>
+      <circle cx="73" cy="73" r="9" fill="#1c1917"/>
+    </g>
+  </g>
+  <g transform="translate(280 112) scale(0.7)">
+    <polygon points="0,4 83,50 83,148 0,196 -83,148 -83,50" fill="#d6d3d1"/>
+    <g transform="matrix(0.866 0.5 -0.866 0.5 0 0)">
+      <rect x="2" y="2" width="96" height="96" rx="16" fill="url(#top)"/>
+      <circle cx="27" cy="27" r="9" fill="#1c1917"/>
+      <circle cx="73" cy="27" r="9" fill="#1c1917"/>
+      <circle cx="50" cy="50" r="9" fill="#1c1917"/>
+      <circle cx="27" cy="73" r="9" fill="#1c1917"/>
+      <circle cx="73" cy="73" r="9" fill="#1c1917"/>
+    </g>
+    <g transform="matrix(0.866 0.5 0 1 -86.6 50)">
+      <rect x="2" y="2" width="96" height="96" rx="16" fill="url(#left)"/>
+      <circle cx="50" cy="50" r="11" fill="#dc2626"/>
+    </g>
+    <g transform="matrix(0.866 -0.5 0 1 0 100)">
+      <rect x="2" y="2" width="96" height="96" rx="16" fill="url(#right)"/>
+      <circle cx="27" cy="27" r="9" fill="#1c1917"/>
+      <circle cx="50" cy="50" r="9" fill="#1c1917"/>
+      <circle cx="73" cy="73" r="9" fill="#1c1917"/>
+    </g>
+  </g>
+</svg>
