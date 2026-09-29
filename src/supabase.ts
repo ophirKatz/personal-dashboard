@@ -365,3 +365,34 @@ export type ReadingBook = {
   is_current: boolean
   created_at: string
 }
+
+export type RsCharacter = {
+  id: string
+  user_id: string
+  name: string
+  created_at: string
+}
+
+export type RsQuest = {
+  id: string
+  name: string
+  difficulty: string | null
+  members: boolean | null
+  quest_points: number | null
+  updated_at: string
+}
+
+export type RsGoalType = 'skill' | 'quest' | 'arbitrary'
+
+export type RsGoal = {
+  id: string
+  user_id: string
+  character_id: string
+  type: RsGoalType
+  skill_id: number | null
+  target_level: number | null
+  quest_id: string | null
+  title: string | null
+  completed_at: string | null
+  created_at: string
+}
