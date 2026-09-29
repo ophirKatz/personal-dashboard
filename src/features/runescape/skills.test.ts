@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { SKILLS, SKILL_BY_ID, levelForXp, progressToNext, skillLevel, xpForLevel } from './skills'
+import { SKILLS, SKILL_BY_ID, levelForXp, progressToNext, realLevel, skillLevel, xpForLevel } from './skills'
 
 describe('xp table', () => {
   it('matches known RS3 thresholds', () => {
@@ -38,6 +38,15 @@ describe('skillLevel', () => {
 
   it('trusts the API level for elite skills', () => {
     expect(skillLevel(SKILL_BY_ID.get(26)!, { level: 80, xp: 200_000_000 })).toBe(80)
+  })
+})
+
+describe('realLevel', () => {
+  it('caps at the skill real max', () => {
+    const defence = SKILL_BY_ID.get(1)!
+    expect(realLevel(defence, { level: 99, xp: xpForLevel(117) })).toBe(99)
+    const herblore = SKILL_BY_ID.get(15)!
+    expect(realLevel(herblore, { level: 110, xp: xpForLevel(110) })).toBe(110)
   })
 })
 
