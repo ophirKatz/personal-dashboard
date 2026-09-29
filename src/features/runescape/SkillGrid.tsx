@@ -1,6 +1,6 @@
 import { cn } from '../../utils'
 import type { CharacterStats } from './api'
-import { SKILLS, formatXp, progressToNext } from './skills'
+import { SKILLS, VIRTUAL_MAX, formatXp, progressToNext, skillLevel } from './skills'
 import ProgressRing from './ProgressRing'
 
 export default function SkillGrid({ stats }: { stats: CharacterStats }) {
@@ -8,11 +8,11 @@ export default function SkillGrid({ stats }: { stats: CharacterStats }) {
     <div className="grid grid-cols-3 sm:grid-cols-4 gap-2.5">
       {SKILLS.map((skill, i) => {
         const stat = stats.skills.get(skill.id)
-        const level = stat?.level ?? 1
+        const level = stat ? skillLevel(skill, stat) : 1
         const mastered = level >= 99
-        const maxed = level >= skill.maxLevel
+        const maxed = level >= VIRTUAL_MAX
         const Icon = skill.icon
-        const progress = !stat ? 0 : skill.elite ? level / skill.maxLevel : progressToNext(stat.xp, level, skill.maxLevel)
+        const progress = !stat ? 0 : skill.elite ? level / VIRTUAL_MAX : progressToNext(stat.xp, level, VIRTUAL_MAX)
         return (
           <div
             key={skill.id}

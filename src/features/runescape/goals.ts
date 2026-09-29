@@ -1,6 +1,6 @@
 import type { RsGoal, RsQuest } from '../../supabase'
 import type { CharacterStats, QuestEntry, QuestStatus } from './api'
-import { SKILL_BY_ID, levelForXp, xpForLevel } from './skills'
+import { SKILL_BY_ID, skillLevel, xpForLevel } from './skills'
 
 export type GoalProgress = {
   /** 0..1 */
@@ -38,8 +38,7 @@ export function goalProgress(
     const target = goal.target_level ?? 0
     const stat = skill ? stats?.skills.get(skill.id) : undefined
     if (!skill || !stat) return { fraction: 0, done: false, label: `Level ${target}`, detail: 'Stats unavailable' }
-    // The API level is authoritative (Invention's elite table differs from the standard one).
-    const level = skill.elite ? stat.level : Math.max(stat.level, levelForXp(stat.xp, skill.maxLevel))
+    const level = skillLevel(skill, stat)
     if (level >= target) return { fraction: 1, done: true, label: `${level} / ${target}`, detail: 'Reached!' }
     if (skill.elite) return { fraction: level / target, done: false, label: `${level} / ${target}`, detail: null }
     const targetXp = xpForLevel(target)

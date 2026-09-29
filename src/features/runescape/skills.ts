@@ -10,45 +10,47 @@ export type Skill = {
   id: number
   name: string
   icon: LucideIcon
-  maxLevel: number
   /** Elite XP table (Invention); the standard table doesn't apply. */
   elite?: boolean
 }
 
 export const SKILLS: Skill[] = [
-  { id: 0, name: 'Attack', icon: Sword, maxLevel: 99 },
-  { id: 1, name: 'Defence', icon: Shield, maxLevel: 99 },
-  { id: 2, name: 'Strength', icon: Dumbbell, maxLevel: 99 },
-  { id: 3, name: 'Constitution', icon: Heart, maxLevel: 99 },
-  { id: 4, name: 'Ranged', icon: Crosshair, maxLevel: 99 },
-  { id: 5, name: 'Prayer', icon: Sparkles, maxLevel: 99 },
-  { id: 6, name: 'Magic', icon: Wand2, maxLevel: 99 },
-  { id: 7, name: 'Cooking', icon: CookingPot, maxLevel: 99 },
-  { id: 8, name: 'Woodcutting', icon: TreePine, maxLevel: 99 },
-  { id: 9, name: 'Fletching', icon: Feather, maxLevel: 99 },
-  { id: 10, name: 'Fishing', icon: Fish, maxLevel: 99 },
-  { id: 11, name: 'Firemaking', icon: Flame, maxLevel: 99 },
-  { id: 12, name: 'Crafting', icon: Scissors, maxLevel: 99 },
-  { id: 13, name: 'Smithing', icon: Hammer, maxLevel: 99 },
-  { id: 14, name: 'Mining', icon: Pickaxe, maxLevel: 99 },
-  { id: 15, name: 'Herblore', icon: FlaskConical, maxLevel: 120 },
-  { id: 16, name: 'Agility', icon: Footprints, maxLevel: 99 },
-  { id: 17, name: 'Thieving', icon: Hand, maxLevel: 99 },
-  { id: 18, name: 'Slayer', icon: Skull, maxLevel: 120 },
-  { id: 19, name: 'Farming', icon: Sprout, maxLevel: 120 },
-  { id: 20, name: 'Runecrafting', icon: Orbit, maxLevel: 99 },
-  { id: 21, name: 'Hunter', icon: PawPrint, maxLevel: 99 },
-  { id: 22, name: 'Construction', icon: Home, maxLevel: 99 },
-  { id: 23, name: 'Summoning', icon: Bird, maxLevel: 99 },
-  { id: 24, name: 'Dungeoneering', icon: Castle, maxLevel: 120 },
-  { id: 25, name: 'Divination', icon: Eye, maxLevel: 99 },
-  { id: 26, name: 'Invention', icon: Lightbulb, maxLevel: 120, elite: true },
-  { id: 27, name: 'Archaeology', icon: Shovel, maxLevel: 120 },
-  { id: 28, name: 'Necromancy', icon: Ghost, maxLevel: 120 },
+  { id: 0, name: 'Attack', icon: Sword },
+  { id: 1, name: 'Defence', icon: Shield },
+  { id: 2, name: 'Strength', icon: Dumbbell },
+  { id: 3, name: 'Constitution', icon: Heart },
+  { id: 4, name: 'Ranged', icon: Crosshair },
+  { id: 5, name: 'Prayer', icon: Sparkles },
+  { id: 6, name: 'Magic', icon: Wand2 },
+  { id: 7, name: 'Cooking', icon: CookingPot },
+  { id: 8, name: 'Woodcutting', icon: TreePine },
+  { id: 9, name: 'Fletching', icon: Feather },
+  { id: 10, name: 'Fishing', icon: Fish },
+  { id: 11, name: 'Firemaking', icon: Flame },
+  { id: 12, name: 'Crafting', icon: Scissors },
+  { id: 13, name: 'Smithing', icon: Hammer },
+  { id: 14, name: 'Mining', icon: Pickaxe },
+  { id: 15, name: 'Herblore', icon: FlaskConical },
+  { id: 16, name: 'Agility', icon: Footprints },
+  { id: 17, name: 'Thieving', icon: Hand },
+  { id: 18, name: 'Slayer', icon: Skull },
+  { id: 19, name: 'Farming', icon: Sprout },
+  { id: 20, name: 'Runecrafting', icon: Orbit },
+  { id: 21, name: 'Hunter', icon: PawPrint },
+  { id: 22, name: 'Construction', icon: Home },
+  { id: 23, name: 'Summoning', icon: Bird },
+  { id: 24, name: 'Dungeoneering', icon: Castle },
+  { id: 25, name: 'Divination', icon: Eye },
+  { id: 26, name: 'Invention', icon: Lightbulb, elite: true },
+  { id: 27, name: 'Archaeology', icon: Shovel },
+  { id: 28, name: 'Necromancy', icon: Ghost },
 ]
 
 export const SKILL_BY_ID = new Map(SKILLS.map(s => [s.id, s]))
 export const SKILL_BY_NAME = new Map(SKILLS.map(s => [s.name.toLowerCase(), s]))
+
+/** Every skill can be trained past 99 up to a virtual level of 120 (200M xp is the hard cap). */
+export const VIRTUAL_MAX = 120
 
 const MAX_TABLE_LEVEL = 126
 
@@ -68,7 +70,7 @@ export function xpForLevel(level: number): number {
   return XP_TABLE[Math.min(level, MAX_TABLE_LEVEL)]
 }
 
-export function levelForXp(xp: number, maxLevel = 99): number {
+export function levelForXp(xp: number, maxLevel = VIRTUAL_MAX): number {
   let level = 1
   while (level < maxLevel && xp >= XP_TABLE[level + 1]) level++
   return level
@@ -85,4 +87,14 @@ export function progressToNext(xp: number, level: number, maxLevel: number): num
 
 export function formatXp(xp: number): string {
   return Math.floor(xp).toLocaleString('en-US')
+}
+
+/**
+ * Level as shown in game, including virtual levels. The APIs cap the reported level at the
+ * skill's real max (e.g. Defence 99), so derive it from xp; Invention's elite table differs,
+ * so trust the API there.
+ */
+export function skillLevel(skill: Skill, stat: { level: number; xp: number }): number {
+  if (skill.elite) return stat.level
+  return Math.max(stat.level, levelForXp(stat.xp, VIRTUAL_MAX))
 }

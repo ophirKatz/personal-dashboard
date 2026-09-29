@@ -8,7 +8,7 @@ import { Label } from '../../components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select'
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerBody } from '../../components/ui/drawer'
 import { cn } from '../../utils'
-import { SKILLS, SKILL_BY_ID } from './skills'
+import { SKILLS, SKILL_BY_ID, VIRTUAL_MAX } from './skills'
 import type { QuestStatus } from './api'
 import { questKey } from './goals'
 
@@ -61,7 +61,7 @@ export default function GoalDrawer({
   }, [quests, questSearch, takenQuestIds, questStatus])
 
   const valid =
-    (type === 'skill' && !!skill && Number.isInteger(level) && level >= 2 && level <= skill.maxLevel) ||
+    (type === 'skill' && !!skill && Number.isInteger(level) && level >= 2 && level <= VIRTUAL_MAX) ||
     (type === 'quest' && !!questId) ||
     (type === 'arbitrary' && title.trim().length > 0)
 
@@ -116,9 +116,9 @@ export default function GoalDrawer({
                 </Select>
               </div>
               <div className="space-y-1.5">
-                <Label>Target level{skill ? ` (max ${skill.maxLevel})` : ''}</Label>
+                <Label>Target level (up to {VIRTUAL_MAX})</Label>
                 <Input
-                  type="number" inputMode="numeric" min={2} max={skill?.maxLevel ?? 120}
+                  type="number" inputMode="numeric" min={2} max={VIRTUAL_MAX}
                   value={targetLevel} onChange={e => setTargetLevel(e.target.value)} placeholder="e.g. 99"
                 />
               </div>

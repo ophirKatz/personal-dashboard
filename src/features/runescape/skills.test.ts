@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { SKILLS, levelForXp, progressToNext, xpForLevel } from './skills'
+import { SKILLS, SKILL_BY_ID, levelForXp, progressToNext, skillLevel, xpForLevel } from './skills'
 
 describe('xp table', () => {
   it('matches known RS3 thresholds', () => {
@@ -26,6 +26,18 @@ describe('xp table', () => {
     expect(progressToNext(13034431, 99, 99)).toBe(1)
     const mid = (xpForLevel(30) + xpForLevel(31)) / 2
     expect(progressToNext(mid, 30, 99)).toBeCloseTo(0.5, 2)
+  })
+})
+
+describe('skillLevel', () => {
+  it('derives virtual levels the API caps at 99', () => {
+    const defence = SKILL_BY_ID.get(1)!
+    expect(skillLevel(defence, { level: 99, xp: xpForLevel(117) })).toBe(117)
+    expect(skillLevel(defence, { level: 99, xp: xpForLevel(99) })).toBe(99)
+  })
+
+  it('trusts the API level for elite skills', () => {
+    expect(skillLevel(SKILL_BY_ID.get(26)!, { level: 80, xp: 200_000_000 })).toBe(80)
   })
 })
 
