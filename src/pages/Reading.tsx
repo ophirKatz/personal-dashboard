@@ -96,11 +96,9 @@ export default function Reading() {
   async function toggleRead(book: ReadingBook) {
     const next = !book.is_read
     const read_at = next ? new Date().toISOString() : null
-    // Finishing a book ends its "currently reading" status.
-    const is_current = next ? false : book.is_current
     haptic('selection')
-    setBooks(prev => prev.map(b => (b.id === book.id ? { ...b, is_read: next, read_at, is_current } : b)))
-    const { error } = await supabase.from('reading_books').update({ is_read: next, read_at, is_current }).eq('id', book.id)
+    setBooks(prev => prev.map(b => (b.id === book.id ? { ...b, is_read: next, read_at } : b)))
+    const { error } = await supabase.from('reading_books').update({ is_read: next, read_at }).eq('id', book.id)
     if (error) {
       setBooks(prev => prev.map(b => (b.id === book.id ? book : b)))
       setError(error.message)
@@ -161,7 +159,7 @@ export default function Reading() {
           icon: menuTarget.book.is_read ? Undo2 : CheckCheck,
           onSelect: () => toggleRead((menuTarget as { book: ReadingBook }).book),
         },
-        ...(menuTarget.book.is_read ? [] : [{
+        ...(menuTarget.book.is_read && !menuTarget.book.is_current ? [] : [{
           label: menuTarget.book.is_current ? 'Stop currently reading' : 'Set as currently reading',
           icon: menuTarget.book.is_current ? BookX : BookMarked,
           onSelect: () => toggleCurrent((menuTarget as { book: ReadingBook }).book),

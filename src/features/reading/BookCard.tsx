@@ -31,7 +31,7 @@ export default function BookCard({ book, location, onToggleRead, onMenu }: Props
         </button>
         {book.is_current && (
           <span className="absolute bottom-2 left-2 flex items-center gap-1 rounded-full bg-primary px-2 py-0.5 text-[11px] font-semibold text-primary-foreground shadow-sm">
-            <BookOpen className="h-3 w-3" /> Reading
+            <BookOpen className="h-3 w-3" /> {book.is_read ? 'Just finished' : 'Reading'}
           </span>
         )}
         <button

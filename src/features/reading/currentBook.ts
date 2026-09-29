@@ -39,10 +39,11 @@ export async function setCurrentBook(bookId: string): Promise<Result> {
   return { error: error?.message ?? null }
 }
 
+/** Marks a book read. It stays the current book, so the widget can show its "finished" state. */
 export async function completeBook(bookId: string): Promise<Result> {
   const { error } = await supabase
     .from('reading_books')
-    .update({ is_read: true, read_at: new Date().toISOString(), is_current: false })
+    .update({ is_read: true, read_at: new Date().toISOString() })
     .eq('id', bookId)
   return { error: error?.message ?? null }
 }
