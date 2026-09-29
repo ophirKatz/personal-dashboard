@@ -11,6 +11,7 @@ import { refreshGoogleCalendarEvents } from '../features/calendar/googleCalendar
 import { toggleGoogleTask } from '../features/todos/googleTasks'
 import { postponeToTomorrow, postponeToDateTime } from '../features/todos/postpone'
 import { logFriendInteractionsForCompletedTask } from '../features/todos/friendInteractions'
+import CurrentlyReadingWidget from '../features/reading/CurrentlyReadingWidget'
 import FocusSection from '../features/focus/FocusSection'
 import TodaySection from '../features/today/TodaySection'
 import type { TodayEvent } from '../features/today/TodaySection'
@@ -299,6 +300,9 @@ export default function Dashboard() {
           events={todayEvents}
         />
       )}
+
+      {/* Currently reading: only rendered while a book is set on the Reading page */}
+      {!loading && <CurrentlyReadingWidget />}
 
       {/* Focus */}
       {!loading && showFocusSection && <FocusSection />}
