@@ -1,13 +1,12 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { BookOpen, ChevronRight, Folder as FolderIcon, FolderInput, Home, MoreHorizontal, Pencil, Plus, Search, Trash2, Undo2, CheckCheck, BookMarked, BookX } from 'lucide-react'
+import { BookOpen, ChevronRight, ChevronLeft, FolderInput, Pencil, Plus, Search, Trash2, Undo2, CheckCheck, BookMarked, BookX, SlidersHorizontal, X } from 'lucide-react'
 import type { User } from '@supabase/supabase-js'
 import { supabase } from '../supabase'
 import type { ReadingBook, ReadingFolder } from '../supabase'
 import { Input } from '../components/ui/input'
 import { Fab } from '../components/ui/fab'
-import { Tabs, TabsList, TabsTrigger } from '../components/ui/tabs'
-import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '../components/ui/select'
+import { Button } from '../components/ui/button'
 import { haptic } from '../lib/haptics'
 import { cn } from '../utils'
 import BookCard from '../features/reading/BookCard'
@@ -15,11 +14,12 @@ import AddSheet from '../features/reading/AddSheet'
 import ActionsDrawer, { type DrawerAction } from '../features/reading/ActionsDrawer'
 import BookSearchDrawer from '../features/reading/BookSearchDrawer'
 import FolderDrawer from '../features/reading/FolderDrawer'
+import FolderCard from '../features/reading/FolderCard'
+import FiltersDrawer, { type ReadFilter } from '../features/reading/FiltersDrawer'
 import MoveDialog from '../features/reading/MoveDialog'
 import { clearCurrentBook, setCurrentBook } from '../features/reading/currentBook'
 import { buildChildrenMap, countBooksDeep, getDescendantIds, getPath, pathLabel, type FolderId } from '../features/reading/folderTree'
 
-type ReadFilter = 'all' | 'unread' | 'read'
 type Target = { type: 'book'; book: ReadingBook } | { type: 'folder'; folder: ReadingFolder }
 
 export default function Reading() {
@@ -34,6 +34,7 @@ export default function Reading() {
   const [readFilter, setReadFilter] = useState<ReadFilter>('all')
   const [author, setAuthor] = useState('all')
 
+  const [showFilters, setShowFilters] = useState(false)
   const [showAdd, setShowAdd] = useState(false)
   const [showBookSearch, setShowBookSearch] = useState(false)
   const [folderForm, setFolderForm] = useState<{ folder?: ReadingFolder } | null>(null)
@@ -87,6 +88,19 @@ export default function Reading() {
   const visibleFolders = filtering
     ? (term && readFilter === 'all' && author === 'all' ? folders.filter(f => f.name.toLowerCase().includes(term)) : [])
     : childrenMap.get(currentFolderId) ?? []
+
+  const activeFilterCount = (readFilter !== 'all' ? 1 : 0) + (author !== 'all' ? 1 : 0)
+  const clearFilters = () => { setSearch(''); setReadFilter('all'); setAuthor('all') }
+
+  /** Up to four covers from a folder (and its subfolders) for the tile preview. */
+  function folderCovers(folderId: string) {
+    const ids = getDescendantIds(folders, folderId)
+    ids.add(folderId)
+    return books
+      .filter(b => b.folder_id && ids.has(b.folder_id) && b.cover_url)
+      .slice(0, 4)
+      .map(b => ({ url: b.cover_url, title: b.title }))
+  }
 
   const readCount = books.filter(b => b.is_read).length
 
@@ -179,35 +193,44 @@ export default function Reading() {
     : undefined
 
   return (
-    <div className="p-4 max-w-4xl mx-auto space-y-6">
+    <div className="p-4 pb-28 max-w-4xl mx-auto space-y-4">
       <div>
         <h1 className="text-2xl font-bold">Reading</h1>
         {books.length > 0 && <p className="text-sm text-muted-foreground">{readCount}/{books.length} read</p>}
       </div>
 
-      <div className="space-y-3">
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search your books…" className="pl-9" />
+      <div className="space-y-2.5">
+        <div className="flex gap-2">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search title or author…" className="pl-9" />
+          </div>
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={() => setShowFilters(true)}
+            aria-label="Filters"
+            className={cn('relative shrink-0', activeFilterCount > 0 && 'border-primary text-primary')}
+          >
+            <SlidersHorizontal className="h-4 w-4" />
+            {activeFilterCount > 0 && (
+              <span className="absolute -right-1.5 -top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-semibold text-primary-foreground">
+                {activeFilterCount}
+              </span>
+            )}
+          </Button>
         </div>
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-          <Tabs value={readFilter} onValueChange={v => setReadFilter(v as ReadFilter)} className="flex-1">
-            <TabsList className="w-full">
-              <TabsTrigger value="all" className="flex-1">All ({tabCount('all')})</TabsTrigger>
-              <TabsTrigger value="unread" className="flex-1">To read ({tabCount('unread')})</TabsTrigger>
-              <TabsTrigger value="read" className="flex-1">Read ({tabCount('read')})</TabsTrigger>
-            </TabsList>
-          </Tabs>
-          {authors.length > 0 && (
-            <Select value={author} onValueChange={setAuthor}>
-              <SelectTrigger className="sm:w-56"><SelectValue placeholder="Author" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All authors</SelectItem>
-                {authors.map(a => <SelectItem key={a} value={a}>{a}</SelectItem>)}
-              </SelectContent>
-            </Select>
-          )}
-        </div>
+
+        {filtering && (
+          <div className="flex flex-wrap items-center gap-1.5 text-sm text-muted-foreground">
+            <span className="mr-1">{visibleBooks.length} result{visibleBooks.length === 1 ? '' : 's'}</span>
+            {readFilter !== 'all' && (
+              <FilterChip label={readFilter === 'read' ? 'Read' : 'To read'} onRemove={() => setReadFilter('all')} />
+            )}
+            {author !== 'all' && <FilterChip label={author} onRemove={() => setAuthor('all')} />}
+            <button onClick={clearFilters} className="ml-auto font-medium text-primary">Clear all</button>
+          </div>
+        )}
       </div>
 
       {error && (
@@ -221,23 +244,17 @@ export default function Reading() {
         <div className="flex justify-center py-12"><div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" /></div>
       ) : (
         <>
-          {filtering ? (
-            <div className="flex items-center justify-between gap-2 text-sm text-muted-foreground">
-              <span>{visibleBooks.length} result{visibleBooks.length === 1 ? '' : 's'} across all folders</span>
-              <button
-                onClick={() => { setSearch(''); setReadFilter('all'); setAuthor('all') }}
-                className="font-medium text-primary"
-              >
-                Clear filters
-              </button>
-            </div>
-          ) : (
+          {!filtering && path.length > 0 && (
             <nav className="flex flex-wrap items-center gap-1 text-sm" aria-label="Folder path">
               <button
-                onClick={() => openFolder(null)}
-                className={cn('flex items-center gap-1 rounded-md px-1.5 py-1 hover:bg-accent', path.length ? 'text-muted-foreground' : 'font-semibold')}
+                onClick={() => openFolder(path.length > 1 ? path[path.length - 2].id : null)}
+                aria-label="Up one level"
+                className="mr-1 flex h-7 w-7 items-center justify-center rounded-full border border-border hover:bg-accent"
               >
-                <Home className="h-3.5 w-3.5" /> Reading list
+                <ChevronLeft className="h-4 w-4" />
+              </button>
+              <button onClick={() => openFolder(null)} className="rounded-md px-1.5 py-1 text-muted-foreground hover:bg-accent">
+                Reading list
               </button>
               {path.map((f, i) => (
                 <span key={f.id} className="flex items-center gap-1">
@@ -253,36 +270,21 @@ export default function Reading() {
             </nav>
           )}
 
-          {visibleFolders.length > 0 && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+          {(visibleFolders.length > 0 || visibleBooks.length > 0) ? (
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
               {visibleFolders.map(folder => {
                 const total = countBooksDeep(folders, books, folder.id)
                 return (
-                  <div key={folder.id} className="flex items-center rounded-xl border border-border bg-card transition-colors hover:bg-accent">
-                    <button onClick={() => { setSearch(''); openFolder(folder.id) }} className="flex flex-1 min-w-0 items-center gap-3 p-4 text-left">
-                      <FolderIcon className="h-6 w-6 text-blue-400 shrink-0" />
-                      <div className="min-w-0">
-                        <p className="font-medium truncate">{folder.name}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {filtering ? pathLabel(folders, folder.parent_id) : `${total} book${total === 1 ? '' : 's'}`}
-                        </p>
-                      </div>
-                    </button>
-                    <button
-                      onClick={() => setMenuTarget({ type: 'folder', folder })}
-                      aria-label={`Actions for ${folder.name}`}
-                      className="p-3 mr-1 rounded-lg text-muted-foreground hover:text-foreground"
-                    >
-                      <MoreHorizontal className="h-4 w-4" />
-                    </button>
-                  </div>
+                  <FolderCard
+                    key={folder.id}
+                    name={folder.name}
+                    subtitle={filtering ? pathLabel(folders, folder.parent_id) : `${total} book${total === 1 ? '' : 's'}`}
+                    covers={folderCovers(folder.id)}
+                    onOpen={() => { setSearch(''); openFolder(folder.id) }}
+                    onMenu={() => setMenuTarget({ type: 'folder', folder })}
+                  />
                 )
               })}
-            </div>
-          )}
-
-          {visibleBooks.length > 0 ? (
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
               {visibleBooks.map(book => (
                 <BookCard
                   key={book.id}
@@ -309,6 +311,19 @@ export default function Reading() {
           <Plus className="h-6 w-6" />
         </Fab>
       )}
+
+      <FiltersDrawer
+        open={showFilters}
+        onClose={() => setShowFilters(false)}
+        readFilter={readFilter}
+        onReadFilterChange={setReadFilter}
+        author={author}
+        onAuthorChange={setAuthor}
+        authors={authors}
+        counts={{ all: tabCount('all'), unread: tabCount('unread'), read: tabCount('read') }}
+        resultCount={books.filter(matchesFilters).length}
+        onClear={() => { setReadFilter('all'); setAuthor('all') }}
+      />
 
       <AddSheet
         open={showAdd}
@@ -362,5 +377,16 @@ export default function Reading() {
         />
       )}
     </div>
+  )
+}
+
+function FilterChip({ label, onRemove }: { label: string; onRemove: () => void }) {
+  return (
+    <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 py-0.5 pl-2.5 pr-1 text-xs font-medium text-primary">
+      {label}
+      <button onClick={onRemove} aria-label={`Remove filter ${label}`} className="rounded-full p-0.5 hover:bg-primary/20">
+        <X className="h-3 w-3" />
+      </button>
+    </span>
   )
 }
