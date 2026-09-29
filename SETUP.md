@@ -792,6 +792,8 @@ The `vercel.json` in this repo configures SPA routing (all paths → `index.html
 | `recipe_steps` | Ordered directions per recipe: `position` + `instruction` |
 | `recipe_collections` | User-defined recipe collections/tags (e.g. "Baking", "Dessert") — `name` + `emoji`, unique per user |
 | `recipe_collection_items` | Many-to-many join between `recipes` and `recipe_collections` |
+| `reading_folders` | Nested reading-list folders — `parent_id` (null = root), cascade delete; a trigger rejects moving a folder into its own subtree |
+| `reading_books` | Saved books — `folder_id` (null = root), Open Library `ol_key` (unique per user), `title`, `author`, `cover_url`, `is_read` + `read_at` |
 
 ### Storage
 
@@ -843,6 +845,7 @@ Storage objects are scoped to `(storage.foldername(name))[1] = auth.uid()::text`
 | Finance | `/finance` | USD/EUR/NIS converter (free, no-key [currency-api](https://github.com/fawazahmed0/currency-api)) + TENB stock quote, proxied server-side through `/api/stock-quote` (Finnhub, needs `FINNHUB_API_KEY`) so the key never reaches the browser |
 | Settings | `/settings` | Enable/disable push notifications for habits and todos (see step 1g); manage connected Google accounts for Calendar (see step 1k); independently toggle the Focus section's daily and on-change auto-refresh (see step 1h) |
 | Recipes | `/recipes` | Collections rail, search, and a recipe grid. Add a recipe via AI (prompt/paste text/paste a link — see step 1n) or a manual form with an Ingredients/Directions editor. Recipe detail (`/recipes/:id`) has a servings scaler that multiplies ingredient quantities for display only |
+| Reading | `/reading` | Reading wish list. Search books via the free, keyless [Open Library](https://openlibrary.org/dev/docs/api/search) API (proxied through `/api/book-search`; `vite.config.ts` mirrors it in dev), save them as cover cards, mark read, filter by title/author/read status, and organize into nested folders with a Drive-style Move dialog. Needs the `20260929_add_reading_list.sql` migration |
 
 ---
 

@@ -342,3 +342,25 @@ export type RecipeCollectionItem = {
   user_id: string
   created_at: string
 }
+
+export type ReadingFolder = {
+  id: string
+  user_id: string
+  parent_id: string | null
+  name: string
+  created_at: string
+}
+
+export type ReadingBook = {
+  id: string
+  user_id: string
+  folder_id: string | null
+  ol_key: string | null
+  title: string
+  author: string | null
+  cover_url: string | null
+  first_publish_year: number | null
+  is_read: boolean
+  read_at: string | null
+  created_at: string
+}
