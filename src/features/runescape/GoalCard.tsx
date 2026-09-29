@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom'
 import { Check, Scroll, Sparkles, Trash2, Undo2 } from 'lucide-react'
 import type { RsGoal } from '../../supabase'
 import { cn } from '../../utils'
@@ -32,7 +33,13 @@ export default function GoalCard({ goal, title, progress, onToggleComplete, onDe
         {done ? <Check className="h-5 w-5 text-emerald-600" /> : <Icon className="h-5 w-5 text-muted-foreground" />}
       </ProgressRing>
       <div className="min-w-0 flex-1">
-        <div className={cn('font-semibold truncate', done && 'text-emerald-800')}>{title}</div>
+        {goal.type === 'quest' ? (
+          <Link to={`/runescape/quests/${encodeURIComponent(title)}`} className={cn('block font-semibold truncate hover:underline', done && 'text-emerald-800')}>
+            {title}
+          </Link>
+        ) : (
+          <div className={cn('font-semibold truncate', done && 'text-emerald-800')}>{title}</div>
+        )}
         <div className="text-xs text-muted-foreground truncate">
           {progress.label}{progress.detail ? ` · ${progress.detail}` : ''}
         </div>
