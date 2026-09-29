@@ -1,6 +1,25 @@
-import { defineConfig } from 'vite'
+import { defineConfig, type Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
+
+// Dev-only stand-in for api/runescape.ts (Vite doesn't serve /api): reuses the real handler.
+function runescapeDevApi(): Plugin {
+  return {
+    name: 'runescape-dev-api',
+    configureServer(server) {
+      server.middlewares.use('/api/runescape', async (req, res) => {
+        const { default: handler } = await server.ssrLoadModule('/api/runescape.ts')
+        const query = Object.fromEntries(new URL(req.url ?? '', 'http://x').searchParams)
+        const out = {
+          status(code: number) { res.statusCode = code; return out },
+          setHeader(k: string, v: string) { res.setHeader(k, v) },
+          json(body: unknown) { res.setHeader('Content-Type', 'application/json'); res.end(JSON.stringify(body)) },
+        }
+        await handler({ query }, out)
+      })
+    },
+  }
+}
 
 export default defineConfig({
   server: {
@@ -18,6 +37,7 @@ export default defineConfig({
   },
   plugins: [
     react(),
+    runescapeDevApi(),
     VitePWA({
       registerType: 'autoUpdate',
       injectRegister: false,

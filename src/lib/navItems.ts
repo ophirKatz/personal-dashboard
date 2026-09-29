@@ -1,7 +1,7 @@
-import { CheckSquare, Calendar, Folder, TrendingUp, Mountain, ShoppingCart, DollarSign, Users, ChefHat, Dices, BookOpen } from 'lucide-react'
+import { CheckSquare, Calendar, Folder, TrendingUp, Mountain, ShoppingCart, DollarSign, Users, ChefHat, Dices, BookOpen, Swords } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 
-export type NavItemKey = 'todos' | 'calendar' | 'files' | 'habits' | 'climbing' | 'shopping' | 'finance' | 'friends' | 'recipes' | 'games' | 'reading'
+export type NavItemKey = 'todos' | 'calendar' | 'files' | 'habits' | 'climbing' | 'shopping' | 'finance' | 'friends' | 'recipes' | 'games' | 'reading' | 'runescape'
 
 export const NAV_ITEMS: Record<NavItemKey, { to: string; icon: LucideIcon; label: string }> = {
   todos: { to: '/todos', icon: CheckSquare, label: 'Tasks' },
@@ -15,6 +15,7 @@ export const NAV_ITEMS: Record<NavItemKey, { to: string; icon: LucideIcon; label
   recipes: { to: '/recipes', icon: ChefHat, label: 'Recipes' },
   games: { to: '/games', icon: Dices, label: 'Games' },
   reading: { to: '/reading', icon: BookOpen, label: 'Reading' },
+  runescape: { to: '/runescape', icon: Swords, label: 'RuneScape' },
 }
 
 export const ALL_NAV_KEYS = Object.keys(NAV_ITEMS) as NavItemKey[]
