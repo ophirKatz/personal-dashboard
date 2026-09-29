@@ -22,6 +22,7 @@ const Settings = lazy(() => import('./pages/Settings'))
 const About = lazy(() => import('./pages/About'))
 const Friends = lazy(() => import('./pages/Friends'))
 const Recipes = lazy(() => import('./pages/Recipes'))
+const Reading = lazy(() => import('./pages/Reading'))
 const RecipeDetail = lazy(() => import('./pages/RecipeDetail'))
 const RecipeEditor = lazy(() => import('./pages/RecipeEditor'))
 const Games = lazy(() => import('./pages/Games'))
@@ -93,6 +94,7 @@ export default function App() {
           <Route path="about" element={<About />} />
           <Route path="friends" element={<Friends />} />
           <Route path="recipes" element={<Recipes />} />
+          <Route path="reading" element={<Reading />} />
           <Route path="recipes/new" element={<RecipeEditor />} />
           <Route path="recipes/:id" element={<RecipeDetail />} />
           <Route path="recipes/:id/edit" element={<RecipeEditor />} />

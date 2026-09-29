@@ -3,6 +3,19 @@ import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
 
 export default defineConfig({
+  server: {
+    // Vite doesn't serve /api (Vercel functions); mirror the book-search proxy for local dev.
+    proxy: {
+      '/api/book-search': {
+        target: 'https://openlibrary.org',
+        changeOrigin: true,
+        rewrite: path => {
+          const q = new URL(path, 'http://x').searchParams.get('q') ?? ''
+          return `/search.json?q=${encodeURIComponent(q)}&limit=20&fields=key,title,author_name,first_publish_year,cover_i`
+        },
+      },
+    },
+  },
   plugins: [
     react(),
     VitePWA({
