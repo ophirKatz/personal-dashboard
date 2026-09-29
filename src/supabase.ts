@@ -362,5 +362,6 @@ export type ReadingBook = {
   first_publish_year: number | null
   is_read: boolean
   read_at: string | null
+  is_current: boolean
   created_at: string
 }

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { BookOpen, ChevronRight, Folder as FolderIcon, FolderInput, Home, MoreHorizontal, Pencil, Plus, Search, Trash2, Undo2, CheckCheck } from 'lucide-react'
+import { BookOpen, ChevronRight, Folder as FolderIcon, FolderInput, Home, MoreHorizontal, Pencil, Plus, Search, Trash2, Undo2, CheckCheck, BookMarked, BookX } from 'lucide-react'
 import type { User } from '@supabase/supabase-js'
 import { supabase } from '../supabase'
 import type { ReadingBook, ReadingFolder } from '../supabase'
@@ -16,6 +16,7 @@ import ActionsDrawer, { type DrawerAction } from '../features/reading/ActionsDra
 import BookSearchDrawer from '../features/reading/BookSearchDrawer'
 import FolderDrawer from '../features/reading/FolderDrawer'
 import MoveDialog from '../features/reading/MoveDialog'
+import { clearCurrentBook, setCurrentBook } from '../features/reading/currentBook'
 import { buildChildrenMap, countBooksDeep, getDescendantIds, getPath, pathLabel, type FolderId } from '../features/reading/folderTree'
 
 type ReadFilter = 'all' | 'unread' | 'read'
@@ -104,6 +105,18 @@ export default function Reading() {
     }
   }
 
+  async function toggleCurrent(book: ReadingBook) {
+    const snapshot = books
+    const makeCurrent = !book.is_current
+    haptic('selection')
+    setBooks(prev => prev.map(b => ({ ...b, is_current: makeCurrent && b.id === book.id })))
+    const { error } = makeCurrent ? await setCurrentBook(book.id) : await clearCurrentBook()
+    if (error) {
+      setBooks(snapshot)
+      setError(error)
+    }
+  }
+
   async function deleteBook(book: ReadingBook) {
     if (!confirm(`Remove "${book.title}" from your list?`)) return
     await supabase.from('reading_books').delete().eq('id', book.id)
@@ -146,6 +159,11 @@ export default function Reading() {
           icon: menuTarget.book.is_read ? Undo2 : CheckCheck,
           onSelect: () => toggleRead((menuTarget as { book: ReadingBook }).book),
         },
+        ...(menuTarget.book.is_read && !menuTarget.book.is_current ? [] : [{
+          label: menuTarget.book.is_current ? 'Stop currently reading' : 'Set as currently reading',
+          icon: menuTarget.book.is_current ? BookX : BookMarked,
+          onSelect: () => toggleCurrent((menuTarget as { book: ReadingBook }).book),
+        }]),
         { label: 'Move', icon: FolderInput, onSelect: () => setMoveTarget(menuTarget) },
         { label: 'Remove from list', icon: Trash2, destructive: true, onSelect: () => deleteBook((menuTarget as { book: ReadingBook }).book) },
       ]

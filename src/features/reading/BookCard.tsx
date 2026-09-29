@@ -1,4 +1,4 @@
-import { Check, MoreHorizontal } from 'lucide-react'
+import { BookOpen, Check, MoreHorizontal } from 'lucide-react'
 import type { ReadingBook } from '../../supabase'
 import { cn } from '../../utils'
 import BookCover from './BookCover'
@@ -29,6 +29,11 @@ export default function BookCard({ book, location, onToggleRead, onMenu }: Props
         >
           <Check className="h-4 w-4" />
         </button>
+        {book.is_current && (
+          <span className="absolute bottom-2 left-2 flex items-center gap-1 rounded-full bg-primary px-2 py-0.5 text-[11px] font-semibold text-primary-foreground shadow-sm">
+            <BookOpen className="h-3 w-3" /> {book.is_read ? 'Just finished' : 'Reading'}
+          </span>
+        )}
         <button
           onClick={onMenu}
           aria-label="Book actions"

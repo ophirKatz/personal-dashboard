@@ -8,7 +8,7 @@ function folder(id: string, parent_id: string | null, name = id): ReadingFolder 
 function book(id: string, folder_id: string | null): ReadingBook {
   return {
     id, folder_id, user_id: 'u', ol_key: null, title: id, author: null, cover_url: null,
-    first_publish_year: null, is_read: false, read_at: null, created_at: '2026-01-01T00:00:00Z',
+    first_publish_year: null, is_read: false, is_current: false, read_at: null, created_at: '2026-01-01T00:00:00Z',
   }
 }
 
