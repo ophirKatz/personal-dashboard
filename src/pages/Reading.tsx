@@ -92,16 +92,6 @@ export default function Reading() {
   const activeFilterCount = (readFilter !== 'all' ? 1 : 0) + (author !== 'all' ? 1 : 0)
   const clearFilters = () => { setSearch(''); setReadFilter('all'); setAuthor('all') }
 
-  /** Up to four covers from a folder (and its subfolders) for the tile preview. */
-  function folderCovers(folderId: string) {
-    const ids = getDescendantIds(folders, folderId)
-    ids.add(folderId)
-    return books
-      .filter(b => b.folder_id && ids.has(b.folder_id) && b.cover_url)
-      .slice(0, 4)
-      .map(b => ({ url: b.cover_url, title: b.title }))
-  }
-
   const readCount = books.filter(b => b.is_read).length
 
   const tabCount = (f: ReadFilter) =>
@@ -279,7 +269,6 @@ export default function Reading() {
                     key={folder.id}
                     name={folder.name}
                     subtitle={filtering ? pathLabel(folders, folder.parent_id) : `${total} book${total === 1 ? '' : 's'}`}
-                    covers={folderCovers(folder.id)}
                     onOpen={() => { setSearch(''); openFolder(folder.id) }}
                     onMenu={() => setMenuTarget({ type: 'folder', folder })}
                   />
