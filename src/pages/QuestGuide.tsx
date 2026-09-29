@@ -1,8 +1,11 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { AlertCircle, Backpack, ChevronLeft, ExternalLink, Gift, Lightbulb, ListChecks, Skull, Zap, BookOpen } from 'lucide-react'
+import { AlertCircle, Backpack, Check, ChevronLeft, ExternalLink, Gift, Lightbulb, ListChecks, Loader2, Skull, Target, Zap, BookOpen } from 'lucide-react'
+import { supabase } from '../supabase'
 import { Button } from '../components/ui/button'
 import { cn } from '../utils'
+import { haptic } from '../lib/haptics'
+import { ACTIVE_CHARACTER_KEY } from '../features/runescape/goals'
 import { RsApiError } from '../features/runescape/api'
 import { fetchGuide, type FactKey, type Guide, type GuideVariant } from '../features/runescape/guide'
 import '../features/runescape/wiki-content.css'
@@ -32,6 +35,31 @@ async function load(name: string, variant: GuideVariant, signal: AbortSignal): P
   }
 }
 
+/** Where this quest stands as a goal for the character the RuneScape page is showing. */
+type GoalState =
+  | { state: 'loading' | 'unavailable' | 'set' }
+  | { state: 'none' | 'saving' | 'error'; userId: string; characterId: string; questId: string }
+
+async function loadGoalState(name: string): Promise<GoalState> {
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { state: 'unavailable' }
+  const [chars, quest] = await Promise.all([
+    supabase.from('rs_characters').select('id').order('created_at'),
+    supabase.from('rs_quests').select('id').eq('name', name).maybeSingle(),
+  ])
+  if (chars.error || quest.error || !quest.data || !chars.data?.length) return { state: 'unavailable' }
+
+  let remembered: string | null = null
+  try { remembered = localStorage.getItem(ACTIVE_CHARACTER_KEY) } catch { /* storage unavailable */ }
+  const characterId = chars.data.find(c => c.id === remembered)?.id ?? chars.data[0].id
+
+  const existing = await supabase
+    .from('rs_goals').select('id').eq('character_id', characterId).eq('quest_id', quest.data.id).limit(1)
+  if (existing.error) return { state: 'unavailable' }
+  if (existing.data.length > 0) return { state: 'set' }
+  return { state: 'none', userId: user.id, characterId, questId: quest.data.id }
+}
+
 export default function QuestGuide() {
   const { name: rawName = '' } = useParams()
   const name = decodeURIComponent(rawName)
@@ -41,6 +69,25 @@ export default function QuestGuide() {
   const [quick, setQuick] = useState<Load>({ state: 'loading' })
   const [variant, setVariant] = useState<GuideVariant | null>(null)
   const [attempt, setAttempt] = useState(0)
+  const [goal, setGoal] = useState<GoalState>({ state: 'loading' })
+
+  useEffect(() => {
+    let cancelled = false
+    setGoal({ state: 'loading' })
+    loadGoalState(name)
+      .then(s => { if (!cancelled) setGoal(s) })
+      .catch(() => { if (!cancelled) setGoal({ state: 'unavailable' }) })
+    return () => { cancelled = true }
+  }, [name])
+
+  async function createGoal() {
+    if (goal.state !== 'none' && goal.state !== 'error') return
+    const { userId, characterId, questId } = goal
+    haptic()
+    setGoal({ state: 'saving', userId, characterId, questId })
+    const { error } = await supabase.from('rs_goals').insert({ user_id: userId, character_id: characterId, type: 'quest', quest_id: questId })
+    setGoal(error ? { state: 'error', userId, characterId, questId } : { state: 'set' })
+  }
 
   useEffect(() => {
     const controller = new AbortController()
@@ -88,6 +135,20 @@ export default function QuestGuide() {
                 {stripTags(f!.html)}
               </span>
             ))}
+            {goal.state === 'set' ? (
+              <Link to="/runescape?tab=goals" className="inline-flex items-center gap-1 rounded-full bg-emerald-400/20 px-2.5 py-1 text-xs font-medium text-emerald-200 backdrop-blur hover:bg-emerald-400/30">
+                <Check className="h-3 w-3" /> Goal set
+              </Link>
+            ) : goal.state === 'none' || goal.state === 'saving' || goal.state === 'error' ? (
+              <button
+                onClick={createGoal}
+                disabled={goal.state === 'saving'}
+                className="inline-flex items-center gap-1 rounded-full bg-amber-400 px-2.5 py-1 text-xs font-semibold text-slate-900 hover:bg-amber-300 disabled:opacity-70"
+              >
+                {goal.state === 'saving' ? <Loader2 className="h-3 w-3 animate-spin" /> : <Target className="h-3 w-3" />}
+                {goal.state === 'error' ? 'Retry: create goal' : 'Create goal'}
+              </button>
+            ) : null}
             <a
               href={wikiUrl}
               target="_blank"

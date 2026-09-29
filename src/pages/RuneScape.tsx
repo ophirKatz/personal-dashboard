@@ -13,7 +13,7 @@ import { cn } from '../utils'
 import { haptic } from '../lib/haptics'
 import { errorMessage, fetchCharacterStats, fetchQuests, type CharacterStats, type QuestStatus } from '../features/runescape/api'
 import { formatXp } from '../features/runescape/skills'
-import { goalProgress, goalTitle, questKey, questStatusMap } from '../features/runescape/goals'
+import { ACTIVE_CHARACTER_KEY, goalProgress, goalTitle, questKey, questStatusMap } from '../features/runescape/goals'
 import { loadQuestCatalogue, refreshQuestCatalogue } from '../features/runescape/quests'
 import SkillGrid from '../features/runescape/SkillGrid'
 import GoalCard from '../features/runescape/GoalCard'
@@ -21,7 +21,7 @@ import GoalDrawer from '../features/runescape/GoalDrawer'
 import CharacterDrawer from '../features/runescape/CharacterDrawer'
 
 const DEFAULT_CHARACTER = 'BowlSplit'
-const ACTIVE_KEY = 'rs_active_character'
+const ACTIVE_KEY = ACTIVE_CHARACTER_KEY
 
 type QuestFilter = 'all' | QuestStatus
 

@@ -10,7 +10,10 @@ export type GoalProgress = {
   detail: string | null
 }
 
-export const questKey = (name: string) => name.trim().toLowerCase()
+/** localStorage key remembering which character the RuneScape page is showing. */
+export const ACTIVE_CHARACTER_KEY = 'rs_active_character'
+
+export const questKey =(name: string) => name.trim().toLowerCase()
 
 export function questStatusMap(entries: QuestEntry[]): Map<string, QuestStatus> {
   return new Map(entries.map(q => [questKey(q.title), q.status]))
