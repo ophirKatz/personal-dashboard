@@ -24,6 +24,7 @@ const Friends = lazy(() => import('./pages/Friends'))
 const Recipes = lazy(() => import('./pages/Recipes'))
 const Reading = lazy(() => import('./pages/Reading'))
 const RuneScape = lazy(() => import('./pages/RuneScape'))
+const QuestGuide = lazy(() => import('./pages/QuestGuide'))
 const RecipeDetail = lazy(() => import('./pages/RecipeDetail'))
 const RecipeEditor = lazy(() => import('./pages/RecipeEditor'))
 const Games = lazy(() => import('./pages/Games'))
@@ -97,6 +98,7 @@ export default function App() {
           <Route path="recipes" element={<Recipes />} />
           <Route path="reading" element={<Reading />} />
           <Route path="runescape" element={<RuneScape />} />
+          <Route path="runescape/quests/:name" element={<QuestGuide />} />
           <Route path="recipes/new" element={<RecipeEditor />} />
           <Route path="recipes/:id" element={<RecipeDetail />} />
           <Route path="recipes/:id/edit" element={<RecipeEditor />} />

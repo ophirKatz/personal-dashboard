@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { ChevronDown, Crown, Plus, RefreshCw, Search, Swords, Pencil, Target, ScrollText, LayoutGrid, AlertCircle, Check } from 'lucide-react'
+import { Link, useSearchParams } from 'react-router-dom'
+import { ChevronDown, ChevronRight, Crown, Plus, RefreshCw, Search, Swords, Pencil, Target, ScrollText, LayoutGrid, AlertCircle, Check } from 'lucide-react'
 import type { User } from '@supabase/supabase-js'
 import { supabase } from '../supabase'
 import type { RsCharacter, RsGoal, RsQuest } from '../supabase'
@@ -57,6 +58,10 @@ export default function RuneScape() {
   const [characterForm, setCharacterForm] = useState<{ character?: RsCharacter } | null>(null)
   const [showSwitcher, setShowSwitcher] = useState(false)
   const autoSeeded = useRef(false)
+
+  // Tab lives in the URL so returning from a quest guide lands back on the same tab.
+  const [searchParams, setSearchParams] = useSearchParams()
+  const tab = ['overview', 'goals', 'quests'].includes(searchParams.get('tab') ?? '') ? searchParams.get('tab')! : 'overview'
 
   const active = characters.find(c => c.id === activeId) ?? characters[0] ?? null
 
@@ -244,7 +249,7 @@ export default function RuneScape() {
         </button>
       )}
 
-      <Tabs defaultValue="overview">
+      <Tabs value={tab} onValueChange={t => setSearchParams(t === 'overview' ? {} : { tab: t }, { replace: true })}>
         <TabsList className="grid w-full grid-cols-3 h-auto">
           <TabsTrigger value="overview" className="gap-1.5 py-2"><LayoutGrid className="h-4 w-4" />Overview</TabsTrigger>
           <TabsTrigger value="goals" className="gap-1.5 py-2">
@@ -349,18 +354,23 @@ export default function RuneScape() {
           ) : (
             <ul className="divide-y divide-border rounded-2xl border border-border bg-card">
               {visibleQuests.map(({ quest, status }) => (
-                <li key={quest.id} className="flex items-center justify-between gap-3 px-3.5 py-2.5">
-                  <div className="min-w-0">
-                    <div className="truncate text-sm font-medium">{quest.name}</div>
-                    <div className="text-xs text-muted-foreground">
-                      {[quest.difficulty, quest.quest_points != null ? `${quest.quest_points} QP` : null, quest.members === false ? 'F2P' : null].filter(Boolean).join(' · ')}
+                <li key={quest.id}>
+                  <Link to={`/runescape/quests/${encodeURIComponent(quest.name)}`} className="flex items-center justify-between gap-3 px-3.5 py-2.5 hover:bg-accent/50">
+                    <div className="min-w-0">
+                      <div className="truncate text-sm font-medium">{quest.name}</div>
+                      <div className="text-xs text-muted-foreground">
+                        {[quest.difficulty, quest.quest_points != null ? `${quest.quest_points} QP` : null, quest.members === false ? 'F2P' : null].filter(Boolean).join(' · ')}
+                      </div>
                     </div>
-                  </div>
-                  {status && (
-                    <span className={cn('shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold', STATUS_STYLE[status].className)}>
-                      {STATUS_STYLE[status].label}
-                    </span>
-                  )}
+                    <div className="flex shrink-0 items-center gap-1.5">
+                      {status && (
+                        <span className={cn('rounded-full px-2 py-0.5 text-[11px] font-semibold', STATUS_STYLE[status].className)}>
+                          {STATUS_STYLE[status].label}
+                        </span>
+                      )}
+                      <ChevronRight className="h-4 w-4 text-muted-foreground/60" />
+                    </div>
+                  </Link>
                 </li>
               ))}
               {visibleQuests.length === 0 && <li className="px-3.5 py-6 text-center text-sm text-muted-foreground">No matching quests.</li>}
