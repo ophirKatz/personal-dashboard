@@ -23,8 +23,8 @@ export default function BookCard({ book, location, onToggleRead, onMenu }: Props
           className={cn(
             'absolute left-2 top-2 flex h-8 w-8 items-center justify-center rounded-full border shadow-sm backdrop-blur transition-colors',
             book.is_read
-              ? 'border-transparent bg-primary text-primary-foreground'
-              : 'border-border bg-background/80 text-transparent hover:text-muted-foreground',
+              ? 'border-white/70 bg-primary text-primary-foreground'
+              : 'border-white/70 bg-black/35 text-transparent hover:text-white/80',
           )}
         >
           <Check className="h-4 w-4" />
@@ -37,7 +37,7 @@ export default function BookCard({ book, location, onToggleRead, onMenu }: Props
         <button
           onClick={onMenu}
           aria-label="Book actions"
-          className="absolute right-2 top-2 flex h-8 w-8 items-center justify-center rounded-full border border-border bg-background/80 text-muted-foreground shadow-sm backdrop-blur hover:text-foreground"
+          className="absolute right-2 top-2 flex h-8 w-8 items-center justify-center rounded-full border border-white/70 bg-black/35 text-white shadow-sm backdrop-blur hover:bg-black/50"
         >
           <MoreHorizontal className="h-4 w-4" />
         </button>
