@@ -1,13 +1,15 @@
-import { useEffect, useRef, useState } from 'react'
+import { forwardRef, useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { CheckCircle2, ChevronRight } from 'lucide-react'
+import { BookOpen, CheckCircle2, ChevronRight, Flame } from 'lucide-react'
 import type { ReadingBook } from '../../supabase'
 import { Button } from '../../components/ui/button'
 import { celebrateFromElement } from '../../lib/confetti'
 import { haptic } from '../../lib/haptics'
+import { cn, today } from '../../utils'
 import BookCover from './BookCover'
 import PickNextBookDrawer from './PickNextBookDrawer'
 import { clearCurrentBook, completeBook, fetchCurrentBook, setCurrentBook } from './currentBook'
+import { currentStreak, fetchReadingDays, logReadingDay, nudgeCopy, recentDays, unlogReadingDay } from './readingDays'
 
 /**
  * Home-screen widget. Shown while a book is set as current on the Reading page. Once that
@@ -19,9 +21,36 @@ export default function CurrentlyReadingWidget() {
   const [picking, setPicking] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [days, setDays] = useState<string[]>([])
+  const [flipKey, setFlipKey] = useState(0)
   const completeRef = useRef<HTMLButtonElement>(null)
+  const readRef = useRef<HTMLButtonElement>(null)
 
-  useEffect(() => { fetchCurrentBook().then(setBook) }, [])
+  const todayStr = today()
+  const readToday = days.includes(todayStr)
+  const streak = currentStreak(days, todayStr)
+
+  useEffect(() => {
+    fetchCurrentBook().then(setBook)
+    fetchReadingDays(today()).then(setDays)
+  }, [])
+
+  async function logToday() {
+    setError(null)
+    setDays(d => [todayStr, ...d])
+    setFlipKey(k => k + 1)
+    haptic('success')
+    if (readRef.current) celebrateFromElement(readRef.current)
+    const { error } = await logReadingDay(todayStr)
+    if (error) { setError(error); setDays(d => d.filter(x => x !== todayStr)) }
+  }
+
+  async function undoToday() {
+    setError(null)
+    setDays(d => d.filter(x => x !== todayStr))
+    const { error } = await unlogReadingDay(todayStr)
+    if (error) { setError(error); setDays(d => [todayStr, ...d]) }
+  }
 
   async function complete() {
     if (!book) return
@@ -64,7 +93,9 @@ export default function CurrentlyReadingWidget() {
 
       {!book.is_read ? (
         <div className="flex items-center gap-3">
-          <BookCover url={book.cover_url} title={book.title} className="h-24 w-16 shrink-0 rounded-md shadow-sm" />
+          <div key={flipKey} className={cn('shrink-0', flipKey > 0 && 'motion-safe:animate-cover-flip')}>
+            <BookCover url={book.cover_url} title={book.title} className="h-24 w-16 rounded-md shadow-sm" />
+          </div>
           <div className="min-w-0 flex-1 space-y-2.5">
             <div>
               <p className="font-medium leading-tight line-clamp-2">{book.title}</p>
@@ -94,9 +125,95 @@ export default function CurrentlyReadingWidget() {
         </div>
       )}
 
+      {!book.is_read && (
+        <ReadingTracker
+          ref={readRef}
+          readToday={readToday}
+          streak={streak}
+          week={recentDays(days, todayStr)}
+          onLog={logToday}
+          onUndo={undoToday}
+        />
+      )}
+
       {error && <p className="text-sm text-destructive">{error}</p>}
 
       <PickNextBookDrawer open={picking} onClose={() => setPicking(false)} onPick={pick} />
     </div>
   )
 }
+
+type TrackerProps = {
+  readToday: boolean
+  streak: number
+  week: ReturnType<typeof recentDays>
+  onLog: () => void
+  onUndo: () => void
+}
+
+/** Daily nudge: a pulsing banner until today's reading is logged, then a streak + week strip. */
+const ReadingTracker = forwardRef<HTMLButtonElement, TrackerProps>(function ReadingTracker(
+  { readToday, streak, week, onLog, onUndo },
+  ref,
+) {
+  const now = new Date()
+  const dayOfYear = Math.floor((now.getTime() - new Date(now.getFullYear(), 0, 0).getTime()) / 86_400_000)
+  const nudge = nudgeCopy(streak, now.getHours(), dayOfYear)
+
+  return (
+    <div className="space-y-2.5">
+      {readToday ? (
+        <div className="flex items-center gap-3 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2.5 dark:border-emerald-900 dark:bg-emerald-950/40">
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-emerald-500 text-white motion-safe:animate-pop-in">
+            <CheckCircle2 className="h-5 w-5" />
+          </span>
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-semibold text-emerald-700 dark:text-emerald-300">You read today</p>
+            <p className="text-xs text-emerald-700/80 dark:text-emerald-300/80">
+              {streak > 1 ? `${streak} days in a row. Keep it going tomorrow` : 'Day one is done. Come back tomorrow'}
+            </p>
+          </div>
+          <button onClick={onUndo} className="text-xs text-muted-foreground hover:text-foreground">Undo</button>
+        </div>
+      ) : (
+        <button
+          ref={ref}
+          onClick={onLog}
+          className="flex w-full items-center gap-3 rounded-xl border border-primary/30 bg-primary/5 px-3 py-2.5 text-left transition-transform active:scale-[0.98] motion-safe:animate-nudge-ring"
+        >
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground motion-safe:animate-book-wiggle">
+            <BookOpen className="h-5 w-5" />
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block text-sm font-semibold">{nudge.title}</span>
+            <span className="block text-xs text-muted-foreground">{nudge.sub}</span>
+          </span>
+          <span className="shrink-0 rounded-full bg-primary px-3 py-1 text-xs font-medium text-primary-foreground">I read</span>
+        </button>
+      )}
+
+      <div className="flex items-center justify-between px-0.5">
+        <div className={cn('flex items-center gap-1 text-sm font-semibold', streak === 0 && 'text-muted-foreground')}>
+          <Flame className={cn('h-4 w-4', streak > 0 && 'text-orange-500 motion-safe:animate-flicker')} />
+          {streak}
+          <span className="text-xs font-normal text-muted-foreground">day streak</span>
+        </div>
+        <div className="flex gap-1.5">
+          {week.map(d => (
+            <div key={d.key} className="flex flex-col items-center gap-0.5">
+              <span
+                className={cn(
+                  'h-5 w-5 rounded-full border transition-colors',
+                  d.read ? 'border-emerald-500 bg-emerald-500' : 'border-border bg-muted',
+                  d.isToday && !d.read && 'border-primary',
+                  d.isToday && d.read && 'motion-safe:animate-pop-in',
+                )}
+              />
+              <span className={cn('text-[10px] text-muted-foreground', d.isToday && 'font-semibold text-foreground')}>{d.label}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+})
