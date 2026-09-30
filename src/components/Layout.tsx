@@ -3,8 +3,8 @@ import { useEffect, useRef, useState } from 'react'
 import { Home, MoreHorizontal, X, LogOut, Settings, Mountain, Info } from 'lucide-react'
 import { supabase } from '../supabase'
 import { cn } from '../utils'
-import { ALL_NAV_KEYS, NAV_ITEMS, MORE_SECTIONS, DEFAULT_BOTTOM_NAV_ITEMS, BOTTOM_NAV_ITEMS_CHANGED_EVENT, type NavItemKey } from '../lib/navItems'
-import { getBottomNavItems } from '../lib/userSettings'
+import { ALL_NAV_KEYS, NAV_ITEMS, resolveMoreSections, DEFAULT_BOTTOM_NAV_ITEMS, BOTTOM_NAV_ITEMS_CHANGED_EVENT, MORE_SECTIONS_CHANGED_EVENT, type MoreSection, type NavItemKey } from '../lib/navItems'
+import { getBottomNavItems, getMoreSections } from '../lib/userSettings'
 
 const settingsNav = { to: '/settings', icon: Settings, label: 'Settings' }
 const linksNav = { to: '/about', icon: Info, label: 'Links' }
@@ -12,16 +12,25 @@ const linksNav = { to: '/about', icon: Info, label: 'Links' }
 export default function Layout() {
   const [morePanel, setMorePanel] = useState<'closed' | 'open' | 'closing'>('closed')
   const [bottomNavKeys, setBottomNavKeys] = useState<NavItemKey[]>(DEFAULT_BOTTOM_NAV_ITEMS)
+  const [storedMoreSections, setStoredMoreSections] = useState<MoreSection[] | null>(null)
   const navigate = useNavigate()
   const tabBarRef = useRef<HTMLElement>(null)
 
   useEffect(() => {
     getBottomNavItems().then(setBottomNavKeys)
+    getMoreSections().then(setStoredMoreSections)
     function handleChange(e: Event) {
       setBottomNavKeys((e as CustomEvent<NavItemKey[]>).detail)
     }
+    function handleSectionsChange(e: Event) {
+      setStoredMoreSections((e as CustomEvent<MoreSection[] | null>).detail)
+    }
     window.addEventListener(BOTTOM_NAV_ITEMS_CHANGED_EVENT, handleChange)
-    return () => window.removeEventListener(BOTTOM_NAV_ITEMS_CHANGED_EVENT, handleChange)
+    window.addEventListener(MORE_SECTIONS_CHANGED_EVENT, handleSectionsChange)
+    return () => {
+      window.removeEventListener(BOTTOM_NAV_ITEMS_CHANGED_EVENT, handleChange)
+      window.removeEventListener(MORE_SECTIONS_CHANGED_EVENT, handleSectionsChange)
+    }
   }, [])
 
   const primaryNav = [
@@ -32,14 +41,8 @@ export default function Layout() {
   const toNavItem = (key: NavItemKey) => ({ to: NAV_ITEMS[key].to, icon: NAV_ITEMS[key].icon, label: NAV_ITEMS[key].label })
   const moreFooterNav = [linksNav, settingsNav]
   const moreNav = [...moreKeys.map(toNavItem), ...moreFooterNav]
-  const explicitKeys = MORE_SECTIONS.flatMap(s => s.keys ?? [])
-  const moreSections = MORE_SECTIONS
-    .map(({ title, keys }) => ({
-      title,
-      items: (keys ?? moreKeys.filter(k => !explicitKeys.includes(k)))
-        .filter(k => moreKeys.includes(k))
-        .map(toNavItem),
-    }))
+  const moreSections = resolveMoreSections(storedMoreSections, moreKeys)
+    .map(({ id, title, items }) => ({ id, title, items: items.map(toNavItem) }))
     .filter(s => s.items.length > 0)
 
   function openMore() {
@@ -174,8 +177,8 @@ export default function Layout() {
               </button>
             </div>
             <div className="flex-1 overflow-y-auto p-4 space-y-6">
-              {moreSections.map(({ title, items }) => (
-                <section key={title}>
+              {moreSections.map(({ id, title, items }) => (
+                <section key={id}>
                   <h2 className="px-1 mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">{title}</h2>
                   <div className="grid grid-cols-3 gap-3">
                     {items.map(({ to, icon: Icon, label }) => (
