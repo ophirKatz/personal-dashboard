@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
-import { Plus, Pencil, Trash2, ExternalLink, Link2, MapPin, Users, ChevronDown } from 'lucide-react'
+import { Plus, Pencil, Trash2, ExternalLink, Link2, MapPin, Users, ChevronDown, Check, X, HelpCircle, Clock } from 'lucide-react'
 import { supabase } from '../supabase'
-import type { CalendarEvent, Friend, EventFriend } from '../supabase'
+import type { CalendarEvent, Friend, EventFriend, EventAttendee } from '../supabase'
 import type { User } from '@supabase/supabase-js'
 import { Button } from '../components/ui/button'
 import { Input } from '../components/ui/input'
@@ -232,6 +232,7 @@ export default function Calendar() {
   const [showForm, setShowForm] = useState(false)
   const [editing, setEditing] = useState<CalendarEvent | undefined>()
   const [loading, setLoading] = useState(true)
+  const [expandedEventId, setExpandedEventId] = useState<string | null>(null)
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => setUser(user))
@@ -251,6 +252,22 @@ export default function Calendar() {
     setGoogleConnected(connected)
     setAccounts(new Map(googleAccounts.map(a => [a.id, a])))
     setLoading(false)
+  }
+
+  const ATTENDEE_STATUS = {
+    accepted: { icon: Check, label: 'Accepted', className: 'text-green-600' },
+    declined: { icon: X, label: 'Declined', className: 'text-red-500' },
+    tentative: { icon: HelpCircle, label: 'Maybe', className: 'text-amber-500' },
+    needsAction: { icon: Clock, label: 'No response', className: 'text-muted-foreground' },
+  } as const
+
+  function hasAttendees(event: CalendarEvent) {
+    return event.source === 'google' && (event.attendees?.length ?? 0) > 0
+  }
+
+  function sortedAttendees(event: CalendarEvent): EventAttendee[] {
+    const order = ['accepted', 'tentative', 'needsAction', 'declined']
+    return [...(event.attendees ?? [])].sort((a, b) => order.indexOf(a.status) - order.indexOf(b.status))
   }
 
   function friendsForEvent(eventId: string): Friend[] {
@@ -362,7 +379,11 @@ export default function Calendar() {
                   </h2>
                   <div className="space-y-2">
                     {dateEvents.map(event => (
-                      <div key={event.id} className="flex items-start gap-3 p-4 bg-card border border-border rounded-xl">
+                      <div
+                        key={event.id}
+                        onClick={hasAttendees(event) ? () => setExpandedEventId(id => id === event.id ? null : event.id) : undefined}
+                        className={cn('flex items-start gap-3 p-4 bg-card border border-border rounded-xl', hasAttendees(event) && 'cursor-pointer')}
+                      >
                         {event.event_time && (() => {
                           const info = eventTimeInfo(event)!
                           return (
@@ -407,8 +428,24 @@ export default function Calendar() {
                               ))}
                             </div>
                           )}
+                          {expandedEventId === event.id && hasAttendees(event) && (
+                            <ul className="mt-3 pt-3 border-t border-border space-y-1.5">
+                              {sortedAttendees(event).map((a, i) => {
+                                const s = ATTENDEE_STATUS[a.status] ?? ATTENDEE_STATUS.needsAction
+                                const Icon = s.icon
+                                return (
+                                  <li key={a.email ?? i} className="flex items-center gap-2 text-sm">
+                                    <Icon className={cn('h-4 w-4 shrink-0', s.className)} aria-label={s.label} />
+                                    <span className="truncate">{a.name ?? a.email}{a.self && ' (you)'}</span>
+                                    {a.organizer && <span className="text-[10px] text-muted-foreground shrink-0">organizer</span>}
+                                    <span className="ml-auto text-xs text-muted-foreground shrink-0">{s.label}</span>
+                                  </li>
+                                )
+                              })}
+                            </ul>
+                          )}
                         </div>
-                        <div className="flex items-center gap-1">
+                        <div className="flex items-center gap-1" onClick={e => e.stopPropagation()}>
                           {event.source === 'local' ? (
                             <>
                               <button onClick={() => { setEditing(event); setShowForm(true) }} className="p-1.5 rounded-lg hover:bg-accent text-muted-foreground">

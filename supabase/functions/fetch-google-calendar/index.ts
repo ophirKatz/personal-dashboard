@@ -16,7 +16,7 @@ type GoogleEventItem = {
   status?: string
   start: { date?: string; dateTime?: string }
   end: { date?: string; dateTime?: string }
-  attendees?: { self?: boolean; responseStatus?: string }[]
+  attendees?: { self?: boolean; responseStatus?: string; email?: string; displayName?: string; organizer?: boolean; resource?: boolean }[]
 }
 
 // Calendar event titles that mark a climbing session — Hebrew for "training" and "climbing".
@@ -134,6 +134,15 @@ async function syncCalendarForAccount(supabase: SupabaseClient, account: Account
       eventEndTime: ev.end.dateTime ? ev.end.dateTime.slice(11, 19) : null,
       location: ev.location ?? null,
       htmlLink: ev.htmlLink,
+      attendees: ev.attendees
+        ?.filter(a => !a.resource)
+        .map(a => ({
+          name: a.displayName ?? null,
+          email: a.email ?? null,
+          status: a.responseStatus ?? 'needsAction',
+          self: a.self ?? false,
+          organizer: a.organizer ?? false,
+        })) ?? null,
     }))
 
   const { data: existingRows, error: selectError } = await supabase
@@ -156,6 +165,7 @@ async function syncCalendarForAccount(supabase: SupabaseClient, account: Account
     google_event_id: e.id,
     google_account_id: account.id,
     html_link: e.htmlLink,
+    attendees: e.attendees,
   }))
 
   if (rows.length > 0) {
