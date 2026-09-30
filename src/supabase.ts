@@ -116,6 +116,15 @@ export type CalendarEvent = {
   google_event_id: string | null
   google_account_id: string | null
   html_link: string | null
+  attendees: EventAttendee[] | null
+}
+
+export type EventAttendee = {
+  name: string | null
+  email: string | null
+  status: 'accepted' | 'declined' | 'tentative' | 'needsAction'
+  self: boolean
+  organizer: boolean
 }
 
 export type FileRecord = {
