@@ -366,6 +366,55 @@ export type ReadingBook = {
   created_at: string
 }
 
+export type WorkoutExercise = {
+  id: string
+  user_id: string
+  name: string
+  icon: string
+  builtin_key: string | null
+  created_at: string
+}
+
+export type WorkoutPreset = {
+  id: string
+  user_id: string
+  name: string
+  is_default: boolean
+  created_at: string
+}
+
+export type WorkoutPresetExercise = {
+  id: string
+  user_id: string
+  preset_id: string
+  exercise_id: string
+  sets: number
+  reps: number
+  position: number
+}
+
+export type WorkoutLog = {
+  id: string
+  user_id: string
+  preset_id: string | null
+  preset_name: string | null
+  log_date: string
+  notes: string | null
+  created_at: string
+}
+
+export type WorkoutLogExercise = {
+  id: string
+  user_id: string
+  log_id: string
+  exercise_id: string | null
+  exercise_name: string
+  icon: string
+  sets: number
+  reps: number
+  position: number
+}
+
 export type RsCharacter = {
   id: string
   user_id: string
