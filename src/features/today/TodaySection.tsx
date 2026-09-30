@@ -8,6 +8,7 @@ import WeatherWidget from '../weather/WeatherWidget'
 import { celebrateFromElement } from '../../lib/confetti'
 import { haptic } from '../../lib/haptics'
 import PostponeMenu from '../todos/PostponeMenu'
+import WorkoutWidget from '../workout/WorkoutWidget'
 
 // Gives the user a beat to see the checkmark/celebration before the parent
 // reload removes the item from the list.
@@ -31,6 +32,7 @@ type Props = {
   onCompleteTodo: (id: string) => void
   onPostponeTodo: (id: string, target: Date | 'tomorrow') => void
   events: TodayEvent[]
+  workoutDoneToday: boolean
 }
 
 const PRIORITY_DOT = {
@@ -62,7 +64,7 @@ function hasEventEnded(event: TodayEvent, now: Date): boolean {
   return new Date(`${endDate}T${endTime}`).getTime() < now.getTime()
 }
 
-export default function TodaySection({ habits, totalHabitsCount, onToggleHabit, todos, onCompleteTodo, onPostponeTodo, events }: Props) {
+export default function TodaySection({ habits, totalHabitsCount, onToggleHabit, todos, onCompleteTodo, onPostponeTodo, events, workoutDoneToday }: Props) {
   const [now, setNow] = useState(() => new Date())
   useEffect(() => {
     const id = setInterval(() => setNow(new Date()), 30_000)
@@ -276,6 +278,8 @@ export default function TodaySection({ habits, totalHabitsCount, onToggleHabit, 
           </div>
         </div>
       )}
+
+      <WorkoutWidget doneToday={workoutDoneToday} />
 
       <PostponeMenu
         open={postponingTodoId !== null}

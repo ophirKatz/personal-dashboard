@@ -28,6 +28,7 @@ const QuestGuide = lazy(() => import('./pages/QuestGuide'))
 const RecipeDetail = lazy(() => import('./pages/RecipeDetail'))
 const RecipeEditor = lazy(() => import('./pages/RecipeEditor'))
 const Games = lazy(() => import('./pages/Games'))
+const Workout = lazy(() => import('./pages/Workout'))
 const DiceRoller = lazy(() => import('./pages/DiceRoller'))
 
 function PageFallback() {
@@ -102,6 +103,7 @@ export default function App() {
           <Route path="recipes/new" element={<RecipeEditor />} />
           <Route path="recipes/:id" element={<RecipeDetail />} />
           <Route path="recipes/:id/edit" element={<RecipeEditor />} />
+          <Route path="workout" element={<Workout />} />
           <Route path="games" element={<Games />} />
           <Route path="games/dice" element={<DiceRoller />} />
           <Route path="*" element={<Navigate to="/" replace />} />
