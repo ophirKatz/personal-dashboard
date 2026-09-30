@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react'
-import type { MouseEvent } from 'react'
+import { Fragment, useEffect, useState } from 'react'
+import type { MouseEvent, ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import { AlertCircle, CalendarArrowUp, CheckCircle2, ChevronRight, Clock, MapPin } from 'lucide-react'
 import type { HabitStatus, Todo } from '../../supabase'
@@ -9,6 +9,8 @@ import { celebrateFromElement } from '../../lib/confetti'
 import { haptic } from '../../lib/haptics'
 import PostponeMenu from '../todos/PostponeMenu'
 import WorkoutWidget from '../workout/WorkoutWidget'
+import { getTodaySectionsOrder } from '../../lib/userSettings'
+import { DEFAULT_TODAY_SECTIONS_ORDER, TODAY_SECTIONS_CHANGED_EVENT, type TodaySectionKey } from '../../lib/todaySections'
 
 // Gives the user a beat to see the checkmark/celebration before the parent
 // reload removes the item from the list.
@@ -70,6 +72,13 @@ export default function TodaySection({ habits, totalHabitsCount, onToggleHabit, 
     const id = setInterval(() => setNow(new Date()), 30_000)
     return () => clearInterval(id)
   }, [])
+  const [order, setOrder] = useState<TodaySectionKey[]>(DEFAULT_TODAY_SECTIONS_ORDER)
+  useEffect(() => {
+    getTodaySectionsOrder().then(setOrder)
+    const handleChange = (e: Event) => setOrder((e as CustomEvent<TodaySectionKey[]>).detail)
+    window.addEventListener(TODAY_SECTIONS_CHANGED_EVENT, handleChange)
+    return () => window.removeEventListener(TODAY_SECTIONS_CHANGED_EVENT, handleChange)
+  }, [])
   const [expandedEventId, setExpandedEventId] = useState<string | null>(null)
   const [postponingTodoId, setPostponingTodoId] = useState<string | null>(null)
   const [completingTodoIds, setCompletingTodoIds] = useState<Set<string>>(new Set())
@@ -100,14 +109,15 @@ export default function TodaySection({ habits, totalHabitsCount, onToggleHabit, 
     return (a.due_time ?? '99:99:99').localeCompare(b.due_time ?? '99:99:99')
   })
 
-  return (
-    <div className="bg-card border border-border rounded-xl p-3.5 space-y-4">
-      <div className="flex items-center justify-between">
-        <h2 className="text-base font-semibold">Today</h2>
-        <WeatherWidget />
-      </div>
+  // Only sections that actually render count when deciding where dividers go.
+  const rendered = order.filter(key => (key === 'next_up' ? !!nextUp : key === 'habits' ? habits.length > 0 : true))
+  const dividerFor = (key: TodaySectionKey) => {
+    const i = rendered.indexOf(key)
+    return i > 0 && rendered[i - 1] !== 'next_up' ? 'border-t border-border pt-3' : ''
+  }
 
-      {nextUp && (
+  const sections: Record<TodaySectionKey, ReactNode> = {
+    next_up: nextUp && (
         <div
           className={`flex items-center gap-3 rounded-lg p-3 ${
             urgency === 'high'
@@ -126,116 +136,117 @@ export default function TodaySection({ habits, totalHabitsCount, onToggleHabit, 
             in {formatCountdown(nextUp.minutes)}
           </span>
         </div>
-      )}
-
-      <div className="space-y-2">
-        <div className="flex items-center justify-between">
-          <span className="text-xs font-medium text-muted-foreground">Events</span>
-          <Link to="/calendar" className="flex items-center gap-0.5 text-xs text-primary">
-            View all <ChevronRight className="h-3 w-3" />
-          </Link>
-        </div>
-        {visibleEvents.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No events today</p>
-        ) : (
-          <div className="space-y-1.5">
-            {(showAllEvents ? visibleEvents : visibleEvents.slice(0, 3)).map(event => (
-              <div key={event.id}>
-                <button
-                  onClick={() => event.location && setExpandedEventId(id => (id === event.id ? null : event.id))}
-                  className="flex items-center gap-2 w-full text-left"
-                  disabled={!event.location}
-                >
-                  <Clock className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                  <span className="text-sm truncate flex-1">{event.title}</span>
-                  <span className="text-xs text-muted-foreground shrink-0">
-                    {event.time
-                      ? `${formatTime(event.time)}${event.endTime ? ` – ${formatTime(event.endTime)}` : ''}`
-                      : 'All day'}
-                  </span>
-                </button>
-                {expandedEventId === event.id && event.location && (
-                  <p className="flex items-center gap-1 text-xs text-muted-foreground mt-0.5 pl-6">
-                    <MapPin className="h-3 w-3 shrink-0" />
-                    <span className="truncate">{event.location}</span>
-                  </p>
-                )}
-              </div>
-            ))}
-            {visibleEvents.length > 3 && (
-              <button
-                onClick={() => setShowAllEvents(v => !v)}
-                className="text-xs text-muted-foreground hover:text-foreground"
-              >
-                {showAllEvents ? 'Show less' : `+${visibleEvents.length - 3} more`}
-              </button>
-            )}
+      ),
+    events: (
+        <div className={`space-y-2 ${dividerFor('events')}`}>
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-medium text-muted-foreground">Events</span>
+            <Link to="/calendar" className="flex items-center gap-0.5 text-xs text-primary">
+              View all <ChevronRight className="h-3 w-3" />
+            </Link>
           </div>
-        )}
-      </div>
-
-      <div className="space-y-2 border-t border-border pt-3">
-        <div className="flex items-center justify-between">
-          <span className="text-xs font-medium text-muted-foreground">Tasks</span>
-          <Link to="/todos" className="flex items-center gap-0.5 text-xs text-primary">
-            View all <ChevronRight className="h-3 w-3" />
-          </Link>
-        </div>
-        {todos.length === 0 ? (
-          <p className="text-sm text-muted-foreground">Nothing due today</p>
-        ) : (
-          <div className="space-y-1.5">
-            {(showAllTodos ? sortedTodos : sortedTodos.slice(0, 3)).map(todo => {
-              const overdue = isOverdue(todo.due_date) || (!!todo.due_time && minutesUntil(todo.due_time, now) < 0)
-              const completing = completingTodoIds.has(todo.id)
-              return (
-                <div key={todo.id} className={`flex items-center gap-2 transition-opacity duration-300 ${completing ? 'opacity-60' : ''}`}>
+          {visibleEvents.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No events today</p>
+          ) : (
+            <div className="space-y-1.5">
+              {(showAllEvents ? visibleEvents : visibleEvents.slice(0, 3)).map(event => (
+                <div key={event.id}>
                   <button
-                    onClick={e => handleCompleteTodo(todo, e)}
-                    disabled={completing}
-                    className="shrink-0 hover:bg-primary/10 rounded-full"
-                    title="Mark complete"
+                    onClick={() => event.location && setExpandedEventId(id => (id === event.id ? null : event.id))}
+                    className="flex items-center gap-2 w-full text-left"
+                    disabled={!event.location}
                   >
-                    {completing ? (
-                      <CheckCircle2 className="h-4 w-4 text-primary animate-in zoom-in-50 duration-150" />
-                    ) : (
-                      <span className={`block w-4 h-4 rounded-full border-2 ${overdue ? 'border-destructive' : 'border-primary'}`} />
-                    )}
-                  </button>
-                  <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${PRIORITY_DOT[todo.priority]}`} />
-                  <span className={`text-sm truncate flex-1 ${completing ? 'line-through text-muted-foreground' : overdue ? 'text-destructive' : ''}`}>{todo.title}</span>
-                  {todo.due_time && (
-                    <span className={`flex items-center gap-1 text-xs shrink-0 ${overdue ? 'text-destructive font-medium' : 'text-muted-foreground'}`}>
-                      {overdue && <AlertCircle className="h-3 w-3" />}
-                      {formatTime(todo.due_time)}
+                    <Clock className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                    <span className="text-sm truncate flex-1">{event.title}</span>
+                    <span className="text-xs text-muted-foreground shrink-0">
+                      {event.time
+                        ? `${formatTime(event.time)}${event.endTime ? ` – ${formatTime(event.endTime)}` : ''}`
+                        : 'All day'}
                     </span>
-                  )}
-                  {overdue && (
-                    <button
-                      onClick={() => setPostponingTodoId(todo.id)}
-                      className="p-1 rounded-lg hover:bg-accent text-muted-foreground shrink-0"
-                      title="Postpone"
-                    >
-                      <CalendarArrowUp className="h-3.5 w-3.5" />
-                    </button>
+                  </button>
+                  {expandedEventId === event.id && event.location && (
+                    <p className="flex items-center gap-1 text-xs text-muted-foreground mt-0.5 pl-6">
+                      <MapPin className="h-3 w-3 shrink-0" />
+                      <span className="truncate">{event.location}</span>
+                    </p>
                   )}
                 </div>
-              )
-            })}
-            {todos.length > 3 && (
-              <button
-                onClick={() => setShowAllTodos(v => !v)}
-                className="text-xs text-muted-foreground hover:text-foreground"
-              >
-                {showAllTodos ? 'Show less' : `+${todos.length - 3} more`}
-              </button>
-            )}
+              ))}
+              {visibleEvents.length > 3 && (
+                <button
+                  onClick={() => setShowAllEvents(v => !v)}
+                  className="text-xs text-muted-foreground hover:text-foreground"
+                >
+                  {showAllEvents ? 'Show less' : `+${visibleEvents.length - 3} more`}
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+    ),
+    tasks: (
+        <div className={`space-y-2 ${dividerFor('tasks')}`}>
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-medium text-muted-foreground">Tasks</span>
+            <Link to="/todos" className="flex items-center gap-0.5 text-xs text-primary">
+              View all <ChevronRight className="h-3 w-3" />
+            </Link>
           </div>
-        )}
-      </div>
-
-      {habits.length > 0 && (
-        <div className="space-y-2 border-t border-border pt-3">
+          {todos.length === 0 ? (
+            <p className="text-sm text-muted-foreground">Nothing due today</p>
+          ) : (
+            <div className="space-y-1.5">
+              {(showAllTodos ? sortedTodos : sortedTodos.slice(0, 3)).map(todo => {
+                const overdue = isOverdue(todo.due_date) || (!!todo.due_time && minutesUntil(todo.due_time, now) < 0)
+                const completing = completingTodoIds.has(todo.id)
+                return (
+                  <div key={todo.id} className={`flex items-center gap-2 transition-opacity duration-300 ${completing ? 'opacity-60' : ''}`}>
+                    <button
+                      onClick={e => handleCompleteTodo(todo, e)}
+                      disabled={completing}
+                      className="shrink-0 hover:bg-primary/10 rounded-full"
+                      title="Mark complete"
+                    >
+                      {completing ? (
+                        <CheckCircle2 className="h-4 w-4 text-primary animate-in zoom-in-50 duration-150" />
+                      ) : (
+                        <span className={`block w-4 h-4 rounded-full border-2 ${overdue ? 'border-destructive' : 'border-primary'}`} />
+                      )}
+                    </button>
+                    <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${PRIORITY_DOT[todo.priority]}`} />
+                    <span className={`text-sm truncate flex-1 ${completing ? 'line-through text-muted-foreground' : overdue ? 'text-destructive' : ''}`}>{todo.title}</span>
+                    {todo.due_time && (
+                      <span className={`flex items-center gap-1 text-xs shrink-0 ${overdue ? 'text-destructive font-medium' : 'text-muted-foreground'}`}>
+                        {overdue && <AlertCircle className="h-3 w-3" />}
+                        {formatTime(todo.due_time)}
+                      </span>
+                    )}
+                    {overdue && (
+                      <button
+                        onClick={() => setPostponingTodoId(todo.id)}
+                        className="p-1 rounded-lg hover:bg-accent text-muted-foreground shrink-0"
+                        title="Postpone"
+                      >
+                        <CalendarArrowUp className="h-3.5 w-3.5" />
+                      </button>
+                    )}
+                  </div>
+                )
+              })}
+              {todos.length > 3 && (
+                <button
+                  onClick={() => setShowAllTodos(v => !v)}
+                  className="text-xs text-muted-foreground hover:text-foreground"
+                >
+                  {showAllTodos ? 'Show less' : `+${todos.length - 3} more`}
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+    ),
+    habits: habits.length > 0 && (
+        <div className={`space-y-2 ${dividerFor('habits')}`}>
           <div className="flex items-center justify-between">
             <span className="text-xs font-medium text-muted-foreground">Habits</span>
             <span className="text-xs text-muted-foreground">{habits.length}/{totalHabitsCount}</span>
@@ -277,9 +288,20 @@ export default function TodaySection({ habits, totalHabitsCount, onToggleHabit, 
             })}
           </div>
         </div>
-      )}
+        ),
+    workout: (
+        <WorkoutWidget doneToday={workoutDoneToday} />
+    ),
+  }
 
-      <WorkoutWidget doneToday={workoutDoneToday} />
+  return (
+    <div className="bg-card border border-border rounded-xl p-3.5 space-y-4">
+      <div className="flex items-center justify-between">
+        <h2 className="text-base font-semibold">Today</h2>
+        <WeatherWidget />
+      </div>
+
+      {order.map(key => <Fragment key={key}>{sections[key]}</Fragment>)}
 
       <PostponeMenu
         open={postponingTodoId !== null}

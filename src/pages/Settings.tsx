@@ -23,6 +23,7 @@ import { ALL_NAV_KEYS, NAV_ITEMS, BOTTOM_NAV_ITEMS_CHANGED_EVENT, type NavItemKe
 import { Tabs, TabsList, TabsTrigger } from '../components/ui/tabs'
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '../components/ui/select'
 import MoreLayoutEditor from '../components/MoreLayoutEditor'
+import TodayLayoutEditor from '../components/TodayLayoutEditor'
 import VoiceShortcutsSection from '../features/voice/VoiceShortcutsSection'
 
 const GOOGLE_CONNECT_MESSAGES: Record<string, string> = {
@@ -392,6 +393,14 @@ export default function Settings() {
             </Tabs>
           </div>
         )}
+      </div>
+
+      <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2 mt-6">Today widget layout</h2>
+      <div className="bg-card border border-border rounded-2xl p-4">
+        <p className="text-sm text-muted-foreground mb-4">
+          Choose the order of the parts of the Today card on the home page.
+        </p>
+        <TodayLayoutEditor />
       </div>
 
       <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2 mt-6">Bottom navigation</h2>

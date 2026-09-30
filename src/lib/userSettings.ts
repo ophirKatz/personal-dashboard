@@ -1,4 +1,5 @@
 import { supabase } from '../supabase'
+import { resolveTodaySectionsOrder, type TodaySectionKey } from './todaySections'
 import { DEFAULT_BOTTOM_NAV_ITEMS, isNavItemKey, type MoreSection, type NavItemKey } from './navItems'
 
 export type FocusPeriod = 'today' | 'week'
@@ -87,4 +88,15 @@ export async function setMoreSections(sections: MoreSection[] | null): Promise<v
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return
   await supabase.from('user_settings').upsert({ user_id: user.id, more_sections: sections })
+}
+
+export async function getTodaySectionsOrder(): Promise<TodaySectionKey[]> {
+  const { data } = await supabase.from('user_settings').select('today_sections_order').maybeSingle()
+  return resolveTodaySectionsOrder(data?.today_sections_order)
+}
+
+export async function setTodaySectionsOrder(order: TodaySectionKey[] | null): Promise<void> {
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return
+  await supabase.from('user_settings').upsert({ user_id: user.id, today_sections_order: order })
 }
