@@ -8,7 +8,7 @@ create table if not exists public.workout_exercises (
   created_at timestamptz not null default now()
 );
 create unique index if not exists workout_exercises_user_builtin_idx
-  on public.workout_exercises (user_id, builtin_key) where builtin_key is not null;
+  on public.workout_exercises (user_id, builtin_key);
 
 create table if not exists public.workout_presets (
   id uuid primary key default gen_random_uuid(),
