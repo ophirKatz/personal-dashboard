@@ -22,6 +22,7 @@ import { listGoogleAccounts, connectGoogleAccount, disconnectGoogleAccount, upda
 import { ALL_NAV_KEYS, NAV_ITEMS, BOTTOM_NAV_ITEMS_CHANGED_EVENT, type NavItemKey } from '../lib/navItems'
 import { Tabs, TabsList, TabsTrigger } from '../components/ui/tabs'
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '../components/ui/select'
+import MoreLayoutEditor from '../components/MoreLayoutEditor'
 import VoiceShortcutsSection from '../features/voice/VoiceShortcutsSection'
 
 const GOOGLE_CONNECT_MESSAGES: Record<string, string> = {
@@ -414,6 +415,14 @@ export default function Settings() {
             ))}
           </div>
         )}
+      </div>
+
+      <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2 mt-6">More page layout</h2>
+      <div className="bg-card border border-border rounded-2xl p-4">
+        <p className="text-sm text-muted-foreground mb-4">
+          Group the pages on the "More" screen into sections. Pages you don't place land in the last section.
+        </p>
+        {!bottomNavLoading && <MoreLayoutEditor bottomNavItems={bottomNavItems} />}
       </div>
 
       <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2 mt-6">Focus summaries</h2>

@@ -3,36 +3,47 @@ import { useEffect, useRef, useState } from 'react'
 import { Home, MoreHorizontal, X, LogOut, Settings, Mountain, Info } from 'lucide-react'
 import { supabase } from '../supabase'
 import { cn } from '../utils'
-import { ALL_NAV_KEYS, NAV_ITEMS, DEFAULT_BOTTOM_NAV_ITEMS, BOTTOM_NAV_ITEMS_CHANGED_EVENT, type NavItemKey } from '../lib/navItems'
-import { getBottomNavItems } from '../lib/userSettings'
+import { ALL_NAV_KEYS, NAV_ITEMS, resolveMoreSections, DEFAULT_BOTTOM_NAV_ITEMS, BOTTOM_NAV_ITEMS_CHANGED_EVENT, MORE_SECTIONS_CHANGED_EVENT, type MoreSection, type NavItemKey } from '../lib/navItems'
+import { getBottomNavItems, getMoreSections } from '../lib/userSettings'
 
 const settingsNav = { to: '/settings', icon: Settings, label: 'Settings' }
-const aboutNav = { to: '/about', icon: Info, label: 'About' }
+const linksNav = { to: '/about', icon: Info, label: 'Links' }
 
 export default function Layout() {
   const [morePanel, setMorePanel] = useState<'closed' | 'open' | 'closing'>('closed')
   const [bottomNavKeys, setBottomNavKeys] = useState<NavItemKey[]>(DEFAULT_BOTTOM_NAV_ITEMS)
+  const [storedMoreSections, setStoredMoreSections] = useState<MoreSection[] | null>(null)
   const navigate = useNavigate()
   const tabBarRef = useRef<HTMLElement>(null)
 
   useEffect(() => {
     getBottomNavItems().then(setBottomNavKeys)
+    getMoreSections().then(setStoredMoreSections)
     function handleChange(e: Event) {
       setBottomNavKeys((e as CustomEvent<NavItemKey[]>).detail)
     }
+    function handleSectionsChange(e: Event) {
+      setStoredMoreSections((e as CustomEvent<MoreSection[] | null>).detail)
+    }
     window.addEventListener(BOTTOM_NAV_ITEMS_CHANGED_EVENT, handleChange)
-    return () => window.removeEventListener(BOTTOM_NAV_ITEMS_CHANGED_EVENT, handleChange)
+    window.addEventListener(MORE_SECTIONS_CHANGED_EVENT, handleSectionsChange)
+    return () => {
+      window.removeEventListener(BOTTOM_NAV_ITEMS_CHANGED_EVENT, handleChange)
+      window.removeEventListener(MORE_SECTIONS_CHANGED_EVENT, handleSectionsChange)
+    }
   }, [])
 
   const primaryNav = [
     { to: '/', icon: Home, label: 'Home' },
     ...bottomNavKeys.map(key => ({ to: NAV_ITEMS[key].to, icon: NAV_ITEMS[key].icon, label: NAV_ITEMS[key].label })),
   ]
-  const moreNav = [
-    ...ALL_NAV_KEYS.filter(key => !bottomNavKeys.includes(key)).map(key => ({ to: NAV_ITEMS[key].to, icon: NAV_ITEMS[key].icon, label: NAV_ITEMS[key].label })),
-    aboutNav,
-    settingsNav,
-  ]
+  const moreKeys = ALL_NAV_KEYS.filter(key => !bottomNavKeys.includes(key))
+  const toNavItem = (key: NavItemKey) => ({ to: NAV_ITEMS[key].to, icon: NAV_ITEMS[key].icon, label: NAV_ITEMS[key].label })
+  const moreFooterNav = [settingsNav, linksNav]
+  const moreNav = [...moreKeys.map(toNavItem), ...moreFooterNav]
+  const moreSections = resolveMoreSections(storedMoreSections, moreKeys)
+    .map(({ id, title, items }) => ({ id, title, items: items.map(toNavItem) }))
+    .filter(s => s.items.length > 0)
 
   function openMore() {
     setMorePanel('open')
@@ -165,25 +176,42 @@ export default function Layout() {
                 <X className="h-5 w-5" />
               </button>
             </div>
-            <div className="flex-1 overflow-y-auto p-4 space-y-1">
-              {moreNav.map(({ to, icon: Icon, label }) => (
+            <div className="flex-1 overflow-y-auto p-4 space-y-6">
+              {moreSections.map(({ id, title, items }) => (
+                <section key={id}>
+                  <h2 className="px-1 mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">{title}</h2>
+                  <div className="grid grid-cols-3 gap-3">
+                    {items.map(({ to, icon: Icon, label }) => (
+                      <button
+                        key={to}
+                        onClick={() => { navigate(to); closeMore() }}
+                        className="flex flex-col items-center justify-center gap-2 aspect-square rounded-2xl border border-border bg-card hover:bg-accent transition-colors"
+                      >
+                        <Icon className="h-6 w-6 text-muted-foreground" />
+                        <span className="text-sm font-medium">{label}</span>
+                      </button>
+                    ))}
+                  </div>
+                </section>
+              ))}
+            </div>
+            <div className="border-t border-border p-3 grid grid-cols-3 gap-2">
+              {moreFooterNav.map(({ to, icon: Icon, label }) => (
                 <button
                   key={to}
                   onClick={() => { navigate(to); closeMore() }}
-                  className="flex items-center gap-4 w-full px-4 py-4 rounded-xl hover:bg-accent text-left transition-colors"
+                  className="flex flex-col items-center gap-1 py-2.5 rounded-xl hover:bg-accent transition-colors"
                 >
                   <Icon className="h-5 w-5 text-muted-foreground" />
-                  <span className="font-medium">{label}</span>
+                  <span className="text-xs font-medium">{label}</span>
                 </button>
               ))}
-            </div>
-            <div className="border-t border-border p-4">
               <button
                 onClick={handleSignOut}
-                className="flex items-center gap-4 w-full px-4 py-4 rounded-xl hover:bg-accent text-left text-muted-foreground transition-colors"
+                className="flex flex-col items-center gap-1 py-2.5 rounded-xl hover:bg-accent text-muted-foreground transition-colors"
               >
                 <LogOut className="h-5 w-5" />
-                <span>Sign out</span>
+                <span className="text-xs font-medium">Sign out</span>
               </button>
             </div>
           </div>

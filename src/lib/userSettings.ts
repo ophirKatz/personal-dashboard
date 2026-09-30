@@ -1,5 +1,5 @@
 import { supabase } from '../supabase'
-import { DEFAULT_BOTTOM_NAV_ITEMS, isNavItemKey, type NavItemKey } from './navItems'
+import { DEFAULT_BOTTOM_NAV_ITEMS, isNavItemKey, type MoreSection, type NavItemKey } from './navItems'
 
 export type FocusPeriod = 'today' | 'week'
 
@@ -71,4 +71,20 @@ export async function setBottomNavItems(items: NavItemKey[]): Promise<void> {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return
   await supabase.from('user_settings').upsert({ user_id: user.id, bottom_nav_items: items })
+}
+
+export async function getMoreSections(): Promise<MoreSection[] | null> {
+  const { data } = await supabase.from('user_settings').select('more_sections').maybeSingle()
+  const stored = data?.more_sections
+  if (!Array.isArray(stored)) return null
+  return stored
+    .filter(s => s && typeof s.id === 'string' && typeof s.title === 'string' && Array.isArray(s.items))
+    .map(s => ({ id: s.id, title: s.title, items: s.items.filter(isNavItemKey) }))
+}
+
+// Passing null resets to the default layout.
+export async function setMoreSections(sections: MoreSection[] | null): Promise<void> {
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return
+  await supabase.from('user_settings').upsert({ user_id: user.id, more_sections: sections })
 }
