@@ -93,7 +93,11 @@ async function getAccessToken(
       grant_type: 'refresh_token',
     }),
   })
-  if (!refreshRes.ok) return null
+  if (!refreshRes.ok) {
+    const body = await refreshRes.text()
+    console.error(`[fetch-google-calendar] token refresh failed for account ${account.id}: ${refreshRes.status} ${body}`)
+    return null
+  }
 
   const refreshed = await refreshRes.json()
   accessToken = refreshed.access_token
@@ -107,7 +111,10 @@ async function getAccessToken(
 
 async function syncCalendarForAccount(supabase: SupabaseClient, account: AccountRow, clientId: string, clientSecret: string) {
   const accessToken = await getAccessToken(supabase, account, clientId, clientSecret)
-  if (!accessToken) return
+  if (!accessToken) {
+    console.error(`[fetch-google-calendar] no access token for account ${account.id}, skipping`)
+    return
+  }
 
   const timeMin = new Date(new Date().toISOString().slice(0, 10)).toISOString()
   const timeMax = new Date(Date.now() + SYNC_DAYS * 24 * 60 * 60 * 1000).toISOString()
@@ -120,7 +127,11 @@ async function syncCalendarForAccount(supabase: SupabaseClient, account: Account
   })
 
   const res = await fetch(`${CALENDAR_BASE}?${params}`, { headers: { Authorization: `Bearer ${accessToken}` } })
-  if (!res.ok) return // insufficient scope / upstream error — best-effort, leave cache as-is
+  if (!res.ok) {
+    const body = await res.text()
+    console.error(`[fetch-google-calendar] calendar API failed for account ${account.id}: ${res.status} ${body}`)
+    return // insufficient scope / upstream error — best-effort, leave cache as-is
+  }
 
   const data: { items?: GoogleEventItem[] } = await res.json()
   const events = (data.items ?? [])
@@ -150,7 +161,10 @@ async function syncCalendarForAccount(supabase: SupabaseClient, account: Account
     .select('google_event_id')
     .eq('user_id', account.user_id)
     .eq('google_account_id', account.id)
-  if (selectError) return
+  if (selectError) {
+    console.error(`[fetch-google-calendar] select existing events failed for account ${account.id}: ${JSON.stringify(selectError)}`)
+    return
+  }
   const existingIds = new Set((existingRows ?? []).map(r => r.google_event_id).filter((id): id is string => id !== null))
 
   const rows = events.map(e => ({
@@ -170,8 +184,12 @@ async function syncCalendarForAccount(supabase: SupabaseClient, account: Account
 
   if (rows.length > 0) {
     const { error: upsertError } = await supabase.from('events').upsert(rows, { onConflict: 'user_id,google_account_id,google_event_id' })
-    if (upsertError) return
+    if (upsertError) {
+      console.error(`[fetch-google-calendar] upsert failed for account ${account.id}: ${JSON.stringify(upsertError)}`)
+      return
+    }
   }
+  console.log(`[fetch-google-calendar] synced ${rows.length} events for account ${account.id}`)
 
   const currentIds = new Set(events.map(e => e.id))
   const staleIds = [...existingIds].filter(id => !currentIds.has(id))
