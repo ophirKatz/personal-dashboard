@@ -3,11 +3,11 @@ import { useEffect, useRef, useState } from 'react'
 import { Home, MoreHorizontal, X, LogOut, Settings, Mountain, Info } from 'lucide-react'
 import { supabase } from '../supabase'
 import { cn } from '../utils'
-import { ALL_NAV_KEYS, NAV_ITEMS, DEFAULT_BOTTOM_NAV_ITEMS, BOTTOM_NAV_ITEMS_CHANGED_EVENT, type NavItemKey } from '../lib/navItems'
+import { ALL_NAV_KEYS, NAV_ITEMS, MORE_SECTIONS, DEFAULT_BOTTOM_NAV_ITEMS, BOTTOM_NAV_ITEMS_CHANGED_EVENT, type NavItemKey } from '../lib/navItems'
 import { getBottomNavItems } from '../lib/userSettings'
 
 const settingsNav = { to: '/settings', icon: Settings, label: 'Settings' }
-const aboutNav = { to: '/about', icon: Info, label: 'About' }
+const linksNav = { to: '/about', icon: Info, label: 'Links' }
 
 export default function Layout() {
   const [morePanel, setMorePanel] = useState<'closed' | 'open' | 'closing'>('closed')
@@ -28,11 +28,19 @@ export default function Layout() {
     { to: '/', icon: Home, label: 'Home' },
     ...bottomNavKeys.map(key => ({ to: NAV_ITEMS[key].to, icon: NAV_ITEMS[key].icon, label: NAV_ITEMS[key].label })),
   ]
-  const moreNav = [
-    ...ALL_NAV_KEYS.filter(key => !bottomNavKeys.includes(key)).map(key => ({ to: NAV_ITEMS[key].to, icon: NAV_ITEMS[key].icon, label: NAV_ITEMS[key].label })),
-    aboutNav,
-    settingsNav,
-  ]
+  const moreKeys = ALL_NAV_KEYS.filter(key => !bottomNavKeys.includes(key))
+  const toNavItem = (key: NavItemKey) => ({ to: NAV_ITEMS[key].to, icon: NAV_ITEMS[key].icon, label: NAV_ITEMS[key].label })
+  const moreFooterNav = [linksNav, settingsNav]
+  const moreNav = [...moreKeys.map(toNavItem), ...moreFooterNav]
+  const explicitKeys = MORE_SECTIONS.flatMap(s => s.keys ?? [])
+  const moreSections = MORE_SECTIONS
+    .map(({ title, keys }) => ({
+      title,
+      items: (keys ?? moreKeys.filter(k => !explicitKeys.includes(k)))
+        .filter(k => moreKeys.includes(k))
+        .map(toNavItem),
+    }))
+    .filter(s => s.items.length > 0)
 
   function openMore() {
     setMorePanel('open')
@@ -165,22 +173,39 @@ export default function Layout() {
                 <X className="h-5 w-5" />
               </button>
             </div>
-            <div className="flex-1 overflow-y-auto p-4 space-y-1">
-              {moreNav.map(({ to, icon: Icon, label }) => (
+            <div className="flex-1 overflow-y-auto p-4 space-y-6">
+              {moreSections.map(({ title, items }) => (
+                <section key={title}>
+                  <h2 className="px-1 mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">{title}</h2>
+                  <div className="grid grid-cols-3 gap-3">
+                    {items.map(({ to, icon: Icon, label }) => (
+                      <button
+                        key={to}
+                        onClick={() => { navigate(to); closeMore() }}
+                        className="flex flex-col items-center justify-center gap-2 aspect-square rounded-2xl border border-border bg-card hover:bg-accent transition-colors"
+                      >
+                        <Icon className="h-6 w-6 text-muted-foreground" />
+                        <span className="text-sm font-medium">{label}</span>
+                      </button>
+                    ))}
+                  </div>
+                </section>
+              ))}
+            </div>
+            <div className="border-t border-border p-4 space-y-1">
+              {moreFooterNav.map(({ to, icon: Icon, label }) => (
                 <button
                   key={to}
                   onClick={() => { navigate(to); closeMore() }}
-                  className="flex items-center gap-4 w-full px-4 py-4 rounded-xl hover:bg-accent text-left transition-colors"
+                  className="flex items-center gap-4 w-full px-4 py-3 rounded-xl hover:bg-accent text-left transition-colors"
                 >
                   <Icon className="h-5 w-5 text-muted-foreground" />
                   <span className="font-medium">{label}</span>
                 </button>
               ))}
-            </div>
-            <div className="border-t border-border p-4">
               <button
                 onClick={handleSignOut}
-                className="flex items-center gap-4 w-full px-4 py-4 rounded-xl hover:bg-accent text-left text-muted-foreground transition-colors"
+                className="flex items-center gap-4 w-full px-4 py-3 rounded-xl hover:bg-accent text-left text-muted-foreground transition-colors"
               >
                 <LogOut className="h-5 w-5" />
                 <span>Sign out</span>

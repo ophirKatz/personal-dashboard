@@ -21,6 +21,13 @@ export const NAV_ITEMS: Record<NavItemKey, { to: string; icon: LucideIcon; label
 
 export const ALL_NAV_KEYS = Object.keys(NAV_ITEMS) as NavItemKey[]
 
+// Sections shown in the mobile "More" grid. Items not listed in any section
+// fall into the catch-all section (no `keys`), so new pages appear automatically.
+export const MORE_SECTIONS: { title: string; keys?: NavItemKey[] }[] = [
+  { title: 'Leisure', keys: ['climbing', 'reading', 'runescape', 'workout', 'games'] },
+  { title: 'Everything else' },
+]
+
 export const DEFAULT_BOTTOM_NAV_ITEMS: NavItemKey[] = ['todos', 'calendar', 'files']
 
 export const BOTTOM_NAV_ITEMS_CHANGED_EVENT = 'bottom-nav-items-changed'
