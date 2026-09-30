@@ -39,7 +39,7 @@ export default function Layout() {
   ]
   const moreKeys = ALL_NAV_KEYS.filter(key => !bottomNavKeys.includes(key))
   const toNavItem = (key: NavItemKey) => ({ to: NAV_ITEMS[key].to, icon: NAV_ITEMS[key].icon, label: NAV_ITEMS[key].label })
-  const moreFooterNav = [linksNav, settingsNav]
+  const moreFooterNav = [settingsNav, linksNav]
   const moreNav = [...moreKeys.map(toNavItem), ...moreFooterNav]
   const moreSections = resolveMoreSections(storedMoreSections, moreKeys)
     .map(({ id, title, items }) => ({ id, title, items: items.map(toNavItem) }))
@@ -195,23 +195,23 @@ export default function Layout() {
                 </section>
               ))}
             </div>
-            <div className="border-t border-border p-4 space-y-1">
+            <div className="border-t border-border p-3 grid grid-cols-3 gap-2">
               {moreFooterNav.map(({ to, icon: Icon, label }) => (
                 <button
                   key={to}
                   onClick={() => { navigate(to); closeMore() }}
-                  className="flex items-center gap-4 w-full px-4 py-3 rounded-xl hover:bg-accent text-left transition-colors"
+                  className="flex flex-col items-center gap-1 py-2.5 rounded-xl hover:bg-accent transition-colors"
                 >
                   <Icon className="h-5 w-5 text-muted-foreground" />
-                  <span className="font-medium">{label}</span>
+                  <span className="text-xs font-medium">{label}</span>
                 </button>
               ))}
               <button
                 onClick={handleSignOut}
-                className="flex items-center gap-4 w-full px-4 py-3 rounded-xl hover:bg-accent text-left text-muted-foreground transition-colors"
+                className="flex flex-col items-center gap-1 py-2.5 rounded-xl hover:bg-accent text-muted-foreground transition-colors"
               >
                 <LogOut className="h-5 w-5" />
-                <span>Sign out</span>
+                <span className="text-xs font-medium">Sign out</span>
               </button>
             </div>
           </div>
