@@ -113,12 +113,12 @@ export default function MoreLayoutEditor({ bottomNavItems }: { bottomNavItems: N
                 const { icon: Icon, label } = NAV_ITEMS[key]
                 return (
                   <div key={key} className="flex items-center gap-1">
-                    <Icon className="h-4 w-4 text-muted-foreground mx-2 shrink-0" />
-                    <span className="flex-1 text-sm truncate">{label}</span>
+                    <Icon className="h-4 w-4 text-muted-foreground mx-1.5 shrink-0" />
+                    <span className="flex-1 min-w-0 text-sm truncate">{label}</span>
                     <button
                       onClick={() => updateSection(si, { items: move(section.items, ii, ii - 1) })}
                       disabled={ii === 0}
-                      className="p-1 rounded-lg hover:bg-accent text-muted-foreground disabled:opacity-30"
+                      className="p-0.5 rounded-lg hover:bg-accent text-muted-foreground disabled:opacity-30"
                       title="Move up"
                     >
                       <ChevronUp className="h-4 w-4" />
@@ -126,13 +126,13 @@ export default function MoreLayoutEditor({ bottomNavItems }: { bottomNavItems: N
                     <button
                       onClick={() => updateSection(si, { items: move(section.items, ii, ii + 1) })}
                       disabled={ii === section.items.length - 1}
-                      className="p-1 rounded-lg hover:bg-accent text-muted-foreground disabled:opacity-30"
+                      className="p-0.5 rounded-lg hover:bg-accent text-muted-foreground disabled:opacity-30"
                       title="Move down"
                     >
                       <ChevronDown className="h-4 w-4" />
                     </button>
                     <Select value={String(si)} onValueChange={v => moveItemToSection(key, si, Number(v))}>
-                      <SelectTrigger className="h-8 w-32 text-xs">
+                      <SelectTrigger className="h-8 w-28 shrink-0 text-xs whitespace-nowrap [&>span]:truncate">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
