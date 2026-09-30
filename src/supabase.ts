@@ -177,6 +177,7 @@ export type UserSettings = {
   default_focus_period: 'today' | 'week'
   bottom_nav_items: string[]
   more_sections: { id: string; title: string; items: string[] }[] | null
+  today_sections_order: string[] | null
   updated_at: string
 }
 
