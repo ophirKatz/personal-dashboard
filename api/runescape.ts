@@ -20,6 +20,9 @@ function upstreamUrl(kind: string, player: string): string | null {
 const WIKI_QUESTS =
   'https://runescape.wiki/api.php?action=query&list=categorymembers&cmtitle=Category:Quests&cmlimit=500&cmtype=page&format=json'
 
+const WIKI_MINIQUESTS =
+  'https://runescape.wiki/api.php?action=query&list=categorymembers&cmtitle=Category:Miniquests&cmlimit=500&cmtype=page&format=json'
+
 // Rendered HTML of one wiki page (quest page or its "/Quick guide" subpage).
 const TITLE_RE = /^[^|{}<>[\]#_]{1,120}$/
 function wikiPageUrl(title: string): string {
@@ -37,6 +40,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   let url: string | null
   if (kind === 'wiki-quests') {
     url = WIKI_QUESTS
+  } else if (kind === 'wiki-miniquests') {
+    url = WIKI_MINIQUESTS
   } else if (kind === 'wiki-page') {
     if (!TITLE_RE.test(title)) {
       res.status(400).json({ error: 'INVALID_TITLE' })

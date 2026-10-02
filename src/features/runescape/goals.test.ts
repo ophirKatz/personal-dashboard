@@ -6,7 +6,7 @@ import { xpForLevel } from './skills'
 
 const base: RsGoal = {
   id: 'g', user_id: 'u', character_id: 'c', type: 'skill', skill_id: 0, target_level: 99,
-  quest_id: null, title: null, completed_at: null, created_at: '',
+  quest_id: null, title: null, completed_at: null, sort_order: 0, created_at: '',
 }
 
 const stats = (level: number, xp: number): CharacterStats => ({
