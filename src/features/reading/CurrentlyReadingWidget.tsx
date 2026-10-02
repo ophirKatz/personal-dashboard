@@ -1,5 +1,6 @@
 import { forwardRef, useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { format, parseISO } from 'date-fns'
 import { BookOpen, CheckCircle2, ChevronRight, Flame } from 'lucide-react'
 import type { ReadingBook } from '../../supabase'
 import { Button } from '../../components/ui/button'
@@ -35,21 +36,27 @@ export default function CurrentlyReadingWidget() {
     fetchReadingDays(today()).then(setDays)
   }, [])
 
-  async function logToday() {
+  /** Sets whether `day` counts as read, optimistically, reverting if the save fails. */
+  async function setDayRead(day: string, read: boolean) {
     setError(null)
-    setDays(d => [todayStr, ...d])
+    setDays(d => read ? [day, ...d.filter(x => x !== day)] : d.filter(x => x !== day))
+    const { error } = await (read ? logReadingDay(day) : unlogReadingDay(day))
+    if (error) {
+      setError(error)
+      setDays(d => read ? d.filter(x => x !== day) : [day, ...d])
+    }
+  }
+
+  function logToday() {
     setFlipKey(k => k + 1)
     haptic('success')
     if (readRef.current) celebrateFromElement(readRef.current)
-    const { error } = await logReadingDay(todayStr)
-    if (error) { setError(error); setDays(d => d.filter(x => x !== todayStr)) }
+    return setDayRead(todayStr, true)
   }
 
-  async function undoToday() {
-    setError(null)
-    setDays(d => d.filter(x => x !== todayStr))
-    const { error } = await unlogReadingDay(todayStr)
-    if (error) { setError(error); setDays(d => [todayStr, ...d]) }
+  function toggleDay(day: string, read: boolean) {
+    haptic('selection')
+    return setDayRead(day, read)
   }
 
   async function complete() {
@@ -132,7 +139,8 @@ export default function CurrentlyReadingWidget() {
           streak={streak}
           week={recentDays(days, todayStr)}
           onLog={logToday}
-          onUndo={undoToday}
+          onUndo={() => setDayRead(todayStr, false)}
+          onToggleDay={toggleDay}
         />
       )}
 
@@ -149,16 +157,18 @@ type TrackerProps = {
   week: ReturnType<typeof recentDays>
   onLog: () => void
   onUndo: () => void
+  onToggleDay: (day: string, read: boolean) => void
 }
 
-/** Daily nudge: a pulsing banner until today's reading is logged, then a streak + week strip. */
+/** Daily nudge: a pulsing banner until today's reading is logged, then a streak + week strip whose days can be tapped to toggle. */
 const ReadingTracker = forwardRef<HTMLButtonElement, TrackerProps>(function ReadingTracker(
-  { readToday, streak, week, onLog, onUndo },
+  { readToday, streak, week, onLog, onUndo, onToggleDay },
   ref,
 ) {
   const now = new Date()
   const dayOfYear = Math.floor((now.getTime() - new Date(now.getFullYear(), 0, 0).getTime()) / 86_400_000)
   const nudge = nudgeCopy(streak, now.getHours(), dayOfYear)
+  const [popped, setPopped] = useState<string | null>(null)
 
   return (
     <div className="space-y-2.5">
@@ -200,17 +210,23 @@ const ReadingTracker = forwardRef<HTMLButtonElement, TrackerProps>(function Read
         </div>
         <div className="flex gap-1.5">
           {week.map(d => (
-            <div key={d.key} className="flex flex-col items-center gap-0.5">
+            <button
+              key={d.key}
+              onClick={() => { setPopped(d.read ? null : d.key); onToggleDay(d.key, !d.read) }}
+              aria-pressed={d.read}
+              aria-label={`${d.isToday ? 'Today' : format(parseISO(d.key), 'EEEE d MMM')}: ${d.read ? 'read' : 'not read'}`}
+              className="flex flex-col items-center gap-0.5 rounded-md px-0.5 transition-transform active:scale-90"
+            >
               <span
                 className={cn(
                   'h-5 w-5 rounded-full border transition-colors',
                   d.read ? 'border-emerald-500 bg-emerald-500' : 'border-border bg-muted',
                   d.isToday && !d.read && 'border-primary',
-                  d.isToday && d.read && 'motion-safe:animate-pop-in',
+                  d.key === popped && d.read && 'motion-safe:animate-pop-in',
                 )}
               />
               <span className={cn('text-[10px] text-muted-foreground', d.isToday && 'font-semibold text-foreground')}>{d.label}</span>
-            </div>
+            </button>
           ))}
         </div>
       </div>
