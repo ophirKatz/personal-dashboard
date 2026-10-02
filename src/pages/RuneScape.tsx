@@ -11,7 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs'
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerBody } from '../components/ui/drawer'
 import { cn } from '../utils'
 import { haptic } from '../lib/haptics'
-import { errorMessage, fetchCharacterStats, fetchQuests, type CharacterStats, type QuestStatus } from '../features/runescape/api'
+import { errorMessage, fetchCharacterStats, fetchMiniquestNames, fetchQuests, type CharacterStats, type QuestStatus } from '../features/runescape/api'
 import { formatXp } from '../features/runescape/skills'
 import { ACTIVE_CHARACTER_KEY, goalProgress, goalTitle, questKey, questStatusMap } from '../features/runescape/goals'
 import { loadQuestCatalogue, refreshQuestCatalogue } from '../features/runescape/quests'
@@ -52,7 +52,9 @@ export default function RuneScape() {
   const [notice, setNotice] = useState<string | null>(null)
 
   const [questSearch, setQuestSearch] = useState('')
-  const [questFilter, setQuestFilter] = useState<QuestFilter>('all')
+  const [questFilter, setQuestFilter] = useState<QuestFilter>('NOT_STARTED')
+  const [miniquests, setMiniquests] = useState<Set<string>>(new Set())
+  const [skillsOpen, setSkillsOpen] = useState(true)
 
   const [showGoal, setShowGoal] = useState(false)
   const [characterForm, setCharacterForm] = useState<{ character?: RsCharacter } | null>(null)
@@ -105,6 +107,11 @@ export default function RuneScape() {
   }, [])
 
   useEffect(() => { loadCatalogue() }, [loadCatalogue])
+
+  // If the miniquest list can't be fetched, nothing is hidden.
+  useEffect(() => {
+    fetchMiniquestNames().then(names => setMiniquests(new Set(names.map(questKey)))).catch(() => { /* show all quests */ })
+  }, [])
 
   const loadStats = useCallback(async (signal?: AbortSignal) => {
     if (!active) return
@@ -164,9 +171,10 @@ export default function RuneScape() {
     const term = questSearch.trim().toLowerCase()
     return catalogue
       .map(q => ({ quest: q, status: questEntries?.get(questKey(q.name)) ?? null }))
+      .filter(r => !miniquests.has(questKey(r.quest.name)))
       .filter(r => !term || r.quest.name.toLowerCase().includes(term))
       .filter(r => questFilter === 'all' || (r.status ?? 'NOT_STARTED') === questFilter)
-  }, [catalogue, questEntries, questSearch, questFilter])
+  }, [catalogue, questEntries, questSearch, questFilter, miniquests])
 
   const completedQuestCount = questEntries ? [...questEntries.values()].filter(s => s === 'COMPLETED').length : null
 
@@ -293,7 +301,17 @@ export default function RuneScape() {
                   Showing public hiscores only. Enable "Show RuneMetrics profile" in your RuneScape settings to unlock combat level, quest progress and recent activity.
                 </p>
               )}
-              <SkillGrid stats={stats} />
+              <section className="space-y-2.5">
+                <button
+                  onClick={() => { haptic(); setSkillsOpen(o => !o) }}
+                  aria-expanded={skillsOpen}
+                  className="flex w-full items-center justify-between text-sm font-semibold text-muted-foreground"
+                >
+                  Skills
+                  <ChevronDown className={cn('h-4 w-4 transition-transform', !skillsOpen && '-rotate-90')} />
+                </button>
+                {skillsOpen && <SkillGrid stats={stats} />}
+              </section>
               {stats.activities.length > 0 && (
                 <section className="space-y-2">
                   <h2 className="text-sm font-semibold text-muted-foreground">Recent activity</h2>

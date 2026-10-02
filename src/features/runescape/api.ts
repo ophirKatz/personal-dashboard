@@ -143,6 +143,12 @@ export async function fetchWikiQuestNames(signal?: AbortSignal): Promise<string[
     .filter(t => t && !t.includes(':') && !t.startsWith('List of'))
 }
 
+/** Names of RS3 miniquests (they're mixed into the quest catalogue, so filter by name). */
+export async function fetchMiniquestNames(signal?: AbortSignal): Promise<string[]> {
+  const data = (await call('wiki-miniquests', 'x', signal)) as { query?: { categorymembers?: { title?: string }[] } }
+  return (data.query?.categorymembers ?? []).map(m => m.title ?? '').filter(t => t && !t.includes(':'))
+}
+
 export function errorMessage(err: unknown): string {
   const code = err instanceof RsApiError ? err.code : 'UPSTREAM_ERROR'
   switch (code) {
