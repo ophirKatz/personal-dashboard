@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import { Check, Scroll, Sparkles, Trash2, Undo2 } from 'lucide-react'
+import { Check, ChevronDown, ChevronUp, Scroll, Sparkles, Trash2, Undo2 } from 'lucide-react'
 import type { RsGoal } from '../../supabase'
 import { cn } from '../../utils'
 import { SKILL_BY_ID } from './skills'
@@ -12,9 +12,12 @@ type Props = {
   progress: GoalProgress
   onToggleComplete: () => void
   onDelete: () => void
+  /** Reorder handlers; omit to hide the arrows (e.g. completed goals). */
+  onMoveUp?: () => void
+  onMoveDown?: () => void
 }
 
-export default function GoalCard({ goal, title, progress, onToggleComplete, onDelete }: Props) {
+export default function GoalCard({ goal, title, progress, onToggleComplete, onDelete, onMoveUp, onMoveDown }: Props) {
   const SkillIcon = goal.type === 'skill' ? SKILL_BY_ID.get(goal.skill_id ?? -1)?.icon : undefined
   const Icon = SkillIcon ?? (goal.type === 'quest' ? Scroll : Sparkles)
   const done = progress.done || !!goal.completed_at
@@ -44,6 +47,26 @@ export default function GoalCard({ goal, title, progress, onToggleComplete, onDe
           {progress.label}{progress.detail ? ` · ${progress.detail}` : ''}
         </div>
       </div>
+      {(onMoveUp || onMoveDown) && (
+        <div className="flex flex-col">
+          <button
+            onClick={onMoveUp}
+            disabled={!onMoveUp}
+            aria-label="Move goal up"
+            className="rounded-full p-1 text-muted-foreground hover:bg-accent hover:text-foreground disabled:opacity-25 disabled:hover:bg-transparent"
+          >
+            <ChevronUp className="h-4 w-4" />
+          </button>
+          <button
+            onClick={onMoveDown}
+            disabled={!onMoveDown}
+            aria-label="Move goal down"
+            className="rounded-full p-1 text-muted-foreground hover:bg-accent hover:text-foreground disabled:opacity-25 disabled:hover:bg-transparent"
+          >
+            <ChevronDown className="h-4 w-4" />
+          </button>
+        </div>
+      )}
       {manual && (
         <button
           onClick={onToggleComplete}

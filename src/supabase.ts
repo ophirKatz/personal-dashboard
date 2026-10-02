@@ -454,5 +454,6 @@ export type RsGoal = {
   quest_id: string | null
   title: string | null
   completed_at: string | null
+  sort_order: number
   created_at: string
 }

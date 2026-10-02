@@ -94,7 +94,7 @@ export default function RuneScape() {
 
   const loadGoals = useCallback(async () => {
     if (!active) return
-    const { data } = await supabase.from('rs_goals').select('*').eq('character_id', active.id).order('created_at', { ascending: false })
+    const { data } = await supabase.from('rs_goals').select('*').eq('character_id', active.id).order('sort_order').order('created_at', { ascending: false })
     setGoals(data ?? [])
   }, [active])
 
@@ -173,6 +173,22 @@ export default function RuneScape() {
   async function toggleGoal(goal: RsGoal) {
     haptic()
     await supabase.from('rs_goals').update({ completed_at: goal.completed_at ? null : new Date().toISOString() }).eq('id', goal.id)
+    loadGoals()
+  }
+
+  async function moveGoal(index: number, delta: -1 | 1) {
+    const target = index + delta
+    if (target < 0 || target >= activeGoals.length) return
+    haptic()
+    const reordered = activeGoals.map(r => r.goal)
+    ;[reordered[index], reordered[target]] = [reordered[target], reordered[index]]
+    // Renumber the whole active list so ties (e.g. freshly added goals) can't make the order ambiguous.
+    const changed = reordered.map((g, i) => ({ id: g.id, sort_order: i + 1 })).filter(({ id, sort_order }) => goals.find(g => g.id === id)?.sort_order !== sort_order)
+    const newOrder = new Map(changed.map(c => [c.id, c.sort_order]))
+    setGoals(prev => prev
+      .map(g => (newOrder.has(g.id) ? { ...g, sort_order: newOrder.get(g.id)! } : g))
+      .sort((a, b) => a.sort_order - b.sort_order || b.created_at.localeCompare(a.created_at)))
+    await Promise.all(changed.map(c => supabase.from('rs_goals').update({ sort_order: c.sort_order }).eq('id', c.id)))
     loadGoals()
   }
 
@@ -307,8 +323,17 @@ export default function RuneScape() {
           ) : (
             <>
               <div className="space-y-2.5">
-                {activeGoals.map(r => (
-                  <GoalCard key={r.goal.id} goal={r.goal} title={r.title} progress={r.progress} onToggleComplete={() => toggleGoal(r.goal)} onDelete={() => deleteGoal(r.goal)} />
+                {activeGoals.map((r, i) => (
+                  <GoalCard
+                    key={r.goal.id}
+                    goal={r.goal}
+                    title={r.title}
+                    progress={r.progress}
+                    onToggleComplete={() => toggleGoal(r.goal)}
+                    onDelete={() => deleteGoal(r.goal)}
+                    onMoveUp={i > 0 ? () => moveGoal(i, -1) : undefined}
+                    onMoveDown={i < activeGoals.length - 1 ? () => moveGoal(i, 1) : undefined}
+                  />
                 ))}
               </div>
               {doneGoals.length > 0 && (
