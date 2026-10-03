@@ -189,7 +189,7 @@ export default function WorkoutSettings() {
                       {item && (
                         <div className="flex flex-wrap gap-x-5 gap-y-2">
                           <Stepper label="Sets" value={item.sets} onChange={v => updateDraftItem(ex.id, { sets: v })} />
-                          <Stepper label="Reps" value={item.reps} onChange={v => updateDraftItem(ex.id, { reps: v })} />
+                          <Stepper label="Reps" bigStep={10} value={item.reps} onChange={v => updateDraftItem(ex.id, { reps: v })} />
                         </div>
                       )}
                     </div>
