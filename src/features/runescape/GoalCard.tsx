@@ -1,5 +1,8 @@
+import type { CSSProperties, HTMLAttributes, Ref } from 'react'
 import { Link } from 'react-router-dom'
-import { Check, ChevronDown, ChevronUp, Scroll, Sparkles, Trash2, Undo2 } from 'lucide-react'
+import { Check, GripVertical, Scroll, Sparkles, Trash2, Undo2 } from 'lucide-react'
+import { useSortable } from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
 import type { RsGoal } from '../../supabase'
 import { cn } from '../../utils'
 import { SKILL_BY_ID } from './skills'
@@ -12,12 +15,32 @@ type Props = {
   progress: GoalProgress
   onToggleComplete: () => void
   onDelete: () => void
-  /** Reorder handlers; omit to hide the arrows (e.g. completed goals). */
-  onMoveUp?: () => void
-  onMoveDown?: () => void
+  /** Drag-to-reorder wiring; omit for non-reorderable cards (e.g. completed goals). */
+  sortable?: {
+    setNodeRef: Ref<HTMLDivElement>
+    style: CSSProperties
+    handleProps: HTMLAttributes<HTMLButtonElement>
+    dragging: boolean
+  }
 }
 
-export default function GoalCard({ goal, title, progress, onToggleComplete, onDelete, onMoveUp, onMoveDown }: Props) {
+/** A GoalCard that can be reordered by dragging its handle. */
+export function SortableGoalCard(props: Omit<Props, 'sortable'>) {
+  const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } = useSortable({ id: props.goal.id })
+  return (
+    <GoalCard
+      {...props}
+      sortable={{
+        setNodeRef,
+        style: { transform: CSS.Translate.toString(transform), transition },
+        handleProps: { ...attributes, ...listeners, ref: setActivatorNodeRef } as HTMLAttributes<HTMLButtonElement>,
+        dragging: isDragging,
+      }}
+    />
+  )
+}
+
+export default function GoalCard({ goal, title, progress, onToggleComplete, onDelete, sortable }: Props) {
   const SkillIcon = goal.type === 'skill' ? SKILL_BY_ID.get(goal.skill_id ?? -1)?.icon : undefined
   const Icon = SkillIcon ?? (goal.type === 'quest' ? Scroll : Sparkles)
   const done = progress.done || !!goal.completed_at
@@ -25,7 +48,15 @@ export default function GoalCard({ goal, title, progress, onToggleComplete, onDe
   const manual = goal.type === 'arbitrary'
 
   return (
-    <div className={cn('flex items-center gap-3 rounded-2xl border p-3.5 transition-colors animate-in fade-in-0 slide-in-from-bottom-2 duration-300', done ? 'border-emerald-200 bg-emerald-50/60' : 'border-border bg-card')}>
+    <div
+      ref={sortable?.setNodeRef}
+      style={sortable?.style}
+      className={cn(
+        'relative flex items-center gap-3 rounded-2xl border p-3.5 transition-colors animate-in fade-in-0 slide-in-from-bottom-2 duration-300',
+        done ? 'border-emerald-200 bg-emerald-50/60' : 'border-border bg-card',
+        sortable?.dragging && 'z-10 shadow-lg ring-2 ring-primary/40',
+      )}
+    >
       <ProgressRing
         value={progress.fraction}
         size={52}
@@ -47,25 +78,14 @@ export default function GoalCard({ goal, title, progress, onToggleComplete, onDe
           {progress.label}{progress.detail ? ` · ${progress.detail}` : ''}
         </div>
       </div>
-      {(onMoveUp || onMoveDown) && (
-        <div className="flex flex-col">
-          <button
-            onClick={onMoveUp}
-            disabled={!onMoveUp}
-            aria-label="Move goal up"
-            className="rounded-full p-1 text-muted-foreground hover:bg-accent hover:text-foreground disabled:opacity-25 disabled:hover:bg-transparent"
-          >
-            <ChevronUp className="h-4 w-4" />
-          </button>
-          <button
-            onClick={onMoveDown}
-            disabled={!onMoveDown}
-            aria-label="Move goal down"
-            className="rounded-full p-1 text-muted-foreground hover:bg-accent hover:text-foreground disabled:opacity-25 disabled:hover:bg-transparent"
-          >
-            <ChevronDown className="h-4 w-4" />
-          </button>
-        </div>
+      {sortable && (
+        <button
+          {...sortable.handleProps}
+          aria-label="Drag to reorder goal"
+          className="cursor-grab touch-none rounded-full p-2 text-muted-foreground hover:bg-accent hover:text-foreground active:cursor-grabbing"
+        >
+          <GripVertical className="h-4 w-4" />
+        </button>
       )}
       {manual && (
         <button

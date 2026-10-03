@@ -10,6 +10,9 @@ import { Button } from '../components/ui/button'
 import { Popover, PopoverContent, PopoverTrigger } from '../components/ui/popover'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs'
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerBody } from '../components/ui/drawer'
+import { DndContext, KeyboardSensor, PointerSensor, closestCenter, useSensor, useSensors } from '@dnd-kit/core'
+import { SortableContext, arrayMove, sortableKeyboardCoordinates, verticalListSortingStrategy } from '@dnd-kit/sortable'
+import { restrictToVerticalAxis } from '@dnd-kit/modifiers'
 import { cn } from '../utils'
 import { haptic } from '../lib/haptics'
 import { errorMessage, fetchCharacterStats, fetchMiniquestNames, fetchQuests, fetchSagaNames, type CharacterStats, type QuestStatus } from '../features/runescape/api'
@@ -18,7 +21,7 @@ import { ACTIVE_CHARACTER_KEY, goalProgress, goalTitle, questKey, questStatusMap
 import { loadQuestCatalogue, refreshQuestCatalogue } from '../features/runescape/quests'
 import { buildReport, compareRequirements, downloadMarkdown, fetchQuestRequirements, type ReportEntry } from '../features/runescape/report'
 import SkillGrid from '../features/runescape/SkillGrid'
-import GoalCard from '../features/runescape/GoalCard'
+import GoalCard, { SortableGoalCard } from '../features/runescape/GoalCard'
 import GoalDrawer from '../features/runescape/GoalDrawer'
 import CharacterDrawer from '../features/runescape/CharacterDrawer'
 
@@ -50,6 +53,10 @@ export default function RuneScape() {
 
   const [catalogue, setCatalogue] = useState<RsQuest[]>([])
   const [goals, setGoals] = useState<RsGoal[]>([])
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  )
   const [refreshingQuests, setRefreshingQuests] = useState(false)
   const [notice, setNotice] = useState<string | null>(null)
   const [exporting, setExporting] = useState(false)
@@ -242,12 +249,12 @@ export default function RuneScape() {
     loadGoals()
   }
 
-  async function moveGoal(index: number, delta: -1 | 1) {
-    const target = index + delta
-    if (target < 0 || target >= activeGoals.length) return
+  async function reorderGoals(activeId: string, overId: string) {
+    const from = activeGoals.findIndex(r => r.goal.id === activeId)
+    const to = activeGoals.findIndex(r => r.goal.id === overId)
+    if (from < 0 || to < 0 || from === to) return
     haptic()
-    const reordered = activeGoals.map(r => r.goal)
-    ;[reordered[index], reordered[target]] = [reordered[target], reordered[index]]
+    const reordered = arrayMove(activeGoals.map(r => r.goal), from, to)
     // Renumber the whole active list so ties (e.g. freshly added goals) can't make the order ambiguous.
     const changed = reordered.map((g, i) => ({ id: g.id, sort_order: i + 1 })).filter(({ id, sort_order }) => goals.find(g => g.id === id)?.sort_order !== sort_order)
     const newOrder = new Map(changed.map(c => [c.id, c.sort_order]))
@@ -398,20 +405,27 @@ export default function RuneScape() {
             </div>
           ) : (
             <>
-              <div className="space-y-2.5">
-                {activeGoals.map((r, i) => (
-                  <GoalCard
-                    key={r.goal.id}
-                    goal={r.goal}
-                    title={r.title}
-                    progress={r.progress}
-                    onToggleComplete={() => toggleGoal(r.goal)}
-                    onDelete={() => deleteGoal(r.goal)}
-                    onMoveUp={i > 0 ? () => moveGoal(i, -1) : undefined}
-                    onMoveDown={i < activeGoals.length - 1 ? () => moveGoal(i, 1) : undefined}
-                  />
-                ))}
-              </div>
+              <DndContext
+                sensors={sensors}
+                collisionDetection={closestCenter}
+                modifiers={[restrictToVerticalAxis]}
+                onDragEnd={({ active, over }) => { if (over) reorderGoals(String(active.id), String(over.id)) }}
+              >
+                <SortableContext items={activeGoals.map(r => r.goal.id)} strategy={verticalListSortingStrategy}>
+                  <div className="space-y-2.5">
+                    {activeGoals.map(r => (
+                      <SortableGoalCard
+                        key={r.goal.id}
+                        goal={r.goal}
+                        title={r.title}
+                        progress={r.progress}
+                        onToggleComplete={() => toggleGoal(r.goal)}
+                        onDelete={() => deleteGoal(r.goal)}
+                      />
+                    ))}
+                  </div>
+                </SortableContext>
+              </DndContext>
               {doneGoals.length > 0 && (
                 <section className="space-y-2.5">
                   <h2 className="text-sm font-semibold text-muted-foreground">Completed · {doneGoals.length}</h2>
