@@ -1,17 +1,18 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
-import { ChevronDown, ChevronRight, Crown, Plus, RefreshCw, Search, Swords, Pencil, Target, ScrollText, LayoutGrid, AlertCircle, Check } from 'lucide-react'
+import { ChevronDown, ChevronRight, Crown, ListFilter, Plus, RefreshCw, Search, Swords, Pencil, Target, ScrollText, LayoutGrid, AlertCircle, Check } from 'lucide-react'
 import type { User } from '@supabase/supabase-js'
 import { supabase } from '../supabase'
 import type { RsCharacter, RsGoal, RsQuest } from '../supabase'
 import { Fab } from '../components/ui/fab'
 import { Input } from '../components/ui/input'
 import { Button } from '../components/ui/button'
+import { Popover, PopoverContent, PopoverTrigger } from '../components/ui/popover'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs'
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerBody } from '../components/ui/drawer'
 import { cn } from '../utils'
 import { haptic } from '../lib/haptics'
-import { errorMessage, fetchCharacterStats, fetchMiniquestNames, fetchQuests, type CharacterStats, type QuestStatus } from '../features/runescape/api'
+import { errorMessage, fetchCharacterStats, fetchMiniquestNames, fetchQuests, fetchSagaNames, type CharacterStats, type QuestStatus } from '../features/runescape/api'
 import { formatXp } from '../features/runescape/skills'
 import { ACTIVE_CHARACTER_KEY, goalProgress, goalTitle, questKey, questStatusMap } from '../features/runescape/goals'
 import { loadQuestCatalogue, refreshQuestCatalogue } from '../features/runescape/quests'
@@ -53,7 +54,10 @@ export default function RuneScape() {
 
   const [questSearch, setQuestSearch] = useState('')
   const [questFilter, setQuestFilter] = useState<QuestFilter>('NOT_STARTED')
-  const [miniquests, setMiniquests] = useState<Set<string>>(new Set())
+  const [miniquestNames, setMiniquestNames] = useState<string[]>([])
+  const [sagaNames, setSagaNames] = useState<string[]>([])
+  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({})
+  const [filterOpen, setFilterOpen] = useState(false)
   const [skillsOpen, setSkillsOpen] = useState(true)
 
   const [showGoal, setShowGoal] = useState(false)
@@ -108,9 +112,10 @@ export default function RuneScape() {
 
   useEffect(() => { loadCatalogue() }, [loadCatalogue])
 
-  // If the miniquest list can't be fetched, nothing is hidden.
+  // Miniquests/sagas are optional extras: if the lookups fail their sections just stay empty.
   useEffect(() => {
-    fetchMiniquestNames().then(names => setMiniquests(new Set(names.map(questKey)))).catch(() => { /* show all quests */ })
+    fetchMiniquestNames().then(setMiniquestNames).catch(() => { /* section stays empty */ })
+    fetchSagaNames().then(setSagaNames).catch(() => { /* section stays empty */ })
   }, [])
 
   const loadStats = useCallback(async (signal?: AbortSignal) => {
@@ -167,14 +172,41 @@ export default function RuneScape() {
 
   const takenQuestIds = useMemo(() => new Set(goals.map(g => g.quest_id).filter((id): id is string => !!id)), [goals])
 
-  const visibleQuests = useMemo(() => {
+  // Miniquests and sagas are listed apart from quests, so keep them out of the main list.
+  const extraKeys = useMemo(() => new Set([...miniquestNames, ...sagaNames].map(questKey)), [miniquestNames, sagaNames])
+
+  const matches = useCallback((name: string, status: QuestStatus | null, statusKnown: boolean) => {
     const term = questSearch.trim().toLowerCase()
-    return catalogue
+    if (term && !name.toLowerCase().includes(term)) return false
+    if (questFilter === 'all' || !statusKnown) return true
+    return (status ?? 'NOT_STARTED') === questFilter
+  }, [questSearch, questFilter])
+
+  const visibleQuests = useMemo(
+    () => catalogue
+      .filter(q => !extraKeys.has(questKey(q.name)))
       .map(q => ({ quest: q, status: questEntries?.get(questKey(q.name)) ?? null }))
-      .filter(r => !miniquests.has(questKey(r.quest.name)))
-      .filter(r => !term || r.quest.name.toLowerCase().includes(term))
-      .filter(r => questFilter === 'all' || (r.status ?? 'NOT_STARTED') === questFilter)
-  }, [catalogue, questEntries, questSearch, questFilter, miniquests])
+      .filter(r => matches(r.quest.name, r.status, true)),
+    [catalogue, extraKeys, questEntries, matches],
+  )
+
+  // Prefer catalogue metadata when the extra is in it; otherwise it's just a name from the wiki.
+  // Without a RuneMetrics status for an entry we can't tell if it's done, so the status filter skips it.
+  const extraGroups = useMemo(() => {
+    const byKey = new Map(catalogue.map(q => [questKey(q.name), q]))
+    const build = (names: string[]) => names
+      .map(name => {
+        const key = questKey(name)
+        const known = questEntries?.has(key) ?? false
+        return { name, quest: byKey.get(key) ?? null, status: questEntries?.get(key) ?? null, known }
+      })
+      .sort((a, b) => a.name.localeCompare(b.name))
+      .filter(r => matches(r.name, r.status, r.known))
+    return [
+      { id: 'miniquests', label: 'Miniquests', rows: build(miniquestNames) },
+      { id: 'sagas', label: 'Sagas', rows: build(sagaNames) },
+    ]
+  }, [catalogue, questEntries, miniquestNames, sagaNames, matches])
 
   const completedQuestCount = questEntries ? [...questEntries.values()].filter(s => s === 'COMPLETED').length : null
 
@@ -372,20 +404,29 @@ export default function RuneScape() {
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input className="pl-9" placeholder="Search quests" value={questSearch} onChange={e => setQuestSearch(e.target.value)} />
             </div>
+            <Popover open={filterOpen} onOpenChange={setFilterOpen}>
+              <PopoverTrigger asChild>
+                <Button variant="outline" size="icon" className="relative" aria-label="Filter quests">
+                  <ListFilter className="h-4 w-4" />
+                  {questFilter !== 'all' && <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-primary" />}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent align="end" className="w-44">
+                {(['all', 'COMPLETED', 'STARTED', 'NOT_STARTED'] as QuestFilter[]).map(f => (
+                  <button
+                    key={f}
+                    onClick={() => { setQuestFilter(f); setFilterOpen(false) }}
+                    className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm hover:bg-accent"
+                  >
+                    {f === 'all' ? 'All' : STATUS_STYLE[f].label}
+                    {questFilter === f && <Check className="h-4 w-4 text-primary" />}
+                  </button>
+                ))}
+              </PopoverContent>
+            </Popover>
             <Button variant="outline" size="icon" onClick={() => refreshQuests()} disabled={refreshingQuests} aria-label="Refresh quest list">
               <RefreshCw className={cn('h-4 w-4', refreshingQuests && 'animate-spin')} />
             </Button>
-          </div>
-          <div className="flex gap-1.5 overflow-x-auto">
-            {(['all', 'COMPLETED', 'STARTED', 'NOT_STARTED'] as QuestFilter[]).map(f => (
-              <button
-                key={f}
-                onClick={() => setQuestFilter(f)}
-                className={cn('shrink-0 rounded-full border px-3 py-1 text-xs font-medium', questFilter === f ? 'border-primary bg-primary text-primary-foreground' : 'border-border text-muted-foreground')}
-              >
-                {f === 'all' ? 'All' : STATUS_STYLE[f].label}
-              </button>
-            ))}
           </div>
           {!questEntries && catalogue.length > 0 && (
             <p className="text-xs text-muted-foreground">Quest status needs a public RuneMetrics profile. Showing the quest list only.</p>
@@ -397,28 +438,32 @@ export default function RuneScape() {
           ) : (
             <ul className="divide-y divide-border rounded-2xl border border-border bg-card">
               {visibleQuests.map(({ quest, status }) => (
-                <li key={quest.id}>
-                  <Link to={`/runescape/quests/${encodeURIComponent(quest.name)}`} className="flex items-center justify-between gap-3 px-3.5 py-2.5 hover:bg-accent/50">
-                    <div className="min-w-0">
-                      <div className="truncate text-sm font-medium">{quest.name}</div>
-                      <div className="text-xs text-muted-foreground">
-                        {[quest.difficulty, quest.quest_points != null ? `${quest.quest_points} QP` : null, quest.members === false ? 'F2P' : null].filter(Boolean).join(' · ')}
-                      </div>
-                    </div>
-                    <div className="flex shrink-0 items-center gap-1.5">
-                      {status && (
-                        <span className={cn('rounded-full px-2 py-0.5 text-[11px] font-semibold', STATUS_STYLE[status].className)}>
-                          {STATUS_STYLE[status].label}
-                        </span>
-                      )}
-                      <ChevronRight className="h-4 w-4 text-muted-foreground/60" />
-                    </div>
-                  </Link>
-                </li>
+                <QuestRow key={quest.id} name={quest.name} status={status} quest={quest} />
               ))}
               {visibleQuests.length === 0 && <li className="px-3.5 py-6 text-center text-sm text-muted-foreground">No matching quests.</li>}
             </ul>
           )}
+
+          {extraGroups.filter(g => g.rows.length > 0).map(g => {
+            const open = openGroups[g.id] ?? false
+            return (
+              <section key={g.id} className="space-y-2">
+                <button
+                  onClick={() => { haptic(); setOpenGroups(o => ({ ...o, [g.id]: !open })) }}
+                  aria-expanded={open}
+                  className="flex w-full items-center justify-between pt-2 text-sm font-semibold text-muted-foreground"
+                >
+                  <span>{g.label} · {g.rows.length}</span>
+                  <ChevronDown className={cn('h-4 w-4 transition-transform', !open && '-rotate-90')} />
+                </button>
+                {open && (
+                  <ul className="divide-y divide-border rounded-2xl border border-border bg-card">
+                    {g.rows.map(r => <QuestRow key={r.name} name={r.name} status={r.status} quest={r.quest} />)}
+                  </ul>
+                )}
+              </section>
+            )
+          })}
         </TabsContent>
       </Tabs>
 
@@ -468,6 +513,30 @@ export default function RuneScape() {
         </DrawerContent>
       </Drawer>
     </div>
+  )
+}
+
+function QuestRow({ name, status, quest }: { name: string; status: QuestStatus | null; quest: RsQuest | null }) {
+  const meta = quest
+    ? [quest.difficulty, quest.quest_points != null ? `${quest.quest_points} QP` : null, quest.members === false ? 'F2P' : null].filter(Boolean).join(' · ')
+    : ''
+  return (
+    <li>
+      <Link to={`/runescape/quests/${encodeURIComponent(name)}`} className="flex items-center justify-between gap-3 px-3.5 py-2.5 hover:bg-accent/50">
+        <div className="min-w-0">
+          <div className="truncate text-sm font-medium">{name}</div>
+          {meta && <div className="text-xs text-muted-foreground">{meta}</div>}
+        </div>
+        <div className="flex shrink-0 items-center gap-1.5">
+          {status && (
+            <span className={cn('rounded-full px-2 py-0.5 text-[11px] font-semibold', STATUS_STYLE[status].className)}>
+              {STATUS_STYLE[status].label}
+            </span>
+          )}
+          <ChevronRight className="h-4 w-4 text-muted-foreground/60" />
+        </div>
+      </Link>
+    </li>
   )
 }
 
