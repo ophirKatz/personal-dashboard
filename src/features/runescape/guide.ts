@@ -111,6 +111,21 @@ export function parseGuideHtml(html: string, pageTitle: string): Guide {
     if (facts.size > 0) infobox.remove()
   }
 
+  // Current wiki pages keep most quest facts (start point, length, requirements…) in a separate
+  // "questdetails" table whose labels are th.questdetails-header, not in the infobox.
+  root.querySelectorAll('table.questdetails').forEach(table => {
+    Array.from(table.querySelectorAll('tr')).forEach(tr => {
+      // Rows nested inside a cell (e.g. the requirements list) are part of that cell's value.
+      if (tr.parentElement?.closest('table') !== table) return
+      const th = Array.from(tr.children).find(c => c.matches('th.questdetails-header'))
+      const td = Array.from(tr.children).find(c => c.matches('td'))
+      if (!th || !td) return
+      const key = factKeyFor(text(th))
+      if (!key || !text(td) || facts.has(key)) return
+      facts.set(key, { key, label: FACT_LABEL[key], html: td.innerHTML })
+    })
+  })
+
   // Sections: split the body at h2 headings; the first chunk is the intro.
   const sections: GuideSection[] = []
   let current: { title: string; parts: string[] } = { title: '', parts: [] }

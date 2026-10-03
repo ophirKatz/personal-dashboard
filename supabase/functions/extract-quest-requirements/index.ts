@@ -32,6 +32,9 @@ const SYSTEM_PROMPT =
   '- "quests": the full names of other quests (or miniquests) that must be completed first, without any "(partial)" or "started" qualifiers. ' +
   'If a quest only needs to be started, still list it.\n' +
   '- "other": every requirement that is neither a skill level nor a quest (quest points, combat level, membership, items, access to an area, etc.), as short strings.\n' +
+  '- The text is one line per requirement. Indentation shows a prerequisite tree: the quest itself is often the top line, its indented lines are its DIRECT requirements, ' +
+  'and deeper indentation lists those quests\' own prerequisites. Only report DIRECT requirements (and never the quest itself); ignore the deeper levels. ' +
+  'Lines such as "Complete the X mystery" or "Meet Y in Z" are requirements for "other" unless they are plainly a quest name.\n' +
   '- "None" or empty requirements means all three arrays are empty.\n' +
   '- Only use information present in the text. Do not invent requirements.'
 
