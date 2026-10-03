@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
-import { ChevronDown, ChevronRight, Crown, ListFilter, Plus, RefreshCw, Search, Swords, Pencil, Target, ScrollText, LayoutGrid, AlertCircle, Check } from 'lucide-react'
+import { ChevronDown, ChevronRight, Crown, Download, Loader2, ListFilter, Plus, RefreshCw, Search, Swords, Pencil, Target, ScrollText, LayoutGrid, AlertCircle, Check } from 'lucide-react'
 import type { User } from '@supabase/supabase-js'
 import { supabase } from '../supabase'
 import type { RsCharacter, RsGoal, RsQuest } from '../supabase'
@@ -16,6 +16,7 @@ import { errorMessage, fetchCharacterStats, fetchMiniquestNames, fetchQuests, fe
 import { formatXp } from '../features/runescape/skills'
 import { ACTIVE_CHARACTER_KEY, goalProgress, goalTitle, questKey, questStatusMap } from '../features/runescape/goals'
 import { loadQuestCatalogue, refreshQuestCatalogue } from '../features/runescape/quests'
+import { buildReport, compareRequirements, downloadMarkdown, fetchQuestRequirements, type ReportEntry } from '../features/runescape/report'
 import SkillGrid from '../features/runescape/SkillGrid'
 import GoalCard from '../features/runescape/GoalCard'
 import GoalDrawer from '../features/runescape/GoalDrawer'
@@ -51,6 +52,7 @@ export default function RuneScape() {
   const [goals, setGoals] = useState<RsGoal[]>([])
   const [refreshingQuests, setRefreshingQuests] = useState(false)
   const [notice, setNotice] = useState<string | null>(null)
+  const [exporting, setExporting] = useState(false)
 
   const [questSearch, setQuestSearch] = useState('')
   const [questFilter, setQuestFilter] = useState<QuestFilter>('NOT_STARTED')
@@ -209,6 +211,30 @@ export default function RuneScape() {
   }, [catalogue, questEntries, miniquestNames, sagaNames, matches])
 
   const completedQuestCount = questEntries ? [...questEntries.values()].filter(s => s === 'COMPLETED').length : null
+
+  async function exportReport() {
+    if (!active || !stats || !questEntries || exporting) return
+    haptic()
+    setExporting(true)
+    try {
+      const incomplete: ReportEntry[] = catalogue
+        .filter(q => !extraKeys.has(questKey(q.name)) && questEntries.get(questKey(q.name)) !== 'COMPLETED')
+        .map(q => ({ name: q.name, status: questEntries.get(questKey(q.name)) ?? 'NOT_STARTED', missing: null }))
+      const requirements = await fetchQuestRequirements(
+        incomplete.map(q => q.name),
+        p => setNotice(p.phase === 'wiki' ? `Reading quest requirements from the wiki… ${p.done}/${p.total}` : `Analysing requirements… ${p.done}/${p.total}`),
+      )
+      const entries = incomplete.map(q => {
+        const req = requirements.get(questKey(q.name))
+        return { ...q, missing: req ? compareRequirements(req, stats, questEntries) : null }
+      })
+      downloadMarkdown(`runescape-report-${active.name}-${new Date().toISOString().slice(0, 10)}.md`, buildReport(active.name, entries, completedQuestCount ?? 0))
+      setNotice(`Report exported (${entries.length} incomplete quests).`)
+    } catch (err) {
+      setNotice(`Could not export report: ${err instanceof Error ? err.message : 'unknown error'}`)
+    }
+    setExporting(false)
+  }
 
   async function toggleGoal(goal: RsGoal) {
     haptic()
@@ -426,6 +452,16 @@ export default function RuneScape() {
             </Popover>
             <Button variant="outline" size="icon" onClick={() => refreshQuests()} disabled={refreshingQuests} aria-label="Refresh quest list">
               <RefreshCw className={cn('h-4 w-4', refreshingQuests && 'animate-spin')} />
+            </Button>
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={exportReport}
+              disabled={exporting || !stats || !questEntries || catalogue.length === 0}
+              aria-label="Export report"
+              title={questEntries ? 'Export quest report' : 'Needs a public RuneMetrics profile'}
+            >
+              {exporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
             </Button>
           </div>
           {!questEntries && catalogue.length > 0 && (
