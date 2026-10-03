@@ -22,6 +22,23 @@ describe('requirementsText', () => {
     expect(requirementsText(guide)).toBe('40 Cooking\nCompletion of Rune Mysteries')
   })
 
+  // Shape of current runescape.wiki quest pages: requirements live in table.questdetails (not the
+  // infobox) as a prerequisite tree, with skills as loose lines after it.
+  const REAL_SHAPE = `<div class="mw-parser-output">
+    <table class="questdetails plainlinks"><tbody>
+      <tr><th class="questdetails-header">Requirements</th><td colspan="2" class="questdetails-info"><table class="mw-collapsible questreq"><tbody>
+        <tr><th><span><img src="/x.png"></span> Quests:</th></tr>
+        <tr><td><ul><li><a class="mw-selflink">Big Quest</a><ul><li><a href="/w/Sub">Sub Quest</a><ul><li><a href="/w/Deep">Deep Quest</a>…</li></ul></li><li>Meet <a href="/w/N">Naressa</a> in <a href="/w/S">Senntisten</a></li></ul></li></ul></td></tr>
+        <tr><td><ul><li>77 <a href="/w/Agility">Agility</a></li></ul></td></tr>
+      </tbody></table></td></tr>
+    </tbody></table></div>`
+
+  it('reads requirements from the questdetails table and keeps the tree as indentation', () => {
+    expect(requirementsText(parseGuideHtml(REAL_SHAPE, 'Big Quest'))).toBe(
+      'Quests:\nBig Quest\n  Sub Quest\n    Deep Quest\n  Meet Naressa in Senntisten\n77 Agility',
+    )
+  })
+
   it('returns null when the page has no requirements', () => {
     expect(requirementsText(parseGuideHtml('<div class="mw-parser-output"><p>hi</p></div>', 'X'))).toBeNull()
   })

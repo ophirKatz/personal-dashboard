@@ -32,18 +32,42 @@ const EXTRACT_BATCH_SIZE = 15
 const MAX_TEXT_LENGTH = 3000
 const MAX_FETCH_RETRIES = 2
 
-/** Plain text of the infobox "Requirements" cell, one line per list item; null if the page has none. */
+const clean = (t: string) => t.replace(/\s+/g, ' ').trim()
+
+/**
+ * Plain text of the quest's "Requirements" cell, one line per entry. List nesting is kept as
+ * indentation because the wiki renders quest requirements as a prerequisite tree (each quest's
+ * own prerequisites nested under it); null if the page has no requirements.
+ */
 export function requirementsText(guide: Guide): string | null {
   const html = guide.facts.find(f => f.key === 'requirements')?.html
   if (!html) return null
   const doc = new DOMParser().parseFromString(html, 'text/html')
-  doc.querySelectorAll('li, br, p, div').forEach(el => el.append('\n'))
-  const text = (doc.body.textContent ?? '')
-    .split('\n')
-    .map(line => line.replace(/\s+/g, ' ').trim())
-    .filter(Boolean)
-    .join('\n')
+  doc.querySelectorAll('img, svg, script, style').forEach(el => el.remove())
+
+  const lines: string[] = []
+  // th = section labels ("Quests:", "Skills:"), li = entries (indented by list depth),
+  // td/p = loose text when a cell has no list.
+  doc.body.querySelectorAll('th, li, p, td').forEach(el => {
+    const isCell = el.matches('td, p')
+    if (isCell && el.querySelector('li, table, p')) return
+    if (isCell && el.closest('li')) return
+    const own = el.cloneNode(true) as Element
+    own.querySelectorAll('ul, ol, table').forEach(n => n.remove())
+    // The wiki marks already-expanded subtrees with a trailing ellipsis.
+    const text = clean((own.textContent ?? '').replace(/…/g, ''))
+    if (!text) return
+    const depth = el.matches('li') ? Math.max(0, countListDepth(el) - 1) : 0
+    lines.push('  '.repeat(depth) + text)
+  })
+  const text = lines.length > 0 ? lines.join('\n') : clean(doc.body.textContent ?? '')
   return text || null
+}
+
+function countListDepth(el: Element): number {
+  let depth = 0
+  for (let p = el.parentElement; p; p = p.parentElement) if (p.matches('ul, ol')) depth++
+  return depth
 }
 
 const NO_REQUIREMENTS: QuestRequirements = { skills: [], quests: [], other: [] }
@@ -137,6 +161,7 @@ export async function fetchQuestRequirements(
       return { name, text }
     } catch (err) {
       if (signal?.aborted) throw err
+      console.warn(`Could not read requirements for ${name}`, err)
       return { name, text: null }
     } finally {
       onProgress?.({ phase: 'wiki', done: ++fetched, total: todo.length })
