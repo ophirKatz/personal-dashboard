@@ -161,7 +161,7 @@ export default function WorkoutForm({ editing, onSaved }: Props) {
               </div>
               <div className="flex flex-wrap gap-x-5 gap-y-2">
                 <Stepper label="Sets" value={item.sets} onChange={v => updateItem(index, { sets: v })} />
-                <Stepper label="Reps" value={item.reps} onChange={v => updateItem(index, { reps: v })} />
+                <Stepper label="Reps" bigStep={10} value={item.reps} onChange={v => updateItem(index, { reps: v })} />
               </div>
             </div>
           )
