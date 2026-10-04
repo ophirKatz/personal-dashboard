@@ -27,6 +27,7 @@ import CharacterDrawer from '../features/runescape/CharacterDrawer'
 
 const DEFAULT_CHARACTER = 'BowlSplit'
 const ACTIVE_KEY = ACTIVE_CHARACTER_KEY
+const ACTIVITY_PAGE = 8
 
 type QuestFilter = 'all' | QuestStatus
 
@@ -68,6 +69,7 @@ export default function RuneScape() {
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({})
   const [filterOpen, setFilterOpen] = useState(false)
   const [skillsOpen, setSkillsOpen] = useState(true)
+  const [activityCount, setActivityCount] = useState(ACTIVITY_PAGE)
 
   const [showGoal, setShowGoal] = useState(false)
   const [characterForm, setCharacterForm] = useState<{ character?: RsCharacter } | null>(null)
@@ -381,7 +383,7 @@ export default function RuneScape() {
                 <section className="space-y-2">
                   <h2 className="text-sm font-semibold text-muted-foreground">Recent activity</h2>
                   <ul className="divide-y divide-border rounded-2xl border border-border bg-card">
-                    {stats.activities.slice(0, 8).map((a, i) => (
+                    {stats.activities.slice(0, activityCount).map((a, i) => (
                       <li key={i} className="px-3.5 py-2.5">
                         <div className="text-sm font-medium">{a.text}</div>
                         {a.details && <div className="text-xs text-muted-foreground">{a.details}</div>}
@@ -389,6 +391,15 @@ export default function RuneScape() {
                       </li>
                     ))}
                   </ul>
+                  {stats.activities.length > activityCount && (
+                    <Button
+                      variant="outline"
+                      className="w-full rounded-xl"
+                      onClick={() => { haptic(); setActivityCount(c => c + ACTIVITY_PAGE) }}
+                    >
+                      Load more
+                    </Button>
+                  )}
                 </section>
               )}
             </>
