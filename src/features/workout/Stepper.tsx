@@ -6,6 +6,16 @@ export default function Stepper({ label, value, min = 1, bigStep, onChange }: Pr
   return (
     <div className="flex items-center gap-1.5">
       <span className="text-xs text-muted-foreground w-7">{label}</span>
+      {bigStep && (
+        <button
+          type="button"
+          aria-label={`Decrease ${label} by ${bigStep}`}
+          onClick={() => onChange(Math.max(min, value - bigStep))}
+          className="px-1.5 py-1.5 rounded-lg border border-border hover:bg-accent text-xs font-semibold tabular-nums leading-none"
+        >
+          −{bigStep}
+        </button>
+      )}
       <button
         type="button"
         aria-label={`Decrease ${label}`}
