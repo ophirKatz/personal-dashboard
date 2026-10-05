@@ -104,6 +104,23 @@ export function parseProfile(name: string, data: unknown): CharacterStats {
   }
 }
 
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+
+/** RuneMetrics dates look like "05-Oct-2026 07:24" in UTC; render them in Israel time in the same format. */
+export function formatActivityDate(raw: string): string {
+  const m = /^(\d{1,2})-([A-Za-z]{3})-(\d{4}) (\d{2}):(\d{2})$/.exec(raw.trim())
+  const month = m ? MONTHS.findIndex(x => x.toLowerCase() === m[2].toLowerCase()) : -1
+  if (!m || month < 0) return raw
+  const utc = new Date(Date.UTC(+m[3], month, +m[1], +m[4], +m[5]))
+  const p = Object.fromEntries(
+    new Intl.DateTimeFormat('en-GB', {
+      timeZone: 'Asia/Jerusalem', day: '2-digit', month: 'short', year: 'numeric',
+      hour: '2-digit', minute: '2-digit', hourCycle: 'h23',
+    }).formatToParts(utc).map(x => [x.type, x.value]),
+  )
+  return `${p.day}-${p.month}-${p.year} ${p.hour}:${p.minute}`
+}
+
 /** Prefer the RuneMetrics profile (richer); fall back to public hiscores when it's private. */
 export async function fetchCharacterStats(name: string, signal?: AbortSignal): Promise<CharacterStats> {
   try {

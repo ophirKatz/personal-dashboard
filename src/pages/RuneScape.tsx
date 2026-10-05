@@ -15,7 +15,7 @@ import { SortableContext, arrayMove, sortableKeyboardCoordinates, verticalListSo
 import { restrictToVerticalAxis } from '@dnd-kit/modifiers'
 import { cn } from '../utils'
 import { haptic } from '../lib/haptics'
-import { errorMessage, fetchCharacterStats, fetchMiniquestNames, fetchQuests, fetchSagaNames, type CharacterStats, type QuestStatus } from '../features/runescape/api'
+import { errorMessage, fetchCharacterStats, formatActivityDate, fetchMiniquestNames, fetchQuests, fetchSagaNames, type CharacterStats, type QuestStatus } from '../features/runescape/api'
 import { formatXp } from '../features/runescape/skills'
 import { ACTIVE_CHARACTER_KEY, goalProgress, goalTitle, questKey, questStatusMap } from '../features/runescape/goals'
 import { loadQuestCatalogue, refreshQuestCatalogue } from '../features/runescape/quests'
@@ -387,7 +387,7 @@ export default function RuneScape() {
                       <li key={i} className="px-3.5 py-2.5">
                         <div className="text-sm font-medium">{a.text}</div>
                         {a.details && <div className="text-xs text-muted-foreground">{a.details}</div>}
-                        <div className="mt-0.5 text-[11px] text-muted-foreground/80">{a.date}</div>
+                        <div className="mt-0.5 text-[11px] text-muted-foreground/80">{formatActivityDate(a.date)}</div>
                       </li>
                     ))}
                   </ul>
