@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
-import { ChevronDown, ChevronRight, Crown, Download, Loader2, ListFilter, Plus, RefreshCw, Search, Swords, Pencil, Target, ScrollText, LayoutGrid, AlertCircle, Check } from 'lucide-react'
+import { ChevronDown, ChevronRight, Crown, Download, Loader2, ListFilter, Plus, RefreshCw, Search, Swords, Pencil, Target, ScrollText, BookOpen, LayoutGrid, AlertCircle, Check } from 'lucide-react'
 import type { User } from '@supabase/supabase-js'
 import { supabase } from '../supabase'
 import type { RsCharacter, RsGoal, RsQuest } from '../supabase'
@@ -24,6 +24,7 @@ import SkillGrid from '../features/runescape/SkillGrid'
 import GoalCard, { SortableGoalCard } from '../features/runescape/GoalCard'
 import GoalDrawer from '../features/runescape/GoalDrawer'
 import CharacterDrawer from '../features/runescape/CharacterDrawer'
+import DiaryTracker from '../features/runescape/DiaryTracker'
 
 const DEFAULT_CHARACTER = 'BowlSplit'
 const ACTIVE_KEY = ACTIVE_CHARACTER_KEY
@@ -78,7 +79,7 @@ export default function RuneScape() {
 
   // Tab lives in the URL so returning from a quest guide lands back on the same tab.
   const [searchParams, setSearchParams] = useSearchParams()
-  const tab = ['overview', 'goals', 'quests'].includes(searchParams.get('tab') ?? '') ? searchParams.get('tab')! : 'overview'
+  const tab = ['overview', 'goals', 'quests', 'diaries'].includes(searchParams.get('tab') ?? '') ? searchParams.get('tab')! : 'overview'
 
   const active = characters.find(c => c.id === activeId) ?? characters[0] ?? null
 
@@ -341,13 +342,14 @@ export default function RuneScape() {
       )}
 
       <Tabs value={tab} onValueChange={t => setSearchParams(t === 'overview' ? {} : { tab: t }, { replace: true })}>
-        <TabsList className="grid w-full grid-cols-3 h-auto">
+        <TabsList className="grid w-full grid-cols-4 h-auto">
           <TabsTrigger value="overview" className="gap-1.5 py-2"><LayoutGrid className="h-4 w-4" />Overview</TabsTrigger>
           <TabsTrigger value="goals" className="gap-1.5 py-2">
             <Target className="h-4 w-4" />Goals
             {activeGoals.length > 0 && <span className="rounded-full bg-primary/10 px-1.5 text-xs text-primary">{activeGoals.length}</span>}
           </TabsTrigger>
           <TabsTrigger value="quests" className="gap-1.5 py-2"><ScrollText className="h-4 w-4" />Quests</TabsTrigger>
+          <TabsTrigger value="diaries" className="gap-1.5 py-2"><BookOpen className="h-4 w-4" />Diaries</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="mt-4 space-y-5">
@@ -525,6 +527,10 @@ export default function RuneScape() {
               </section>
             )
           })}
+        </TabsContent>
+
+        <TabsContent value="diaries" className="mt-4">
+          {user && active && <DiaryTracker key={active.id} userId={user.id} characterId={active.id} />}
         </TabsContent>
       </Tabs>
 
