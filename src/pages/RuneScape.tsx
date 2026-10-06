@@ -71,6 +71,7 @@ export default function RuneScape() {
   const [filterOpen, setFilterOpen] = useState(false)
   const [skillsOpen, setSkillsOpen] = useState(true)
   const [activityCount, setActivityCount] = useState(ACTIVITY_PAGE)
+  const [areasMissing, setAreasMissing] = useState<number | null>(null)
 
   const [showGoal, setShowGoal] = useState(false)
   const [characterForm, setCharacterForm] = useState<{ character?: RsCharacter } | null>(null)
@@ -349,7 +350,9 @@ export default function RuneScape() {
             {activeGoals.length > 0 && <span className="rounded-full bg-primary/10 px-1.5 text-xs text-primary">{activeGoals.length}</span>}
           </TabsTrigger>
           <TabsTrigger value="quests" className="gap-1.5 py-2"><ScrollText className="h-4 w-4" />Quests</TabsTrigger>
-          <TabsTrigger value="diaries" className="gap-1.5 py-2"><BookOpen className="h-4 w-4" />Areas</TabsTrigger>
+          <TabsTrigger value="diaries" className="gap-1.5 py-2"><BookOpen className="h-4 w-4" />Areas
+            {areasMissing != null && areasMissing > 0 && <span className="rounded-full bg-primary/10 px-1.5 text-xs text-primary">{areasMissing}</span>}
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="mt-4 space-y-5">
@@ -529,8 +532,9 @@ export default function RuneScape() {
           })}
         </TabsContent>
 
-        <TabsContent value="diaries" className="mt-4">
-          {user && active && <DiaryTracker key={active.id} userId={user.id} characterId={active.id} />}
+        {/* Kept mounted so the data loads (and the tab count shows) with the rest of the page. */}
+        <TabsContent value="diaries" forceMount className="mt-4 data-[state=inactive]:hidden">
+          {user && active && <DiaryTracker key={active.id} userId={user.id} characterId={active.id} onMissingCount={setAreasMissing} />}
         </TabsContent>
       </Tabs>
 

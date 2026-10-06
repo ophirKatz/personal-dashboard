@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Check, ChevronDown, Loader2, RefreshCw } from 'lucide-react'
 import type { RsDiaryTask } from '../../supabase'
 import { Button } from '../../components/ui/button'
@@ -7,7 +7,12 @@ import { haptic } from '../../lib/haptics'
 import { errorMessage } from './api'
 import { groupDiaries, loadDiaryProgress, loadDiaryTasks, setTaskDone, syncDiaryCatalogue } from './diaries'
 
-type Props = { userId: string; characterId: string }
+type Props = {
+  userId: string
+  characterId: string
+  /** Reports how many tasks are still missing (null until loaded) so the tab can show a count. */
+  onMissingCount?: (missing: number | null) => void
+}
 
 const CATEGORY_LABEL: Record<string, string> = { 'Area Tasks': 'Area tasks (diaries)', Exploration: 'Exploration' }
 
@@ -34,7 +39,7 @@ function TaskList({ tasks, doneIds, onToggle }: { tasks: RsDiaryTask[]; doneIds:
   )
 }
 
-export default function DiaryTracker({ userId, characterId }: Props) {
+export default function DiaryTracker({ userId, characterId, onMissingCount }: Props) {
   const [tasks, setTasks] = useState<RsDiaryTask[]>([])
   const [doneIds, setDoneIds] = useState<Set<string>>(new Set())
   const [loading, setLoading] = useState(true)
@@ -42,12 +47,15 @@ export default function DiaryTracker({ userId, characterId }: Props) {
   const [message, setMessage] = useState<string | null>(null)
   const [missingOnly, setMissingOnly] = useState(true)
   const [open, setOpen] = useState<Record<string, boolean>>({})
+  const loaded = useRef(false)
+  const autoSeeded = useRef(false)
 
   const load = useCallback(async () => {
     try {
       const [t, p] = await Promise.all([loadDiaryTasks(), loadDiaryProgress(characterId)])
       setTasks(t)
       setDoneIds(new Set(p.map(r => r.task_id)))
+      loaded.current = true
     } catch (err) {
       setMessage(errorMessage(err))
     }
@@ -73,6 +81,13 @@ export default function DiaryTracker({ userId, characterId }: Props) {
     setSyncing(false)
   }
 
+  // First visit: seed the shared catalogue from the wiki automatically, once (like the quest list).
+  useEffect(() => {
+    if (autoSeeded.current || loading || !loaded.current || tasks.length > 0) return
+    autoSeeded.current = true
+    sync()
+  }, [loading, tasks.length])
+
   async function toggle(ids: string[], done: boolean) {
     haptic()
     const prev = doneIds
@@ -92,6 +107,10 @@ export default function DiaryTracker({ userId, characterId }: Props) {
   const groups = useMemo(() => groupDiaries(tasks, doneIds), [tasks, doneIds])
   const totalDone = groups.reduce((a, g) => a + g.done, 0)
   const total = groups.reduce((a, g) => a + g.total, 0)
+
+  useEffect(() => {
+    onMissingCount?.(loading || total === 0 ? null : total - totalDone)
+  }, [loading, total, totalDone, onMissingCount])
 
   if (loading) return <div className="h-24 animate-pulse rounded-2xl bg-muted" />
 
