@@ -457,3 +457,22 @@ export type RsGoal = {
   sort_order: number
   created_at: string
 }
+
+export type RsDiaryTier = 'Easy' | 'Medium' | 'Hard' | 'Elite'
+
+export type RsDiaryTask = {
+  id: string
+  area: string
+  tier: RsDiaryTier
+  name: string
+  position: number
+  updated_at: string
+}
+
+export type RsDiaryProgress = {
+  id: string
+  user_id: string
+  character_id: string
+  task_id: string
+  completed_at: string
+}
