@@ -30,6 +30,7 @@ const RecipeEditor = lazy(() => import('./pages/RecipeEditor'))
 const Games = lazy(() => import('./pages/Games'))
 const Workout = lazy(() => import('./pages/Workout'))
 const DiceRoller = lazy(() => import('./pages/DiceRoller'))
+const PdfTools = lazy(() => import('./pages/PdfTools'))
 
 function PageFallback() {
   return (
@@ -105,6 +106,7 @@ export default function App() {
           <Route path="recipes/:id/edit" element={<RecipeEditor />} />
           <Route path="workout" element={<Workout />} />
           <Route path="games" element={<Games />} />
+          <Route path="pdf-tools" element={<PdfTools />} />
           <Route path="games/dice" element={<DiceRoller />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>

@@ -1,7 +1,7 @@
-import { CheckSquare, Calendar, Folder, TrendingUp, Mountain, ShoppingCart, DollarSign, Users, ChefHat, Dices, BookOpen, Swords, Dumbbell } from 'lucide-react'
+import { CheckSquare, Calendar, Folder, TrendingUp, Mountain, ShoppingCart, DollarSign, Users, ChefHat, Dices, BookOpen, Swords, Dumbbell, FileText } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 
-export type NavItemKey = 'todos' | 'calendar' | 'files' | 'habits' | 'climbing' | 'shopping' | 'finance' | 'friends' | 'recipes' | 'games' | 'reading' | 'runescape' | 'workout'
+export type NavItemKey = 'todos' | 'calendar' | 'files' | 'habits' | 'climbing' | 'shopping' | 'finance' | 'friends' | 'recipes' | 'games' | 'reading' | 'runescape' | 'workout' | 'pdf'
 
 export const NAV_ITEMS: Record<NavItemKey, { to: string; icon: LucideIcon; label: string }> = {
   todos: { to: '/todos', icon: CheckSquare, label: 'Tasks' },
@@ -17,6 +17,7 @@ export const NAV_ITEMS: Record<NavItemKey, { to: string; icon: LucideIcon; label
   reading: { to: '/reading', icon: BookOpen, label: 'Reading' },
   runescape: { to: '/runescape', icon: Swords, label: 'RuneScape' },
   workout: { to: '/workout', icon: Dumbbell, label: 'Workout' },
+  pdf: { to: '/pdf-tools', icon: FileText, label: 'PDF tools' },
 }
 
 export const ALL_NAV_KEYS = Object.keys(NAV_ITEMS) as NavItemKey[]
