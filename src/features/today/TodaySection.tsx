@@ -18,6 +18,9 @@ import { DEFAULT_TODAY_SECTIONS_ORDER, TODAY_SECTIONS_CHANGED_EVENT, type TodayS
 const COMPLETE_REMOVAL_DELAY_MS = 450
 
 const SWIPE_MIN_PX = 50
+const SWIPE_LOCK_PX = 8
+
+type Page = 'today' | 'tomorrow'
 
 export type TodayEvent = {
   id: string
@@ -87,34 +90,66 @@ export default function TodaySection({ habits, totalHabitsCount, onToggleHabit, 
   const [expandedEventId, setExpandedEventId] = useState<string | null>(null)
   const [postponingTodoId, setPostponingTodoId] = useState<string | null>(null)
   const [completingTodoIds, setCompletingTodoIds] = useState<Set<string>>(new Set())
-  const [showAllTodos, setShowAllTodos] = useState(false)
-  const [showAllEvents, setShowAllEvents] = useState(false)
-  const [page, setPage] = useState<'today' | 'tomorrow'>('today')
-  const touchStart = useRef<{ x: number; y: number } | null>(null)
+  const [showAllTodos, setShowAllTodos] = useState<Record<Page, boolean>>({ today: false, tomorrow: false })
+  const [showAllEvents, setShowAllEvents] = useState<Record<Page, boolean>>({ today: false, tomorrow: false })
+  const [page, setPage] = useState<Page>('today')
+  const [dragX, setDragX] = useState(0)
+  const [dragging, setDragging] = useState(false)
+  const touchStart = useRef<{ x: number; y: number; locked: boolean } | null>(null)
+  const pageRefs = useRef<Record<Page, HTMLDivElement | null>>({ today: null, tomorrow: null })
+  const [pageHeights, setPageHeights] = useState<Record<Page, number | null>>({ today: null, tomorrow: null })
 
-  function goToPage(next: 'today' | 'tomorrow') {
+  // Both pages stay mounted side by side, so the card's height has to be
+  // animated to whichever page is showing (they differ a lot in length).
+  useEffect(() => {
+    const measure = () => setPageHeights({ today: pageRefs.current.today?.offsetHeight ?? null, tomorrow: pageRefs.current.tomorrow?.offsetHeight ?? null })
+    measure()
+    const ro = new ResizeObserver(measure)
+    for (const el of Object.values(pageRefs.current)) if (el) ro.observe(el)
+    return () => ro.disconnect()
+  }, [])
+
+  function goToPage(next: Page) {
     if (next === page) return
     setPage(next)
-    setShowAllEvents(false)
-    setShowAllTodos(false)
     setExpandedEventId(null)
     haptic('light')
   }
 
   function handleTouchStart(e: TouchEvent) {
     const t = e.touches[0]
-    touchStart.current = { x: t.clientX, y: t.clientY }
+    touchStart.current = { x: t.clientX, y: t.clientY, locked: false }
+  }
+
+  function handleTouchMove(e: TouchEvent) {
+    const start = touchStart.current
+    if (!start) return
+    const t = e.touches[0]
+    const dx = t.clientX - start.x
+    const dy = t.clientY - start.y
+    if (!start.locked) {
+      // Only take over once it's clearly a horizontal gesture, so vertical scrolling still works.
+      if (Math.abs(dx) < SWIPE_LOCK_PX && Math.abs(dy) < SWIPE_LOCK_PX) return
+      if (Math.abs(dx) < Math.abs(dy) * 1.5) {
+        touchStart.current = null
+        return
+      }
+      start.locked = true
+      setDragging(true)
+    }
+    // Rubber-band when dragging past the first/last page.
+    const pastEdge = (page === 'today' && dx > 0) || (page === 'tomorrow' && dx < 0)
+    setDragX(pastEdge ? dx / 4 : dx)
   }
 
   function handleTouchEnd(e: TouchEvent) {
     const start = touchStart.current
     touchStart.current = null
-    if (!start) return
-    const t = e.changedTouches[0]
-    const dx = t.clientX - start.x
-    const dy = t.clientY - start.y
-    if (Math.abs(dx) < SWIPE_MIN_PX || Math.abs(dx) < Math.abs(dy) * 1.5) return
-    goToPage(dx < 0 ? 'tomorrow' : 'today')
+    if (!start?.locked) return
+    const dx = e.changedTouches[0].clientX - start.x
+    setDragging(false)
+    setDragX(0)
+    if (Math.abs(dx) >= SWIPE_MIN_PX) goToPage(dx < 0 ? 'tomorrow' : 'today')
   }
 
   function handleCompleteTodo(todo: Todo, e: MouseEvent<HTMLButtonElement>) {
@@ -151,6 +186,7 @@ export default function TodaySection({ habits, totalHabitsCount, onToggleHabit, 
   }
 
   function renderEvents(list: TodayEvent[], tomorrow: boolean, divider: string) {
+    const pageKey: Page = tomorrow ? 'tomorrow' : 'today'
     return (
         <div className={`space-y-2 ${divider}`}>
           <div className="flex items-center justify-between">
@@ -163,7 +199,7 @@ export default function TodaySection({ habits, totalHabitsCount, onToggleHabit, 
             <p className="text-sm text-muted-foreground">{tomorrow ? 'No events tomorrow' : 'No events today'}</p>
           ) : (
             <div className="space-y-1.5">
-              {(showAllEvents ? list : list.slice(0, 3)).map(event => (
+              {(showAllEvents[pageKey] ? list : list.slice(0, 3)).map(event => (
                 <div key={event.id}>
                   <button
                     onClick={() => event.location && setExpandedEventId(id => (id === event.id ? null : event.id))}
@@ -188,10 +224,10 @@ export default function TodaySection({ habits, totalHabitsCount, onToggleHabit, 
               ))}
               {list.length > 3 && (
                 <button
-                  onClick={() => setShowAllEvents(v => !v)}
+                  onClick={() => setShowAllEvents(v => ({ ...v, [pageKey]: !v[pageKey] }))}
                   className="text-xs text-muted-foreground hover:text-foreground"
                 >
-                  {showAllEvents ? 'Show less' : `+${list.length - 3} more`}
+                  {showAllEvents[pageKey] ? 'Show less' : `+${list.length - 3} more`}
                 </button>
               )}
             </div>
@@ -202,6 +238,7 @@ export default function TodaySection({ habits, totalHabitsCount, onToggleHabit, 
   }
 
   function renderTasks(list: Todo[], sorted: Todo[], tomorrow: boolean, divider: string) {
+    const pageKey: Page = tomorrow ? 'tomorrow' : 'today'
     return (
         <div className={`space-y-2 ${divider}`}>
           <div className="flex items-center justify-between">
@@ -214,7 +251,7 @@ export default function TodaySection({ habits, totalHabitsCount, onToggleHabit, 
             <p className="text-sm text-muted-foreground">{tomorrow ? 'Nothing due tomorrow' : 'Nothing due today'}</p>
           ) : (
             <div className="space-y-1.5">
-              {(showAllTodos ? sorted : sorted.slice(0, 3)).map(todo => {
+              {(showAllTodos[pageKey] ? sorted : sorted.slice(0, 3)).map(todo => {
                 const overdue = !tomorrow && (isOverdue(todo.due_date) || (!!todo.due_time && minutesUntil(todo.due_time, now) < 0))
                 const completing = completingTodoIds.has(todo.id)
                 return (
@@ -253,10 +290,10 @@ export default function TodaySection({ habits, totalHabitsCount, onToggleHabit, 
               })}
               {list.length > 3 && (
                 <button
-                  onClick={() => setShowAllTodos(v => !v)}
+                  onClick={() => setShowAllTodos(v => ({ ...v, [pageKey]: !v[pageKey] }))}
                   className="text-xs text-muted-foreground hover:text-foreground"
                 >
-                  {showAllTodos ? 'Show less' : `+${list.length - 3} more`}
+                  {showAllTodos[pageKey] ? 'Show less' : `+${list.length - 3} more`}
                 </button>
               )}
             </div>
@@ -339,33 +376,39 @@ export default function TodaySection({ habits, totalHabitsCount, onToggleHabit, 
   }
 
   const isTomorrow = page === 'tomorrow'
+  const pageClass = 'w-full shrink-0 space-y-4'
 
   return (
-    <div
-      className="bg-card border border-border rounded-xl p-3.5 space-y-4"
-      onTouchStart={handleTouchStart}
-      onTouchEnd={handleTouchEnd}
-    >
+    <div className="bg-card border border-border rounded-xl p-3.5 space-y-4">
       <div className="flex items-center justify-between">
-        <div className="flex items-baseline gap-2">
+        <div key={page} className="flex items-baseline gap-2 animate-in fade-in duration-300">
           <h2 className="text-base font-semibold">{isTomorrow ? 'Tomorrow' : 'Today'}</h2>
           {isTomorrow && <span className="text-xs text-muted-foreground">{format(addDays(new Date(), 1), 'EEE, MMM d')}</span>}
         </div>
         <WeatherWidget />
       </div>
 
+      {/* Viewport: clips the sliding track and animates its height to the active page. */}
       <div
-        key={page}
-        className={`space-y-4 animate-in fade-in duration-200 ${isTomorrow ? 'slide-in-from-right-4' : 'slide-in-from-left-4'}`}
+        className="overflow-hidden transition-[height] duration-300 ease-out"
+        style={{ height: pageHeights[page] ?? undefined, touchAction: 'pan-y' }}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+        onTouchCancel={handleTouchEnd}
       >
-        {isTomorrow ? (
-          <>
+        <div
+          className={`flex items-start ${dragging ? '' : 'transition-transform duration-300 ease-out'}`}
+          style={{ transform: `translateX(calc(${isTomorrow ? -100 : 0}% + ${dragX}px))` }}
+        >
+          <div ref={el => { pageRefs.current.today = el }} className={`${pageClass} transition-opacity duration-300 ${isTomorrow && !dragging ? 'opacity-0' : ''}`} aria-hidden={isTomorrow}>
+            {order.map(key => <Fragment key={key}>{sections[key]}</Fragment>)}
+          </div>
+          <div ref={el => { pageRefs.current.tomorrow = el }} className={`${pageClass} transition-opacity duration-300 ${!isTomorrow && !dragging ? 'opacity-0' : ''}`} aria-hidden={!isTomorrow}>
             {renderEvents(tomorrowEvents, true, '')}
             {renderTasks(tomorrowTodos, sortedTomorrowTodos, true, 'border-t border-border pt-3')}
-          </>
-        ) : (
-          order.map(key => <Fragment key={key}>{sections[key]}</Fragment>)
-        )}
+          </div>
+        </div>
       </div>
 
       <div className="flex justify-center gap-1.5">
@@ -374,7 +417,7 @@ export default function TodaySection({ habits, totalHabitsCount, onToggleHabit, 
             key={p}
             onClick={() => goToPage(p)}
             aria-label={`Show ${p}`}
-            className={`h-1.5 rounded-full transition-all ${page === p ? 'w-4 bg-primary' : 'w-1.5 bg-muted-foreground/30'}`}
+            className={`h-1.5 rounded-full transition-all duration-300 ${page === p ? 'w-4 bg-primary' : 'w-1.5 bg-muted-foreground/30'}`}
           />
         ))}
       </div>
