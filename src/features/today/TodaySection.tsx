@@ -1,9 +1,8 @@
 import { Fragment, useEffect, useRef, useState } from 'react'
-import type { MouseEvent, ReactNode, TouchEvent } from 'react'
+import type { MouseEvent, ReactNode } from 'react'
 import { Link } from 'react-router-dom'
-import { AlertCircle, CalendarArrowUp, CheckCircle2, ChevronRight, Clock, MapPin } from 'lucide-react'
+import { AlertCircle, CalendarArrowUp, CheckCircle2, ChevronLeft, ChevronRight, Clock, MapPin } from 'lucide-react'
 import type { HabitStatus, Todo } from '../../supabase'
-import { addDays, format } from 'date-fns'
 import { formatTime, isOverdue, today } from '../../utils'
 import WeatherWidget from '../weather/WeatherWidget'
 import { celebrateFromElement } from '../../lib/confetti'
@@ -16,9 +15,6 @@ import { DEFAULT_TODAY_SECTIONS_ORDER, TODAY_SECTIONS_CHANGED_EVENT, type TodayS
 // Gives the user a beat to see the checkmark/celebration before the parent
 // reload removes the item from the list.
 const COMPLETE_REMOVAL_DELAY_MS = 450
-
-const SWIPE_MIN_PX = 50
-const SWIPE_LOCK_PX = 8
 
 type Page = 'today' | 'tomorrow'
 
@@ -93,9 +89,6 @@ export default function TodaySection({ habits, totalHabitsCount, onToggleHabit, 
   const [showAllTodos, setShowAllTodos] = useState<Record<Page, boolean>>({ today: false, tomorrow: false })
   const [showAllEvents, setShowAllEvents] = useState<Record<Page, boolean>>({ today: false, tomorrow: false })
   const [page, setPage] = useState<Page>('today')
-  const [dragX, setDragX] = useState(0)
-  const [dragging, setDragging] = useState(false)
-  const touchStart = useRef<{ x: number; y: number; locked: boolean } | null>(null)
   const pageRefs = useRef<Record<Page, HTMLDivElement | null>>({ today: null, tomorrow: null })
   const [pageHeights, setPageHeights] = useState<Record<Page, number | null>>({ today: null, tomorrow: null })
 
@@ -114,42 +107,6 @@ export default function TodaySection({ habits, totalHabitsCount, onToggleHabit, 
     setPage(next)
     setExpandedEventId(null)
     haptic('light')
-  }
-
-  function handleTouchStart(e: TouchEvent) {
-    const t = e.touches[0]
-    touchStart.current = { x: t.clientX, y: t.clientY, locked: false }
-  }
-
-  function handleTouchMove(e: TouchEvent) {
-    const start = touchStart.current
-    if (!start) return
-    const t = e.touches[0]
-    const dx = t.clientX - start.x
-    const dy = t.clientY - start.y
-    if (!start.locked) {
-      // Only take over once it's clearly a horizontal gesture, so vertical scrolling still works.
-      if (Math.abs(dx) < SWIPE_LOCK_PX && Math.abs(dy) < SWIPE_LOCK_PX) return
-      if (Math.abs(dx) < Math.abs(dy) * 1.5) {
-        touchStart.current = null
-        return
-      }
-      start.locked = true
-      setDragging(true)
-    }
-    // Rubber-band when dragging past the first/last page.
-    const pastEdge = (page === 'today' && dx > 0) || (page === 'tomorrow' && dx < 0)
-    setDragX(pastEdge ? dx / 4 : dx)
-  }
-
-  function handleTouchEnd(e: TouchEvent) {
-    const start = touchStart.current
-    touchStart.current = null
-    if (!start?.locked) return
-    const dx = e.changedTouches[0].clientX - start.x
-    setDragging(false)
-    setDragX(0)
-    if (Math.abs(dx) >= SWIPE_MIN_PX) goToPage(dx < 0 ? 'tomorrow' : 'today')
   }
 
   function handleCompleteTodo(todo: Todo, e: MouseEvent<HTMLButtonElement>) {
@@ -381,30 +338,33 @@ export default function TodaySection({ habits, totalHabitsCount, onToggleHabit, 
   return (
     <div className="bg-card border border-border rounded-xl p-3.5 space-y-4">
       <div className="flex items-center justify-between">
-        <div key={page} className="flex items-baseline gap-2 animate-in fade-in duration-300">
+        <div key={page} className="animate-in fade-in duration-300">
           <h2 className="text-base font-semibold">{isTomorrow ? 'Tomorrow' : 'Today'}</h2>
-          {isTomorrow && <span className="text-xs text-muted-foreground">{format(addDays(new Date(), 1), 'EEE, MMM d')}</span>}
         </div>
+        <button
+          onClick={() => goToPage(isTomorrow ? 'today' : 'tomorrow')}
+          className="flex items-center gap-0.5 rounded-full bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary active:scale-95 transition-transform"
+        >
+          {isTomorrow && <ChevronLeft className="h-3 w-3" />}
+          {isTomorrow ? 'Today' : 'Tomorrow'}
+          {!isTomorrow && <ChevronRight className="h-3 w-3" />}
+        </button>
         <WeatherWidget />
       </div>
 
       {/* Viewport: clips the sliding track and animates its height to the active page. */}
       <div
         className="overflow-hidden transition-[height] duration-300 ease-out"
-        style={{ height: pageHeights[page] ?? undefined, touchAction: 'pan-y' }}
-        onTouchStart={handleTouchStart}
-        onTouchMove={handleTouchMove}
-        onTouchEnd={handleTouchEnd}
-        onTouchCancel={handleTouchEnd}
+        style={{ height: pageHeights[page] ?? undefined }}
       >
         <div
-          className={`flex items-start ${dragging ? '' : 'transition-transform duration-300 ease-out'}`}
-          style={{ transform: `translateX(calc(${isTomorrow ? -100 : 0}% + ${dragX}px))` }}
+          className="flex items-start transition-transform duration-300 ease-out"
+          style={{ transform: `translateX(${isTomorrow ? -100 : 0}%)` }}
         >
-          <div ref={el => { pageRefs.current.today = el }} className={`${pageClass} transition-opacity duration-300 ${isTomorrow && !dragging ? 'opacity-0' : ''}`} aria-hidden={isTomorrow}>
+          <div ref={el => { pageRefs.current.today = el }} className={`${pageClass} transition-opacity duration-300 ${isTomorrow ? 'opacity-0' : ''}`} aria-hidden={isTomorrow}>
             {order.map(key => <Fragment key={key}>{sections[key]}</Fragment>)}
           </div>
-          <div ref={el => { pageRefs.current.tomorrow = el }} className={`${pageClass} transition-opacity duration-300 ${!isTomorrow && !dragging ? 'opacity-0' : ''}`} aria-hidden={!isTomorrow}>
+          <div ref={el => { pageRefs.current.tomorrow = el }} className={`${pageClass} transition-opacity duration-300 ${!isTomorrow ? 'opacity-0' : ''}`} aria-hidden={!isTomorrow}>
             {renderEvents(tomorrowEvents, true, '')}
             {renderTasks(tomorrowTodos, sortedTomorrowTodos, true, 'border-t border-border pt-3')}
           </div>
