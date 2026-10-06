@@ -137,39 +137,54 @@ export default function DiaryTracker({ userId, characterId }: Props) {
             {isOpen && (
               <div className="divide-y divide-border border-t border-border">
                 {g.tiers.map(t => {
+                  const key = `${g.area}|${t.tier}`
+                  const tierOpen = open[key] ?? false
                   const shown = missingOnly ? t.tasks.filter(x => !doneIds.has(x.id)) : t.tasks
-                  const allDone = t.tasks.every(x => doneIds.has(x.id))
-                  if (shown.length === 0) return null
+                  const tierDone = t.tasks.filter(x => doneIds.has(x.id)).length
+                  const allDone = tierDone === t.tasks.length
                   return (
                     <div key={t.tier}>
-                      <div className="flex items-center justify-between bg-muted/40 px-3.5 py-1.5">
-                        <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{t.tier}</span>
+                      <div className="flex items-center bg-muted/40">
                         <button
-                          className="text-xs font-medium text-primary"
+                          onClick={() => { haptic(); setOpen(o => ({ ...o, [key]: !tierOpen })) }}
+                          aria-expanded={tierOpen}
+                          className="flex flex-1 items-center gap-2 px-3.5 py-2 text-left"
+                        >
+                          <ChevronDown className={cn('h-4 w-4 text-muted-foreground transition-transform', !tierOpen && '-rotate-90')} />
+                          <span className="text-sm font-semibold">{t.tier}</span>
+                          {allDone
+                            ? <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-semibold text-emerald-700">Complete</span>
+                            : <span className="text-xs tabular-nums text-muted-foreground">{tierDone}/{t.tasks.length} · {t.tasks.length - tierDone} missing</span>}
+                        </button>
+                        <button
+                          className="px-3.5 py-2 text-xs font-medium text-primary"
                           onClick={() => toggle(t.tasks.map(x => x.id), !allDone)}
                         >
                           {allDone ? 'Clear all' : 'Mark all done'}
                         </button>
                       </div>
-                      <ul className="divide-y divide-border">
-                        {shown.map(task => {
-                          const done = doneIds.has(task.id)
-                          return (
-                            <li key={task.id}>
-                              <button onClick={() => toggle([task.id], !done)} className="flex w-full items-start gap-3 px-3.5 py-2.5 text-left hover:bg-accent/50">
-                                <span className={cn('mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-md border', done ? 'border-primary bg-primary text-primary-foreground' : 'border-border')}>
-                                  {done && <Check className="h-3.5 w-3.5" />}
-                                </span>
-                                <span className={cn('text-sm', done && 'text-muted-foreground line-through')}>{task.name}</span>
-                              </button>
-                            </li>
-                          )
-                        })}
-                      </ul>
+                      {tierOpen && (
+                        shown.length === 0
+                          ? <p className="px-3.5 py-3 text-center text-sm text-muted-foreground">All {t.tier.toLowerCase()} tasks done.</p>
+                          : <ul className="divide-y divide-border">
+                              {shown.map(task => {
+                                const done = doneIds.has(task.id)
+                                return (
+                                  <li key={task.id}>
+                                    <button onClick={() => toggle([task.id], !done)} className="flex w-full items-start gap-3 px-3.5 py-2.5 text-left hover:bg-accent/50">
+                                      <span className={cn('mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-md border', done ? 'border-primary bg-primary text-primary-foreground' : 'border-border')}>
+                                        {done && <Check className="h-3.5 w-3.5" />}
+                                      </span>
+                                      <span className={cn('text-sm', done && 'text-muted-foreground line-through')}>{task.name}</span>
+                                    </button>
+                                  </li>
+                                )
+                              })}
+                            </ul>
+                      )}
                     </div>
                   )
                 })}
-                {missingOnly && complete && <p className="px-3.5 py-4 text-center text-sm text-muted-foreground">Everything in {g.area} is done.</p>}
               </div>
             )}
           </section>
