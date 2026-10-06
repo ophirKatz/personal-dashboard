@@ -33,6 +33,7 @@ export default function Dashboard() {
   const [recentHabitLogs, setRecentHabitLogs] = useState<HabitLog[]>([])
   const [habitsV2Enabled, setHabitsV2Enabled] = useState(false)
   const [todos, setTodos] = useState<Todo[]>([])
+  const [tomorrowTodos, setTomorrowTodos] = useState<Todo[]>([])
   const [events, setEvents] = useState<CalendarEvent[]>([])
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [workoutDoneToday, setWorkoutDoneToday] = useState(false)
@@ -78,9 +79,10 @@ export default function Dashboard() {
     const v2 = await fetchHabitsV2Enabled()
     setHabitsV2Enabled(v2)
 
-    const [{ statuses: habitStatuses, logs: habitLogs }, todosRes, eventsRes, notificationsRes, friendsRes, workedOut] = await Promise.all([
+    const [{ statuses: habitStatuses, logs: habitLogs }, todosRes, tomorrowTodosRes, eventsRes, notificationsRes, friendsRes, workedOut] = await Promise.all([
       loadHabitStatuses(v2, habitLogsSince),
       supabase.from('todos').select('*').eq('completed', false).or(`due_date.eq.${t},due_date.is.null`).order('created_at'),
+      supabase.from('todos').select('*').eq('completed', false).eq('due_date', tomorrow()).order('created_at'),
       supabase.from('events').select('*').gte('event_date', t).lte('event_date', in7).order('event_date').order('event_time'),
       supabase.from('notifications').select('*').eq('read', false).order('created_at', { ascending: false }),
       supabase.from('friends').select('*').order('name'),
@@ -90,6 +92,7 @@ export default function Dashboard() {
     setHabits(habitStatuses)
     setRecentHabitLogs(habitLogs)
     setTodos(todosRes.data ?? [])
+    setTomorrowTodos(tomorrowTodosRes.data ?? [])
     setEvents(eventsRes.data ?? [])
     setNotifications(notificationsRes.data ?? [])
     setFriends(friendsRes.data ?? [])
@@ -120,7 +123,7 @@ export default function Dashboard() {
   }
 
   async function completeTodo(id: string) {
-    const todo = todos.find(t => t.id === id)
+    const todo = todos.find(t => t.id === id) ?? tomorrowTodos.find(t => t.id === id)
     if (!todo) return
     if (todo.source === 'google') {
       await toggleGoogleTask(todo)
@@ -134,6 +137,7 @@ export default function Dashboard() {
       logFriendInteractionsForCompletedTask(id)
     }
     setTodos(prev => prev.filter(t => t.id !== id))
+    setTomorrowTodos(prev => prev.filter(t => t.id !== id))
   }
 
   async function postponeTodo(id: string, target: Date | 'tomorrow') {
@@ -170,17 +174,17 @@ export default function Dashboard() {
 
   const t = today()
   const dueHabits = habits.filter(h => h.is_due_today)
-  const todayEvents: TodayEvent[] = sortedEvents
-    .filter(event => event.event_date === t)
-    .map(event => ({
-      id: event.id,
-      title: event.title,
-      time: event.event_time,
-      endTime: event.event_end_time,
-      endDate: event.event_end_date,
-      location: event.location,
-      source: event.source,
-    }))
+  const toTodayEvent = (event: CalendarEvent): TodayEvent => ({
+    id: event.id,
+    title: event.title,
+    time: event.event_time,
+    endTime: event.event_end_time,
+    endDate: event.event_end_date,
+    location: event.location,
+    source: event.source,
+  })
+  const todayEvents = sortedEvents.filter(event => event.event_date === t).map(toTodayEvent)
+  const tomorrowEvents = sortedEvents.filter(event => event.event_date === tomorrow()).map(toTodayEvent)
 
   return (
     <div className="p-4 max-w-2xl mx-auto space-y-5">
@@ -302,6 +306,8 @@ export default function Dashboard() {
           onCompleteTodo={completeTodo}
           onPostponeTodo={postponeTodo}
           events={todayEvents}
+          tomorrowTodos={tomorrowTodos}
+          tomorrowEvents={tomorrowEvents}
           workoutDoneToday={workoutDoneToday}
         />
       )}
