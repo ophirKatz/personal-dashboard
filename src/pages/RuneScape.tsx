@@ -349,7 +349,7 @@ export default function RuneScape() {
             {activeGoals.length > 0 && <span className="rounded-full bg-primary/10 px-1.5 text-xs text-primary">{activeGoals.length}</span>}
           </TabsTrigger>
           <TabsTrigger value="quests" className="gap-1.5 py-2"><ScrollText className="h-4 w-4" />Quests</TabsTrigger>
-          <TabsTrigger value="diaries" className="gap-1.5 py-2"><BookOpen className="h-4 w-4" />Diaries</TabsTrigger>
+          <TabsTrigger value="diaries" className="gap-1.5 py-2"><BookOpen className="h-4 w-4" />Areas</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="mt-4 space-y-5">

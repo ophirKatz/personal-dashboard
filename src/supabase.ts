@@ -458,13 +458,16 @@ export type RsGoal = {
   created_at: string
 }
 
-export type RsDiaryTier = 'Easy' | 'Medium' | 'Hard' | 'Elite'
+/** 'All' is used by exploration areas, which have no tiers. */
+export type RsDiaryTier = 'Beginner' | 'Easy' | 'Medium' | 'Hard' | 'Elite' | 'All'
 
 export type RsDiaryTask = {
   id: string
+  category: string
   area: string
   tier: RsDiaryTier
   name: string
+  description: string | null
   position: number
   updated_at: string
 }
