@@ -352,9 +352,11 @@ export default function TodaySection({ habits, totalHabitsCount, onToggleHabit, 
         <WeatherWidget />
       </div>
 
-      {/* Viewport: clips the sliding track and animates its height to the active page. */}
+      {/* Viewport: clips the sliding track and animates its height to the active page.
+          The side padding (offset by -mx) keeps overhanging bits like habit badges from being clipped;
+          the off-screen page is opacity-0, so it doesn't show through the padding. */}
       <div
-        className="overflow-hidden transition-[height] duration-300 ease-out"
+        className="overflow-hidden -mx-2 px-2 transition-[height] duration-300 ease-out"
         style={{ height: pageHeights[page] ?? undefined }}
       >
         <div
