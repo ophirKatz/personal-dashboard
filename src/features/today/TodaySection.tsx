@@ -1,7 +1,7 @@
 import { Fragment, useEffect, useRef, useState } from 'react'
 import type { MouseEvent, ReactNode } from 'react'
 import { Link } from 'react-router-dom'
-import { AlertCircle, CalendarArrowUp, CheckCircle2, ChevronLeft, ChevronRight, Clock, MapPin } from 'lucide-react'
+import { AlertCircle, CalendarArrowUp, CalendarDays, CheckCircle2, ChevronLeft, ChevronRight, Clock, MapPin, X } from 'lucide-react'
 import type { HabitStatus, Todo } from '../../supabase'
 import { formatTime, isOverdue, today } from '../../utils'
 import WeatherWidget from '../weather/WeatherWidget'
@@ -9,7 +9,14 @@ import { celebrateFromElement } from '../../lib/confetti'
 import { haptic } from '../../lib/haptics'
 import PostponeMenu from '../todos/PostponeMenu'
 import WorkoutWidget from '../workout/WorkoutWidget'
-import { getTodaySectionsOrder } from '../../lib/userSettings'
+import { dismissTomorrowBanner, getTodaySectionsOrder, getTomorrowBannerSettings } from '../../lib/userSettings'
+import {
+  DEFAULT_TOMORROW_BANNER_SETTINGS,
+  TOMORROW_BANNER_CHANGED_EVENT,
+  isBeforeCutoff,
+  isTomorrowBannerVisible,
+  type TomorrowBannerSettings,
+} from '../../lib/tomorrowBanner'
 import { DEFAULT_TODAY_SECTIONS_ORDER, TODAY_SECTIONS_CHANGED_EVENT, type TodaySectionKey } from '../../lib/todaySections'
 
 // Gives the user a beat to see the checkmark/celebration before the parent
@@ -83,6 +90,14 @@ export default function TodaySection({ habits, totalHabitsCount, onToggleHabit, 
     window.addEventListener(TODAY_SECTIONS_CHANGED_EVENT, handleChange)
     return () => window.removeEventListener(TODAY_SECTIONS_CHANGED_EVENT, handleChange)
   }, [])
+  // null until loaded, so the banner never flashes before we know if it was dismissed.
+  const [bannerSettings, setBannerSettings] = useState<TomorrowBannerSettings | null>(null)
+  useEffect(() => {
+    getTomorrowBannerSettings().then(setBannerSettings)
+    const handleChange = (e: Event) => setBannerSettings((e as CustomEvent<TomorrowBannerSettings>).detail)
+    window.addEventListener(TOMORROW_BANNER_CHANGED_EVENT, handleChange)
+    return () => window.removeEventListener(TOMORROW_BANNER_CHANGED_EVENT, handleChange)
+  }, [])
   const [expandedEventId, setExpandedEventId] = useState<string | null>(null)
   const [postponingTodoId, setPostponingTodoId] = useState<string | null>(null)
   const [completingTodoIds, setCompletingTodoIds] = useState<Set<string>>(new Set())
@@ -124,6 +139,27 @@ export default function TodaySection({ habits, totalHabitsCount, onToggleHabit, 
     .sort((a, b) => a.minutes - b.minutes)[0]
 
   const urgency = nextUp == null ? null : nextUp.minutes <= 15 ? 'high' : nextUp.minutes <= 60 ? 'medium' : 'low'
+
+  function dismissBanner() {
+    if (!bannerSettings) return
+    haptic('light')
+    const at = new Date()
+    setBannerSettings({ ...bannerSettings, dismissedAt: at.toISOString() })
+    dismissTomorrowBanner(at)
+  }
+
+  const showTomorrowBanner = bannerSettings != null && isTomorrowBannerVisible(bannerSettings, now)
+  const bannerEnd = (bannerSettings ?? DEFAULT_TOMORROW_BANNER_SETTINGS).end
+  const bannerItems = showTomorrowBanner
+    ? [
+        ...tomorrowEvents
+          .filter(e => isBeforeCutoff(e.time, bannerEnd))
+          .map(e => ({ id: `e-${e.id}`, kind: 'event' as const, label: e.title, time: e.time })),
+        ...tomorrowTodos
+          .filter(t => isBeforeCutoff(t.due_time, bannerEnd))
+          .map(t => ({ id: `t-${t.id}`, kind: 'task' as const, label: t.title, time: t.due_time })),
+      ].sort((a, b) => (a.time ?? '').localeCompare(b.time ?? ''))
+    : []
 
   const visibleEvents = events.filter(event => !hasEventEnded(event, now))
 
@@ -364,6 +400,43 @@ export default function TodaySection({ habits, totalHabitsCount, onToggleHabit, 
           style={{ transform: `translateX(${isTomorrow ? -100 : 0}%)` }}
         >
           <div ref={el => { pageRefs.current.today = el }} className={`${pageClass} transition-opacity duration-300 ${isTomorrow ? 'opacity-0' : ''}`} aria-hidden={isTomorrow}>
+            {showTomorrowBanner && (
+              <div className="rounded-lg p-3 bg-primary/5 border border-primary/20 space-y-2">
+                <div className="flex items-start gap-3">
+                  <CalendarDays className="h-4 w-4 shrink-0 text-primary mt-0.5" />
+                  <button onClick={() => goToPage('tomorrow')} className="flex-1 min-w-0 text-left">
+                    <p className="text-xs text-muted-foreground">Tomorrow, until {formatTime(bannerEnd)}</p>
+                    <p className="text-sm font-medium">
+                      {bannerItems.length === 0
+                        ? 'Nothing scheduled'
+                        : `${bannerItems.length} ${bannerItems.length === 1 ? 'item' : 'items'}`}
+                    </p>
+                  </button>
+                  <button
+                    onClick={dismissBanner}
+                    aria-label="Dismiss tomorrow summary"
+                    className="p-1 -m-1 rounded-lg hover:bg-accent text-muted-foreground shrink-0"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+                {bannerItems.length > 0 && (
+                  <div className="space-y-1 pl-7">
+                    {bannerItems.slice(0, 4).map(item => (
+                      <div key={item.id} className="flex items-center gap-2 text-sm">
+                        <span className="truncate flex-1">{item.label}</span>
+                        <span className="text-xs text-muted-foreground shrink-0">{item.time ? formatTime(item.time) : item.kind === 'event' ? 'All day' : ''}</span>
+                      </div>
+                    ))}
+                    {bannerItems.length > 4 && (
+                      <button onClick={() => goToPage('tomorrow')} className="text-xs text-muted-foreground hover:text-foreground">
+                        +{bannerItems.length - 4} more
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
             {order.map(key => <Fragment key={key}>{sections[key]}</Fragment>)}
           </div>
           <div ref={el => { pageRefs.current.tomorrow = el }} className={`${pageClass} transition-opacity duration-300 ${!isTomorrow ? 'opacity-0' : ''}`} aria-hidden={!isTomorrow}>
