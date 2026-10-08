@@ -24,6 +24,7 @@ import { Tabs, TabsList, TabsTrigger } from '../components/ui/tabs'
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '../components/ui/select'
 import MoreLayoutEditor from '../components/MoreLayoutEditor'
 import TodayLayoutEditor from '../components/TodayLayoutEditor'
+import TomorrowBannerEditor from '../components/TomorrowBannerEditor'
 import VoiceShortcutsSection from '../features/voice/VoiceShortcutsSection'
 
 const GOOGLE_CONNECT_MESSAGES: Record<string, string> = {
@@ -401,6 +402,15 @@ export default function Settings() {
           Choose the order of the parts of the Today card on the home page.
         </p>
         <TodayLayoutEditor />
+      </div>
+
+      <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2 mt-6">Tomorrow preview</h2>
+      <div className="bg-card border border-border rounded-2xl p-4">
+        <p className="text-sm text-muted-foreground mb-4">
+          In the evening, the Today card shows a banner summarizing tomorrow's events and tasks up to the time you choose.
+          Times are Israel time. You can dismiss the banner for the rest of the day.
+        </p>
+        <TomorrowBannerEditor />
       </div>
 
       <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2 mt-6">Bottom navigation</h2>

@@ -187,6 +187,9 @@ export type UserSettings = {
   bottom_nav_items: string[]
   more_sections: { id: string; title: string; items: string[] }[] | null
   today_sections_order: string[] | null
+  tomorrow_banner_start: string
+  tomorrow_banner_end: string
+  tomorrow_banner_dismissed_at: string | null
   updated_at: string
 }
 
