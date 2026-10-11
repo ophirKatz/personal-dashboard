@@ -3,6 +3,7 @@ import type { Meal, MealTag } from '../../supabase'
 import {
   DEFAULT_TAG_FILTER,
   filterMeals,
+  isMealValid,
   mealImageUrl,
   parseTagFilter,
   pickRandomMeal,
@@ -156,5 +157,25 @@ describe('mealImageUrl', () => {
     expect(mealImageUrl({ image_url: null, recipe: null })).toBeNull()
     expect(mealImageUrl({ image_url: null })).toBeNull()
     expect(mealImageUrl({ image_url: null, recipe: { ...recipe, image_url: null } })).toBeNull()
+  })
+})
+
+describe('isMealValid', () => {
+  it('is valid with just a name and one tag', () => {
+    expect(isMealValid({ name: 'Tuna melt', tags: ['dinner'] })).toBe(true)
+    expect(isMealValid({ name: 'Pancakes', tags: ['breakfast', 'dessert'] })).toBe(true)
+  })
+
+  it('needs at least one tag', () => {
+    expect(isMealValid({ name: 'Tuna melt', tags: [] })).toBe(false)
+  })
+
+  it('needs a non-blank name', () => {
+    expect(isMealValid({ name: '', tags: ['dinner'] })).toBe(false)
+    expect(isMealValid({ name: '   ', tags: ['dinner'] })).toBe(false)
+  })
+
+  it('needs both', () => {
+    expect(isMealValid({ name: '', tags: [] })).toBe(false)
   })
 })
