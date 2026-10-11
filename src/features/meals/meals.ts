@@ -61,3 +61,8 @@ export function toggleTag(tags: MealTag[], tag: MealTag): MealTag[] {
 export function mealImageUrl(meal: Pick<Meal, 'image_url' | 'recipe'>): string | null {
   return meal.image_url ?? meal.recipe?.image_url ?? null
 }
+
+/** A meal can be saved with just a name and at least one tag. */
+export function isMealValid({ name, tags }: { name: string; tags: MealTag[] }): boolean {
+  return name.trim().length > 0 && tags.length > 0
+}
