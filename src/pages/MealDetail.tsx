@@ -13,7 +13,7 @@ import MealTagPicker from '../features/meals/MealTagPicker'
 import RecipePickerDrawer from '../features/meals/RecipePickerDrawer'
 import type { RecipeSummary } from '../features/meals/RecipePickerDrawer'
 import { deleteOwnedMealImage, uploadMealImage, validateMealImage } from '../features/meals/mealImages'
-import { MEAL_TAGS } from '../features/meals/meals'
+import { MEAL_TAGS, isMealValid } from '../features/meals/meals'
 
 function sameTags(a: MealTag[], b: MealTag[]) {
   return MEAL_TAGS.filter(t => a.includes(t)).join() === MEAL_TAGS.filter(t => b.includes(t)).join()
@@ -106,6 +106,9 @@ export default function MealDetail() {
     !!imageFile ||
     removeImage
 
+  // Saving needs a name and at least one tag - not a pending change.
+  const valid = isMealValid({ name, tags })
+
   const ownPhoto = imagePreview ?? (removeImage ? null : current.image_url)
   const shownPhoto = ownPhoto ?? recipe?.image_url ?? null
   const photoFromRecipe = !ownPhoto && !!recipe?.image_url
@@ -144,7 +147,12 @@ export default function MealDetail() {
 
   async function handleSave(e: React.FormEvent) {
     e.preventDefault()
-    if (!dirty || !name.trim() || saving) return
+    if (!valid || saving) return
+    if (!dirty) {
+      // Already stored as shown - nothing to write.
+      setJustSaved(true)
+      return
+    }
     setSaving(true)
     setError(null)
 
@@ -298,9 +306,14 @@ export default function MealDetail() {
         {/* Pinned to the bottom of the scroll area, just above the mobile tab bar. */}
         <div className="sticky bottom-[var(--tabbar-height,0px)] z-20 -mx-4 space-y-2 border-t border-border bg-background px-4 py-3 md:bottom-0">
           {error && <p className="rounded-lg bg-destructive/10 p-3 text-sm text-destructive">{error}</p>}
+          {!valid && (
+            <p className="px-1 text-center text-xs text-muted-foreground">
+              {name.trim() ? 'Pick at least one tag to save' : 'Add a name to save'}
+            </p>
+          )}
           <Button
             type="submit"
-            disabled={saving || !dirty || !name.trim()}
+            disabled={saving || !valid}
             className="h-12 w-full rounded-xl text-base font-semibold"
           >
             {saving ? 'Saving…' : justSaved && !dirty ? (<><Check className="h-4 w-4" />Saved</>) : 'Save changes'}

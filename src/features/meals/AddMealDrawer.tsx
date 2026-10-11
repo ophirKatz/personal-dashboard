@@ -7,6 +7,7 @@ import { Input } from '../../components/ui/input'
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerBody } from '../../components/ui/drawer'
 import { haptic } from '../../lib/haptics'
 import MealTagPicker from './MealTagPicker'
+import { isMealValid } from './meals'
 
 type Props = {
   open: boolean
@@ -24,10 +25,11 @@ export default function AddMealDrawer({ open, onClose, userId, defaultTags }: Pr
   const [tags, setTags] = useState<MealTag[]>(defaultTags)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const valid = isMealValid({ name, tags })
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    if (!name.trim() || saving) return
+    if (!valid || saving) return
     setSaving(true)
     setError(null)
     const { data, error } = await supabase
@@ -63,11 +65,12 @@ export default function AddMealDrawer({ open, onClose, userId, defaultTags }: Pr
             <div className="space-y-2">
               <p className="px-1 text-xs font-medium text-muted-foreground">Good for</p>
               <MealTagPicker value={tags} onChange={setTags} />
+              {tags.length === 0 && <p className="px-1 text-xs text-muted-foreground">Pick at least one tag</p>}
             </div>
             {error && <p className="text-sm text-destructive">{error}</p>}
             <Button
               type="submit"
-              disabled={saving || !name.trim()}
+              disabled={saving || !valid}
               onMouseDown={e => e.preventDefault()}
               className="h-12 w-full rounded-xl text-base font-semibold"
             >
