@@ -794,6 +794,7 @@ The `vercel.json` in this repo configures SPA routing (all paths → `index.html
 | `recipe_collection_items` | Many-to-many join between `recipes` and `recipe_collections` |
 | `reading_folders` | Nested reading-list folders — `parent_id` (null = root), cascade delete; a trigger rejects moving a folder into its own subtree |
 | `reading_books` | Saved books — `folder_id` (null = root), Open Library `ol_key` (unique per user), `title`, `author`, `cover_url`, `is_read` + `read_at`, and `is_current` (the "currently reading" book shown on the home page; a unique partial index allows at most one per user) |
+| `meals` | Meal ideas — meals you usually make at home: `name`, `description`, `image_url` (uploaded to the `meal-images` bucket), `recipe_id` (optional link to a `recipes` row; `on delete set null`), and `tags` (`text[]`, any of `breakfast`/`lunch`/`dinner`/`dessert`, enforced by a check constraint) |
 
 ### Storage
 
@@ -814,6 +815,12 @@ Avatar images are served via public URLs (`getPublicUrl`), no signed URLs needed
 **Max file size:** 8 MB (enforced in the client before upload)
 
 Recipe hero images work the same as avatars — public URLs, writes restricted to the owning user's folder. A recipe's `image_url` can also point at an external URL (pasted by the user, or carried over from a "paste a link" import); the app only ever attempts to delete from this bucket when the URL matches its own public-URL prefix, never for an external URL.
+
+**Bucket:** `meal-images` (public)
+**Path convention:** `{user_id}/{meal_id}-{timestamp}.{ext}`
+**Max file size:** 8 MB (enforced in the client before upload)
+
+Same model as `recipe-images`: public URLs, writes restricted to the owning user's folder. Every upload gets a fresh timestamped path, so replacing a photo never serves a stale image from the public CDN; the old file is removed after the row is updated. A meal with no photo of its own falls back to its linked recipe's image for display.
 
 ### RLS
 
@@ -846,6 +853,7 @@ Storage objects are scoped to `(storage.foldername(name))[1] = auth.uid()::text`
 | Settings | `/settings` | Enable/disable push notifications for habits and todos (see step 1g); manage connected Google accounts for Calendar (see step 1k); independently toggle the Focus section's daily and on-change auto-refresh (see step 1h) |
 | Recipes | `/recipes` | Collections rail, search, and a recipe grid. Add a recipe via AI (prompt/paste text/paste a link — see step 1n) or a manual form with an Ingredients/Directions editor. Recipe detail (`/recipes/:id`) has a servings scaler that multiplies ingredient quantities for display only |
 | Reading | `/reading` | Reading wish list. Search books via the free, keyless [Open Library](https://openlibrary.org/dev/docs/api/search) API (proxied through `/api/book-search`; `vite.config.ts` mirrors it in dev), save them as cover cards, mark read, filter by title/author/read status, and organize into nested folders with a Drive-style Move dialog. Mark one book as currently reading to show a widget under Today on the home page, where you can complete it (it stays in a persistent "finished" state) and pick the next one. Needs the `20260929_add_reading_list.sql` and `20260930_add_reading_current.sql` migrations |
+| Meal ideas | `/meals` | 3-column grid of meals you make at home (photo, name and tag chips). Quick filter chips — All / Breakfast / Lunch / Dinner (default) / Dessert — plus search, both kept in the URL (`?tag=&q=`) so Back from a meal restores them. **Random** picks a meal from the current filter and search, with "Another one" to re-roll. The FAB adds a meal (name + tags), then opens its profile (`/meals/:id`) where you toggle tags, edit the description, change the photo and link a recipe from Recipes. Needs the `20261011_add_meals.sql` migration |
 
 ---
 

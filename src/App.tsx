@@ -27,6 +27,8 @@ const RuneScape = lazy(() => import('./pages/RuneScape'))
 const QuestGuide = lazy(() => import('./pages/QuestGuide'))
 const RecipeDetail = lazy(() => import('./pages/RecipeDetail'))
 const RecipeEditor = lazy(() => import('./pages/RecipeEditor'))
+const MealIdeas = lazy(() => import('./pages/MealIdeas'))
+const MealDetail = lazy(() => import('./pages/MealDetail'))
 const Games = lazy(() => import('./pages/Games'))
 const Workout = lazy(() => import('./pages/Workout'))
 const DiceRoller = lazy(() => import('./pages/DiceRoller'))
@@ -104,6 +106,8 @@ export default function App() {
           <Route path="recipes/new" element={<RecipeEditor />} />
           <Route path="recipes/:id" element={<RecipeDetail />} />
           <Route path="recipes/:id/edit" element={<RecipeEditor />} />
+          <Route path="meals" element={<MealIdeas />} />
+          <Route path="meals/:id" element={<MealDetail />} />
           <Route path="workout" element={<Workout />} />
           <Route path="games" element={<Games />} />
           <Route path="pdf-tools" element={<PdfTools />} />
