@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest'
 import type { Meal, MealTag } from '../../supabase'
 import {
   DEFAULT_TAG_FILTER,
+  filterAfterAdd,
   filterMeals,
   isMealValid,
   mealImageUrl,
@@ -177,5 +178,40 @@ describe('isMealValid', () => {
 
   it('needs both', () => {
     expect(isMealValid({ name: '', tags: [] })).toBe(false)
+  })
+})
+
+describe('filterAfterAdd', () => {
+  it('leaves the filter and search alone when the new meal already shows', () => {
+    expect(filterAfterAdd({ tag: 'dinner', query: '' }, { name: 'Tuna melt', tags: ['dinner'] })).toEqual({ tag: 'dinner', query: '' })
+    expect(filterAfterAdd({ tag: 'dinner', query: 'tuna' }, { name: 'Tuna melt', tags: ['lunch', 'dinner'] })).toEqual({ tag: 'dinner', query: 'tuna' })
+  })
+
+  it('"all" always shows the new meal', () => {
+    expect(filterAfterAdd({ tag: 'all', query: '' }, { name: 'Tuna melt', tags: ['lunch'] })).toEqual({ tag: 'all', query: '' })
+  })
+
+  it('switches to the new meal\'s first tag (canonical order) when it lacks the active filter', () => {
+    expect(filterAfterAdd({ tag: 'dinner', query: '' }, { name: 'Pancakes', tags: ['dessert', 'breakfast'] })).toEqual({ tag: 'breakfast', query: '' })
+    expect(filterAfterAdd({ tag: 'dinner', query: '' }, { name: 'Tuna melt', tags: ['lunch'] })).toEqual({ tag: 'lunch', query: '' })
+  })
+
+  it('clears a search that the new name does not match', () => {
+    expect(filterAfterAdd({ tag: 'dinner', query: 'pasta' }, { name: 'Tuna melt', tags: ['dinner'] })).toEqual({ tag: 'dinner', query: '' })
+  })
+
+  it('keeps a search that matches the name, case-insensitively and trimmed', () => {
+    expect(filterAfterAdd({ tag: 'dinner', query: '  MELT ' }, { name: 'Tuna melt', tags: ['dinner'] })).toEqual({ tag: 'dinner', query: '  MELT ' })
+  })
+
+  it('adjusts both when both hide the new meal', () => {
+    expect(filterAfterAdd({ tag: 'dinner', query: 'pasta' }, { name: 'Pancakes', tags: ['breakfast'] })).toEqual({ tag: 'breakfast', query: '' })
+  })
+
+  it('the adjusted filter really does show the new meal', () => {
+    const added = { name: 'Tuna melt', tags: ['lunch' as MealTag] }
+    const next = filterAfterAdd({ tag: 'dessert', query: 'zzz' }, added)
+    const asMeal = meal('new', added.name, added.tags)
+    expect(filterMeals([asMeal], next.tag, next.query)).toHaveLength(1)
   })
 })
