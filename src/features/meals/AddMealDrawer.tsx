@@ -1,5 +1,4 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
 import { supabase } from '../../supabase'
 import type { MealTag } from '../../supabase'
 import { Button } from '../../components/ui/button'
@@ -15,12 +14,13 @@ type Props = {
   userId: string
   /** Prefilled from the list's active tag filter, so the new meal shows up where you are. */
   defaultTags: MealTag[]
+  /** Called after the meal is saved, with what was added, so the grid can refresh. */
+  onAdded: (meal: { name: string; tags: MealTag[] }) => void
 }
 
-// Quick add: a name and tags. The new meal's profile page opens next, where the
-// photo, description and recipe link are filled in.
-export default function AddMealDrawer({ open, onClose, userId, defaultTags }: Props) {
-  const navigate = useNavigate()
+// Quick add: a name and tags. The drawer closes back onto the grid; the photo,
+// description and recipe link are filled in later from the meal's profile page.
+export default function AddMealDrawer({ open, onClose, userId, defaultTags, onAdded }: Props) {
   const [name, setName] = useState('')
   const [tags, setTags] = useState<MealTag[]>(defaultTags)
   const [saving, setSaving] = useState(false)
@@ -32,19 +32,16 @@ export default function AddMealDrawer({ open, onClose, userId, defaultTags }: Pr
     if (!valid || saving) return
     setSaving(true)
     setError(null)
-    const { data, error } = await supabase
-      .from('meals')
-      .insert({ user_id: userId, name: name.trim(), tags })
-      .select('id')
-      .single()
+    const added = { name: name.trim(), tags }
+    const { error } = await supabase.from('meals').insert({ user_id: userId, ...added })
     setSaving(false)
-    if (error || !data) {
-      setError(error?.message ?? 'Could not add the meal.')
+    if (error) {
+      setError(error.message)
       return
     }
     haptic('success')
     onClose()
-    navigate(`/meals/${data.id}`)
+    onAdded(added)
   }
 
   return (

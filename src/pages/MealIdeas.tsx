@@ -3,7 +3,7 @@ import { useSearchParams } from 'react-router-dom'
 import { Plus, Search, Shuffle, UtensilsCrossed, X } from 'lucide-react'
 import type { User } from '@supabase/supabase-js'
 import { supabase } from '../supabase'
-import type { Meal } from '../supabase'
+import type { Meal, MealTag } from '../supabase'
 import { Input } from '../components/ui/input'
 import { Button } from '../components/ui/button'
 import { Fab } from '../components/ui/fab'
@@ -13,6 +13,7 @@ import RandomMealDrawer from '../features/meals/RandomMealDrawer'
 import {
   MEAL_TAGS,
   MEAL_TAG_LABELS,
+  filterAfterAdd,
   filterMeals,
   parseTagFilter,
   pickRandomMeal,
@@ -52,20 +53,33 @@ export default function MealIdeas() {
 
   useEffect(() => { load() }, [])
 
-  function setTag(next: TagFilter) {
+  // One URL write for any mix of filter + search: two back-to-back
+  // setSearchParams calls would each copy the same stale params, and the second
+  // would undo the first.
+  function updateFilter(next: { tag?: TagFilter; q?: string }) {
     const params = new URLSearchParams(searchParams)
-    const value = tagFilterToParam(next)
-    if (value) params.set('tag', value)
-    else params.delete('tag')
+    if (next.tag !== undefined) {
+      const value = tagFilterToParam(next.tag)
+      if (value) params.set('tag', value)
+      else params.delete('tag')
+    }
+    if (next.q !== undefined) {
+      setSearch(next.q)
+      if (next.q) params.set('q', next.q)
+      else params.delete('q')
+    }
     setSearchParams(params, { replace: true })
   }
 
-  function handleSearchChange(value: string) {
-    setSearch(value)
-    const params = new URLSearchParams(searchParams)
-    if (value) params.set('q', value)
-    else params.delete('q')
-    setSearchParams(params, { replace: true })
+  const setTag = (next: TagFilter) => updateFilter({ tag: next })
+  const handleSearchChange = (value: string) => updateFilter({ q: value })
+
+  // Stay on the grid after a quick add; make sure the new card is actually
+  // visible (the active filter/search may have hidden it) and refresh the list.
+  function handleAdded(added: { name: string; tags: MealTag[] }) {
+    const next = filterAfterAdd({ tag, query: search }, added)
+    if (next.tag !== tag || next.query !== search) updateFilter({ tag: next.tag, q: next.query })
+    load()
   }
 
   const filtered = useMemo(() => filterMeals(meals, tag, search), [meals, tag, search])
@@ -167,6 +181,7 @@ export default function MealIdeas() {
           onClose={() => setShowAdd(false)}
           userId={user.id}
           defaultTags={tag === 'all' ? [] : [tag]}
+          onAdded={handleAdded}
         />
       )}
 

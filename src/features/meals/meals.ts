@@ -66,3 +66,23 @@ export function mealImageUrl(meal: Pick<Meal, 'image_url' | 'recipe'>): string |
 export function isMealValid({ name, tags }: { name: string; tags: MealTag[] }): boolean {
   return name.trim().length > 0 && tags.length > 0
 }
+
+/**
+ * After quick-adding a meal from the grid, the active filter or search might
+ * hide it - and a card that vanishes looks like the save failed. Returns the
+ * minimal adjustment that keeps the new meal visible: switch to its first tag
+ * if the current tag filter excludes it, and clear a search its name doesn't
+ * match. Untouched when it already shows.
+ */
+export function filterAfterAdd(
+  current: { tag: TagFilter; query: string },
+  added: { name: string; tags: MealTag[] },
+): { tag: TagFilter; query: string } {
+  let { tag, query } = current
+  if (tag !== 'all' && !added.tags.includes(tag)) {
+    tag = MEAL_TAGS.find(t => added.tags.includes(t)) ?? 'all'
+  }
+  const q = query.trim().toLowerCase()
+  if (q && !added.name.toLowerCase().includes(q)) query = ''
+  return { tag, query }
+}
