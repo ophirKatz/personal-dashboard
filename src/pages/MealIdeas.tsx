@@ -150,7 +150,7 @@ export default function MealIdeas() {
           )}
         </div>
       ) : (
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
+        <div className="grid grid-cols-3 gap-2.5 sm:gap-3">
           {filtered.map(meal => <MealCard key={meal.id} meal={meal} />)}
         </div>
       )}

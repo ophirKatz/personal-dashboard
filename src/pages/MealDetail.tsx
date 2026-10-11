@@ -206,7 +206,7 @@ export default function MealDetail() {
   }
 
   return (
-    <div className="mx-auto max-w-2xl p-4 pb-24">
+    <div className="mx-auto max-w-2xl p-4 pb-4">
       <div className="mb-6 flex items-center gap-3">
         <button type="button" onClick={handleBack} aria-label="Back" className="-ml-2 rounded-lg p-2 hover:bg-accent">
           <ChevronLeft className="h-5 w-5" />
@@ -295,15 +295,17 @@ export default function MealDetail() {
           )}
         </div>
 
-        {error && <p className="rounded-lg bg-destructive/10 p-3 text-sm text-destructive">{error}</p>}
-
-        <Button
-          type="submit"
-          disabled={saving || !dirty || !name.trim()}
-          className="h-12 w-full rounded-xl text-base font-semibold"
-        >
-          {saving ? 'Saving…' : justSaved && !dirty ? (<><Check className="h-4 w-4" />Saved</>) : 'Save changes'}
-        </Button>
+        {/* Pinned to the bottom of the scroll area, just above the mobile tab bar. */}
+        <div className="sticky bottom-[var(--tabbar-height,0px)] z-20 -mx-4 space-y-2 border-t border-border bg-background px-4 py-3 md:bottom-0">
+          {error && <p className="rounded-lg bg-destructive/10 p-3 text-sm text-destructive">{error}</p>}
+          <Button
+            type="submit"
+            disabled={saving || !dirty || !name.trim()}
+            className="h-12 w-full rounded-xl text-base font-semibold"
+          >
+            {saving ? 'Saving…' : justSaved && !dirty ? (<><Check className="h-4 w-4" />Saved</>) : 'Save changes'}
+          </Button>
+        </div>
       </form>
 
       <button
