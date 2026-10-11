@@ -482,3 +482,18 @@ export type RsDiaryProgress = {
   task_id: string
   completed_at: string
 }
+
+export type MealTag = 'breakfast' | 'lunch' | 'dinner' | 'dessert'
+
+export type Meal = {
+  id: string
+  user_id: string
+  name: string
+  description: string | null
+  image_url: string | null
+  recipe_id: string | null
+  tags: MealTag[]
+  created_at: string
+  /** Present when loaded with the `recipe:recipes(id,title,image_url)` embed. */
+  recipe?: Pick<Recipe, 'id' | 'title' | 'image_url'> | null
+}
