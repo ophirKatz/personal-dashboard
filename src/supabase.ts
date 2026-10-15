@@ -497,3 +497,42 @@ export type Meal = {
   /** Present when loaded with the `recipe:recipes(id,title,image_url)` embed. */
   recipe?: Pick<Recipe, 'id' | 'title' | 'image_url'> | null
 }
+
+export type WealthOwner = 'ophir' | 'yael' | 'shared'
+
+export type WealthItem = {
+  id: string
+  user_id: string
+  name: string
+  /** A built-in category key (see WEALTH_CATEGORIES); unknown values read as 'other'. */
+  category: string
+  owner: WealthOwner
+  notes: string | null
+  created_at: string
+}
+
+/** One dated balance for an item. An item's current balance is its latest snapshot. */
+export type WealthSnapshot = {
+  id: string
+  user_id: string
+  item_id: string
+  recorded_on: string // yyyy-MM-dd, local date
+  balance: number
+  currency: string // CurrencyCode, e.g. 'ils'
+  created_at: string
+}
+
+export type WealthGoal = {
+  id: string
+  user_id: string
+  name: string
+  /** Always NIS. */
+  target_amount: number
+  target_date: string | null
+  /** Whose wealth counts toward the goal; all three owners = everyone. Ignored when item_id is set. */
+  scope: WealthOwner[]
+  /** When set, the goal tracks just this account instead of pooled wealth. */
+  item_id: string | null
+  notes: string | null
+  created_at: string
+}

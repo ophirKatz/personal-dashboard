@@ -60,7 +60,7 @@ export default function StockCard() {
           <a href="https://finnhub.io/register" target="_blank" rel="noreferrer" className="text-primary underline">
             finnhub.io
           </a>{' '}
-          and set <code className="text-xs">VITE_FINNHUB_API_KEY</code>.
+          and set <code className="text-xs">FINNHUB_API_KEY</code>.
         </p>
       </div>
     )

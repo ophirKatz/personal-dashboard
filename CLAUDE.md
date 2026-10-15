@@ -21,12 +21,12 @@ credentials or a logged-in session:
 2. **Bypass the auth gate** by temporarily editing `src/main.tsx` to render
    the page under test directly instead of `<App />`:
    ```tsx
-   import Finance from './pages/Finance'
+   import Converter from './pages/Converter'
    // ...
    createRoot(document.getElementById('root')!).render(
      <StrictMode>
        <BrowserRouter>
-         <Finance />
+         <Converter />
        </BrowserRouter>
      </StrictMode>,
    )
