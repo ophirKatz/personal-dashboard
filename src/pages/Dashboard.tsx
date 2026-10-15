@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react'
-import type { MouseEvent, KeyboardEvent } from 'react'
-import { Bell, ShoppingCart, Mountain, ArrowLeftRight, Folder, Plus, X } from 'lucide-react'
+import { Bell, ShoppingCart, Mountain, Plus, X } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import type { User } from '@supabase/supabase-js'
 import { supabase } from '../supabase'
@@ -17,10 +16,11 @@ import TodaySection from '../features/today/TodaySection'
 import type { TodayEvent } from '../features/today/TodaySection'
 import { hasWorkedOutToday } from '../features/workout/workout'
 import { getShowFocusSection } from '../lib/userSettings'
-import { useLongPress } from '../lib/useLongPress'
 import ShoppingItemDrawer from '../features/shopping/ShoppingItemDrawer'
 import QuickLogSessionDrawer from '../features/climbing/QuickLogSessionDrawer'
-import StarredFilesDrawer from '../features/files/StarredFilesDrawer'
+import { fetchNextClimbingSession, nextSessionLabel } from '../features/climbing/nextClimbingSession'
+import { fetchItemsToBuyCount, itemsToBuyLabel } from '../features/shopping/itemsToBuy'
+import QuickLinkCard from '../features/dashboard/QuickLinkCard'
 import TaskDrawer from '../features/todos/TaskDrawer'
 import { Button } from '../components/ui/button'
 import { fetchHabitsV2Enabled, loadHabitStatuses, toggleHabitCompletion } from '../features/habits/habitStatus'
@@ -41,29 +41,19 @@ export default function Dashboard() {
   const [user, setUser] = useState<User | null>(null)
   const [showAddItem, setShowAddItem] = useState(false)
   const [showLogSession, setShowLogSession] = useState(false)
-  const [showStarredFiles, setShowStarredFiles] = useState(false)
+  // Quick-link subtitles: undefined while loading, '—' if the query failed.
+  const [shoppingSubtitle, setShoppingSubtitle] = useState<string | undefined>()
+  const [climbingSubtitle, setClimbingSubtitle] = useState<string | undefined>()
   const [showAddTask, setShowAddTask] = useState(false)
   const [friends, setFriends] = useState<Friend[]>([])
 
   const navigate = useNavigate()
-  const shoppingLongPress = useLongPress(() => setShowAddItem(true))
-  const climbingLongPress = useLongPress(() => setShowLogSession(true))
-  const filesLongPress = useLongPress(() => setShowStarredFiles(true))
-
-  function quickLinkClick(longPress: { onClick: (e: MouseEvent) => void }, path: string) {
-    return (e: MouseEvent<HTMLDivElement>) => {
-      longPress.onClick(e)
-      if (!e.defaultPrevented) navigate(path)
-    }
+  function loadShoppingSubtitle() {
+    fetchItemsToBuyCount().then(n => setShoppingSubtitle(itemsToBuyLabel(n)), () => setShoppingSubtitle('—'))
   }
 
-  function quickLinkKeyDown(path: string) {
-    return (e: KeyboardEvent<HTMLDivElement>) => {
-      if (e.key === 'Enter' || e.key === ' ') {
-        e.preventDefault()
-        navigate(path)
-      }
-    }
+  function loadClimbingSubtitle() {
+    fetchNextClimbingSession().then(e => setClimbingSubtitle(nextSessionLabel(e)), () => setClimbingSubtitle('—'))
   }
 
   async function loadLocalData() {
@@ -98,8 +88,13 @@ export default function Dashboard() {
   }
 
   useEffect(() => {
+    loadShoppingSubtitle()
+    loadClimbingSubtitle()
     loadLocalData().then(() => {
-      refreshGoogleCalendarEvents().then(loadLocalData)
+      refreshGoogleCalendarEvents().then(() => {
+        loadLocalData()
+        loadClimbingSubtitle()
+      })
     })
     getShowFocusSection().then(setShowFocusSection)
     supabase.auth.getUser().then(({ data: { user } }) => setUser(user))
@@ -229,66 +224,28 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* Quick links - static, no data dependency, always shown immediately */}
-      <div className="grid grid-cols-4 gap-3">
-        <div
-          role="link"
-          tabIndex={0}
-          aria-label="Shopping List"
-          title="Long press to add an item"
-          className="flex flex-col items-center justify-center gap-1.5 p-3.5 bg-card border border-border rounded-xl active:scale-[0.98] transition-transform select-none cursor-pointer"
-          {...shoppingLongPress}
-          onClick={quickLinkClick(shoppingLongPress, '/shopping')}
-          onKeyDown={quickLinkKeyDown('/shopping')}
-        >
-          <div className="w-9 h-9 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0 select-none">
-            <ShoppingCart className="h-4 w-4" />
-          </div>
-          <span className="text-xs font-medium text-muted-foreground select-none">Shopping</span>
-        </div>
-        <div
-          role="link"
-          tabIndex={0}
-          aria-label="Climbing"
-          title="Long press to log a session"
-          className="flex flex-col items-center justify-center gap-1.5 p-3.5 bg-card border border-border rounded-xl active:scale-[0.98] transition-transform select-none cursor-pointer"
-          {...climbingLongPress}
-          onClick={quickLinkClick(climbingLongPress, '/climbing')}
-          onKeyDown={quickLinkKeyDown('/climbing')}
-        >
-          <div className="w-9 h-9 rounded-lg bg-orange-100 text-orange-700 flex items-center justify-center shrink-0 select-none">
-            <Mountain className="h-4 w-4" />
-          </div>
-          <span className="text-xs font-medium text-muted-foreground select-none">Climbing</span>
-        </div>
-        <div
-          role="link"
-          tabIndex={0}
-          aria-label="Converter"
-          className="flex flex-col items-center justify-center gap-1.5 p-3.5 bg-card border border-border rounded-xl active:scale-[0.98] transition-transform select-none cursor-pointer"
-          onClick={() => navigate('/converter')}
-          onKeyDown={quickLinkKeyDown('/converter')}
-        >
-          <div className="w-9 h-9 rounded-lg bg-amber-100 text-amber-700 flex items-center justify-center shrink-0 select-none">
-            <ArrowLeftRight className="h-4 w-4" />
-          </div>
-          <span className="text-xs font-medium text-muted-foreground select-none">Converter</span>
-        </div>
-        <div
-          role="link"
-          tabIndex={0}
-          aria-label="Files"
-          title="Long press for starred files"
-          className="flex flex-col items-center justify-center gap-1.5 p-3.5 bg-card border border-border rounded-xl active:scale-[0.98] transition-transform select-none cursor-pointer"
-          {...filesLongPress}
-          onClick={quickLinkClick(filesLongPress, '/files')}
-          onKeyDown={quickLinkKeyDown('/files')}
-        >
-          <div className="w-9 h-9 rounded-lg bg-purple-100 text-purple-700 flex items-center justify-center shrink-0 select-none">
-            <Folder className="h-4 w-4" />
-          </div>
-          <span className="text-xs font-medium text-muted-foreground select-none">Files</span>
-        </div>
+      {/* Quick links: each shows live status and has a "+" for its quick-add drawer (also opened by long press) */}
+      <div className="grid grid-cols-2 gap-3">
+        <QuickLinkCard
+          to="/shopping"
+          label="Shopping"
+          icon={ShoppingCart}
+          iconClassName="bg-emerald-100 text-emerald-700"
+          subtitle={shoppingSubtitle}
+          onQuickAdd={() => setShowAddItem(true)}
+          quickAddLabel="Add shopping item"
+          longPressHint="Long press to add an item"
+        />
+        <QuickLinkCard
+          to="/climbing"
+          label="Climbing"
+          icon={Mountain}
+          iconClassName="bg-orange-100 text-orange-700"
+          subtitle={climbingSubtitle}
+          onQuickAdd={() => setShowLogSession(true)}
+          quickAddLabel="Log climbing session"
+          longPressHint="Long press to log a session"
+        />
       </div>
 
       {/* Today: habits, tasks due today, today's events, and weather */}
@@ -331,7 +288,7 @@ export default function Dashboard() {
         <ShoppingItemDrawer
           open={showAddItem}
           onClose={() => setShowAddItem(false)}
-          onSave={() => {}}
+          onSave={loadShoppingSubtitle}
           userId={user.id}
         />
       )}
@@ -343,7 +300,6 @@ export default function Dashboard() {
           userId={user.id}
         />
       )}
-      <StarredFilesDrawer open={showStarredFiles} onClose={() => setShowStarredFiles(false)} />
       {user && showAddTask && (
         <TaskDrawer
           open={showAddTask}
