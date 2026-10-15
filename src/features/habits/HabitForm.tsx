@@ -16,6 +16,10 @@ const COLORS = [
 
 const EMOJIS = ['✅', '💪', '📚', '🏃', '🧘', '💧', '🥗', '😴', '🎯', '🌟', '🔥', '❤️']
 
+// The DB check only requires interval_days >= 2 (no upper bound).
+const MIN_INTERVAL_DAYS = 2
+const MAX_INTERVAL_DAYS = 365
+
 type Props = {
   open: boolean
   onClose: () => void
@@ -37,6 +41,11 @@ export default function HabitForm({ open, onClose, onSave, habit, userId, v2Enab
     habit?.reminder_time ? utcTimeToLocalTime(habit.reminder_time.slice(0, 5)) : '09:00',
   )
   const [saving, setSaving] = useState(false)
+
+  function adjustIntervalDays(delta: number) {
+    haptic('selection')
+    setIntervalDays(d => Math.min(MAX_INTERVAL_DAYS, Math.max(MIN_INTERVAL_DAYS, d + delta)))
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -149,14 +158,23 @@ export default function HabitForm({ open, onClose, onSave, habit, userId, v2Enab
                 </div>
               )}
               {frequency === 'every_n_days' && (
-                <div className="flex items-center gap-3 pt-1">
-                  <Label className="shrink-0">Every</Label>
-                  <div className="flex items-center gap-2 ml-auto">
-                    <button type="button" onClick={() => setIntervalDays(Math.max(2, intervalDays - 1))} className="w-8 h-8 rounded-lg border flex items-center justify-center hover:bg-accent">−</button>
-                    <span className="w-6 text-center font-medium">{intervalDays}</span>
-                    <button type="button" onClick={() => setIntervalDays(Math.min(30, intervalDays + 1))} className="w-8 h-8 rounded-lg border flex items-center justify-center hover:bg-accent">+</button>
+                <div className="space-y-2 pt-1">
+                  <div className="flex items-center gap-3">
+                    <Label className="shrink-0">Every</Label>
+                    <div className="flex items-center gap-2 ml-auto">
+                      <button type="button" onClick={() => adjustIntervalDays(-1)} className="w-8 h-8 rounded-lg border flex items-center justify-center hover:bg-accent">−</button>
+                      <span className="w-9 text-center font-medium">{intervalDays}</span>
+                      <button type="button" onClick={() => adjustIntervalDays(1)} className="w-8 h-8 rounded-lg border flex items-center justify-center hover:bg-accent">+</button>
+                    </div>
+                    <span className="text-sm text-muted-foreground">days</span>
                   </div>
-                  <span className="text-sm text-muted-foreground">days</span>
+                  <div className="flex items-center justify-end gap-2">
+                    {intervalDays >= 30 && (
+                      <span className="mr-auto text-xs text-muted-foreground">≈ {+(intervalDays / 30).toFixed(1)} months</span>
+                    )}
+                    <button type="button" onClick={() => adjustIntervalDays(-10)} className="h-8 px-3 rounded-lg border text-sm font-medium hover:bg-accent">−10</button>
+                    <button type="button" onClick={() => adjustIntervalDays(10)} className="h-8 px-3 rounded-lg border text-sm font-medium hover:bg-accent">+10</button>
+                  </div>
                 </div>
               )}
             </div>
