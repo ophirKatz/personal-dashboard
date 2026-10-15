@@ -21,11 +21,13 @@ type Props = {
   /** This item's snapshots, newest first. The first one is its current balance. */
   snapshots: WealthSnapshot[]
   rates: IlsRates
+  /** Goals tied to this account; they're deleted along with it. */
+  linkedGoalCount: number
   /** Called after any change so the page can reload. */
   onChanged: () => void
 }
 
-export default function EditItemDrawer({ open, onClose, userId, item, snapshots, rates, onChanged }: Props) {
+export default function EditItemDrawer({ open, onClose, userId, item, snapshots, rates, linkedGoalCount, onChanged }: Props) {
   const current = snapshots[0] ?? null
 
   // Details
@@ -264,7 +266,9 @@ export default function EditItemDrawer({ open, onClose, userId, item, snapshots,
             className="h-11 w-full rounded-xl"
           >
             <Trash2 className="h-4 w-4" />
-            {confirming === 'item' ? 'Tap again to delete the account and its history' : 'Delete account'}
+            {confirming === 'item'
+              ? `Tap again to delete the account, its history${linkedGoalCount > 0 ? ` and ${linkedGoalCount} linked ${linkedGoalCount === 1 ? 'goal' : 'goals'}` : ''}`
+              : 'Delete account'}
           </Button>
         </DrawerBody>
       </DrawerContent>

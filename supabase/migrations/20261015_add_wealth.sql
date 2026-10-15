@@ -46,14 +46,23 @@ create table if not exists public.wealth_goals (
   name text not null,
   target_amount numeric(18, 2) not null check (target_amount > 0), -- always NIS
   target_date date,
-  -- Whose wealth counts toward this goal. All three = everyone.
+  -- Whose wealth counts toward this goal. All three = everyone. Ignored when
+  -- item_id is set.
   scope text[] not null default '{ophir,yael,shared}'
     check (cardinality(scope) > 0 and scope <@ array['ophir', 'yael', 'shared']),
+  -- Optional: track one account instead of pooled wealth. Deleting the account
+  -- deletes the goal - a goal about an account that's gone has nothing to track.
+  item_id uuid references public.wealth_items(id) on delete cascade,
   notes text,
   created_at timestamptz not null default now()
 );
 
+-- For databases that ran an earlier version of this migration without item_id.
+alter table public.wealth_goals
+  add column if not exists item_id uuid references public.wealth_items(id) on delete cascade;
+
 create index if not exists wealth_goals_user_id_idx on public.wealth_goals (user_id);
+create index if not exists wealth_goals_item_id_idx on public.wealth_goals (item_id);
 
 alter table public.wealth_items enable row level security;
 alter table public.wealth_snapshots enable row level security;

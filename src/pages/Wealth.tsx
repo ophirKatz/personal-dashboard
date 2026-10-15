@@ -241,6 +241,7 @@ export default function Wealth() {
           item={editingItem}
           snapshots={snapshotsForItem(snapshots, editingItem.id)}
           rates={rates}
+          linkedGoalCount={goals.filter(g => g.item_id === editingItem.id).length}
           onChanged={load}
         />
       )}
@@ -253,6 +254,7 @@ export default function Wealth() {
           userId={user.id}
           goal={editingGoal}
           defaultScope={owner === 'all' ? WEALTH_OWNERS : [owner]}
+          items={items}
           onSaved={load}
         />
       )}

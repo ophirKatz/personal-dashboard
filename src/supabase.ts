@@ -529,8 +529,10 @@ export type WealthGoal = {
   /** Always NIS. */
   target_amount: number
   target_date: string | null
-  /** Whose wealth counts toward the goal; all three owners = everyone. */
+  /** Whose wealth counts toward the goal; all three owners = everyone. Ignored when item_id is set. */
   scope: WealthOwner[]
+  /** When set, the goal tracks just this account instead of pooled wealth. */
+  item_id: string | null
   notes: string | null
   created_at: string
 }

@@ -1,15 +1,16 @@
 import { useState } from 'react'
 import { Trash2 } from 'lucide-react'
 import { supabase } from '../../supabase'
-import type { WealthGoal, WealthOwner } from '../../supabase'
+import type { WealthGoal, WealthItem, WealthOwner } from '../../supabase'
 import { Button } from '../../components/ui/button'
 import { Input } from '../../components/ui/input'
 import { Label } from '../../components/ui/label'
 import { Textarea } from '../../components/ui/textarea'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select'
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerBody } from '../../components/ui/drawer'
 import { haptic } from '../../lib/haptics'
 import { ScopePicker } from './WealthPickers'
-import { WEALTH_OWNERS, isGoalValid, parseAmount, toggleScope } from './wealth'
+import { OWNER_LABELS, WEALTH_OWNERS, isGoalValid, parseAmount, toggleScope } from './wealth'
 
 type Props = {
   open: boolean
@@ -19,19 +20,26 @@ type Props = {
   goal: WealthGoal | null
   /** Scope a new goal starts with (the owner filter on screen, else everyone). */
   defaultScope: WealthOwner[]
+  /** Accounts a goal can be tied to. */
+  items: WealthItem[]
   onSaved: () => void
 }
 
-export default function WealthGoalDrawer({ open, onClose, userId, goal, defaultScope, onSaved }: Props) {
+// Radix Select can't use an empty string as an item value.
+const POOLED = 'pooled'
+
+export default function WealthGoalDrawer({ open, onClose, userId, goal, defaultScope, items, onSaved }: Props) {
   const [name, setName] = useState(goal?.name ?? '')
   const [target, setTarget] = useState(goal ? String(goal.target_amount) : '')
   const [targetDate, setTargetDate] = useState(goal?.target_date ?? '')
   const [scope, setScope] = useState<WealthOwner[]>(goal?.scope ?? defaultScope)
+  const [itemId, setItemId] = useState<string | null>(goal?.item_id ?? null)
   const [notes, setNotes] = useState(goal?.notes ?? '')
   const [saving, setSaving] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const valid = isGoalValid({ name, target })
+  const sortedItems = [...items].sort((a, b) => a.name.localeCompare(b.name))
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -44,6 +52,7 @@ export default function WealthGoalDrawer({ open, onClose, userId, goal, defaultS
       target_amount: amount,
       target_date: targetDate || null,
       scope,
+      item_id: itemId,
       notes: notes.trim() || null,
     }
     const { error } = goal
@@ -109,12 +118,31 @@ export default function WealthGoalDrawer({ open, onClose, userId, goal, defaultS
             </div>
 
             <div className="space-y-2">
-              <Label>Counts wealth from</Label>
-              <ScopePicker value={scope} onToggle={owner => setScope(s => toggleScope(s, owner))} />
-              <p className="text-xs text-muted-foreground">
-                Progress is your total wealth for the owners selected
-                {scope.length === WEALTH_OWNERS.length ? ' (everyone)' : ''}.
-              </p>
+              <Label>Track progress from</Label>
+              <Select value={itemId ?? POOLED} onValueChange={v => setItemId(v === POOLED ? null : v)}>
+                <SelectTrigger className="h-11 rounded-xl" aria-label="Account to track">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="max-h-64">
+                  <SelectItem value={POOLED}>All wealth, by owner</SelectItem>
+                  {sortedItems.map(i => (
+                    <SelectItem key={i.id} value={i.id}>
+                      {i.name} · {OWNER_LABELS[i.owner]}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {itemId ? (
+                <p className="text-xs text-muted-foreground">Progress follows this account's balance, converted to ₪.</p>
+              ) : (
+                <>
+                  <ScopePicker value={scope} onToggle={owner => setScope(s => toggleScope(s, owner))} />
+                  <p className="text-xs text-muted-foreground">
+                    Progress is your total wealth for the owners selected
+                    {scope.length === WEALTH_OWNERS.length ? ' (everyone)' : ''}.
+                  </p>
+                </>
+              )}
             </div>
 
             <div className="space-y-1.5">

@@ -54,6 +54,7 @@ function goal(extra: Partial<WealthGoal> = {}): WealthGoal {
     target_amount: 1000,
     target_date: null,
     scope: ['ophir', 'yael', 'shared'],
+    item_id: null,
     notes: null,
     created_at: '2026-10-01T00:00:00Z',
     ...extra,
@@ -239,6 +240,37 @@ describe('goal progress', () => {
     expect(p.pct).toBe(100)
     expect(p.remaining).toBe(0)
     expect(p.reached).toBe(true)
+  })
+
+  it('tracks only the linked account, ignoring the owner scope', () => {
+    // scope says Ophir only, but the linked account is Yael's - the link wins.
+    const linked = goal({ item_id: 'b', scope: ['ophir'], target_amount: 400 })
+    const p = goalProgress(linked, values, '2026-10-15')
+    expect(p.current).toBe(100)
+    expect(p.pct).toBe(25)
+    expect(p.remaining).toBe(300)
+    expect(p.unavailable).toBe(false)
+  })
+
+  it('reaches a linked goal from that account alone, not the pooled total', () => {
+    // Pool is 600, but account "a" is only 300.
+    expect(goalProgress(goal({ item_id: 'a', target_amount: 500 }), values, '2026-10-15').reached).toBe(false)
+    expect(goalProgress(goal({ item_id: 'a', target_amount: 300 }), values, '2026-10-15').reached).toBe(true)
+  })
+
+  it('treats a linked account with no balance yet as zero progress', () => {
+    const empty = itemValues([...items, item('z', 'New', 'ophir')], snapshots, RATES)
+    const p = goalProgress(goal({ item_id: 'z' }), empty, '2026-10-15')
+    expect(p.current).toBe(0)
+    expect(p.unavailable).toBe(false)
+  })
+
+  it('flags a linked goal as unavailable when the account can\'t be converted', () => {
+    const usd = itemValues([item('u', 'IBKR')], [snap('u', '2026-10-01', 5000, 'usd')], null)
+    const p = goalProgress(goal({ item_id: 'u', target_amount: 100 }), usd, '2026-10-15')
+    expect(p.unavailable).toBe(true)
+    expect(p.reached).toBe(false)
+    expect(p.pct).toBe(0)
   })
 
   it('counts days to the target date, negative when overdue', () => {

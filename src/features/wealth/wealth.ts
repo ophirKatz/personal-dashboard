@@ -228,16 +228,26 @@ export type GoalProgress = {
   reached: boolean
   /** Calendar days until the target date (negative when overdue); null without a date. */
   daysLeft: number | null
+  /** The linked account has a balance but no exchange rate to convert it, so progress can't be known. */
+  unavailable: boolean
 }
 
+/**
+ * A goal tied to one account tracks just that account's balance; otherwise it
+ * pools every account whose owner is in the goal's scope.
+ */
 export function goalProgress(goal: WealthGoal, values: ItemValue[], todayStr: string): GoalProgress {
-  const current = sumIls(values.filter(v => goal.scope.includes(v.item.owner)))
+  const linked = goal.item_id ? values.find(v => v.item.id === goal.item_id) : undefined
+  const counted = goal.item_id ? (linked ? [linked] : []) : values.filter(v => goal.scope.includes(v.item.owner))
+  const current = sumIls(counted)
+  const unavailable = !!linked && linked.snapshot !== null && linked.ils === null
   const pct = Math.min(100, Math.max(0, (current / goal.target_amount) * 100))
   return {
     current,
     pct,
     remaining: Math.max(0, goal.target_amount - current),
-    reached: current >= goal.target_amount,
+    reached: !unavailable && current >= goal.target_amount,
+    unavailable,
     daysLeft: goal.target_date ? differenceInCalendarDays(parseISO(goal.target_date), parseISO(todayStr)) : null,
   }
 }

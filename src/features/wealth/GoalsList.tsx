@@ -1,6 +1,7 @@
 import { Check, Target } from 'lucide-react'
 import type { WealthGoal } from '../../supabase'
 import { cn } from '../../utils'
+import { categoryIcon } from './WealthPickers'
 import { describeDaysLeft, formatMoney, formatMoneyRounded, goalProgress, scopeLabel, sortGoals } from './wealth'
 import type { ItemValue } from './wealth'
 
@@ -26,6 +27,8 @@ export default function GoalsList({ goals, values, todayStr, onOpen }: Props) {
     <div className="space-y-3">
       {sortGoals(goals).map(goal => {
         const p = goalProgress(goal, values, todayStr)
+        const linked = goal.item_id ? values.find(v => v.item.id === goal.item_id)?.item : undefined
+        const LinkedIcon = linked ? categoryIcon(linked.category) : null
         return (
           <button
             key={goal.id}
@@ -36,12 +39,21 @@ export default function GoalsList({ goals, values, todayStr, onOpen }: Props) {
             <div className="flex items-start justify-between gap-2">
               <div className="min-w-0">
                 <p className="font-semibold leading-tight">{goal.name}</p>
-                <p className="mt-1 text-xs text-muted-foreground">{scopeLabel(goal.scope)}</p>
+                {linked && LinkedIcon ? (
+                  <p className="mt-1 flex items-center gap-1 text-xs text-muted-foreground">
+                    <LinkedIcon className="h-3 w-3 shrink-0" />
+                    <span className="truncate">{linked.name}</span>
+                  </p>
+                ) : (
+                  <p className="mt-1 text-xs text-muted-foreground">{scopeLabel(goal.scope)}</p>
+                )}
               </div>
               {p.reached ? (
                 <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-emerald-100 px-2 py-1 text-xs font-medium text-emerald-700">
                   <Check className="h-3 w-3" /> Reached
                 </span>
+              ) : p.unavailable ? (
+                <span className="shrink-0 text-lg font-bold text-muted-foreground">—</span>
               ) : (
                 <span className="shrink-0 text-lg font-bold tabular-nums">{Math.floor(p.pct)}%</span>
               )}
@@ -63,7 +75,9 @@ export default function GoalsList({ goals, values, todayStr, onOpen }: Props) {
 
             <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
               <span className="tabular-nums">
-                {formatMoneyRounded(p.current)} of {formatMoney(goal.target_amount)}
+                {p.unavailable
+                  ? `Exchange rate unavailable · target ${formatMoney(goal.target_amount)}`
+                  : `${formatMoneyRounded(p.current)} of ${formatMoney(goal.target_amount)}`}
               </span>
               {p.daysLeft !== null && (
                 <span className={cn(p.daysLeft < 0 && !p.reached && 'font-medium text-destructive')}>
