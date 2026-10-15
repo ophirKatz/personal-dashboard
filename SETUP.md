@@ -798,6 +798,7 @@ The `vercel.json` in this repo configures SPA routing (all paths → `index.html
 | `wealth_items` | Wealth tracking accounts/holdings: free-form `name`, a built-in `category` (bank, savings, investment, pension, study_fund, provident_fund, crypto, real_estate, cash, other — validated in the app), an `owner` label (`ophir`/`yael`/`shared`, a tag only — every row still belongs to the one signed-in `user_id`) and optional `notes` |
 | `wealth_snapshots` | Dated balance ledger per item (`recorded_on`, `balance`, `currency`); one row per item per day (unique `(item_id, recorded_on)`). An item's current balance is its latest snapshot, and the history feeds the net-worth trend. Deleting an item cascades to its snapshots |
 | `wealth_goals` | Financial goals: `target_amount` (NIS), optional `target_date`, `notes`, and either an optional `item_id` (the goal tracks just that account; deleting the account deletes the goal) or a `scope` (`text[]` of owners whose pooled wealth counts toward it). Progress is computed from current balances, not stored |
+| `user_settings` | One row per user of app preferences (Focus section toggles, bottom-nav items, More layout, Today widget order, Tomorrow banner times). Page lock adds `lock_code` (4 digits, default `0000`) and `locked_pages` (`text[]` of page keys from `src/lib/navItems.ts`, default `{wealth}`) — see the `20261016_add_page_lock.sql` migration |
 
 ### Storage
 
@@ -855,10 +856,23 @@ Storage objects are scoped to `(storage.foldername(name))[1] = auth.uid()::text`
 | Converter | `/converter` | Calculator-style currency converter (free, no-key [currency-api](https://github.com/fawazahmed0/currency-api)) with optional rate alerts. Always shown — no tabs. `/finance` redirects here |
 | Stocks | `/stocks` | TENB stock quote with a price alert, proxied server-side through `/api/stock-quote` (Finnhub, needs `FINNHUB_API_KEY`) so the key never reaches the browser |
 | Wealth | `/wealth` | Total wealth in NIS (per-item currency, converted with the same currency-api rates) with an Ophir / Yael / Shared owner filter. **Accounts**: built-in types (bank, savings, investment, pension, study fund, provident fund, crypto, real estate, cash) or fully custom names, each with an owner tag and notes. Every balance update is stored as a dated snapshot (backfilling a past date is allowed). **Goals**: target amount, optional date, and either one specific account to track or an owner scope (Ophir / Yael / Shared) whose pooled wealth counts; progress is computed from current balances. **Trend**: net worth over time, shown at today's exchange rates. Needs the `20261015_add_wealth.sql` migration |
-| Settings | `/settings` | Enable/disable push notifications for habits and todos (see step 1g); manage connected Google accounts for Calendar (see step 1k); independently toggle the Focus section's daily and on-change auto-refresh (see step 1h) |
+| Settings | `/settings` | Enable/disable push notifications for habits and todos (see step 1g); manage connected Google accounts for Calendar (see step 1k); independently toggle the Focus section's daily and on-change auto-refresh (see step 1h); **Page lock** — pick pages that ask for a 4-digit code before opening (see below) |
 | Recipes | `/recipes` | Collections rail, search, and a recipe grid. Add a recipe via AI (prompt/paste text/paste a link — see step 1n) or a manual form with an Ingredients/Directions editor. Recipe detail (`/recipes/:id`) has a servings scaler that multiplies ingredient quantities for display only |
 | Reading | `/reading` | Reading wish list. Search books via the free, keyless [Open Library](https://openlibrary.org/dev/docs/api/search) API (proxied through `/api/book-search`; `vite.config.ts` mirrors it in dev), save them as cover cards, mark read, filter by title/author/read status, and organize into nested folders with a Drive-style Move dialog. Mark one book as currently reading to show a widget under Today on the home page, where you can complete it (it stays in a persistent "finished" state) and pick the next one. Needs the `20260929_add_reading_list.sql` and `20260930_add_reading_current.sql` migrations |
 | Meal ideas | `/meals` | 3-column grid of meals you make at home (photo, name and tag chips). Quick filter chips — All / Breakfast / Lunch / Dinner (default) / Dessert — plus search, both kept in the URL (`?tag=&q=`) so Back from a meal restores them. **Random** picks a meal from the current filter and search, with "Another one" to re-roll. The FAB quick-adds a meal (name + at least one tag) and leaves you on the grid — if the active filter or search would hide the new card, they adjust so it's visible. Tap a card to open its profile (`/meals/:id`), where you toggle tags, edit the description, change the photo and link a recipe from Recipes. Needs the `20261011_add_meals.sql` migration |
+
+---
+
+## Page lock
+
+Pages you choose (Wealth is locked by default) ask for a 4-digit code before they open. Settings → **Page lock** picks the pages and changes the code; the code starts as `0000`, so change it.
+
+- **How it works:** every page route sits under `LockGate` (`src/features/lock/`). Opening a locked page redirects to `/unlock`, and the right code sends you on to the page you asked for. The locked page's component never mounts, so it doesn't fetch its data either. Any page in `NAV_ITEMS` can be locked, including nested routes (`/recipes/:id`), so new pages become lockable automatically. Home, Settings and Links can't be locked.
+- **When it re-locks:** leaving the page, reloading, or leaving the app in the background for a minute.
+- **Changing the lock:** opening "Manage page lock" in Settings asks for the current code first, so a bystander can't switch a lock off.
+- **Wrong codes:** every 5th wrong code in a row starts a cooldown (30s, doubling up to 10m), kept across reloads.
+- **What it is not:** a screen lock, not data security. The code is checked in the browser against `user_settings.lock_code`, and the underlying data stays readable through the API under your login. It keeps someone holding your unlocked phone out of a page; it does not protect against someone with your account.
+- **If the lock settings can't be loaded**, lockable pages stay closed (with a retry button) rather than opening.
 
 ---
 

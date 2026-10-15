@@ -2,6 +2,7 @@ import { supabase } from '../supabase'
 import { resolveTodaySectionsOrder, type TodaySectionKey } from './todaySections'
 import { DEFAULT_TOMORROW_BANNER_SETTINGS, normalizeTime, type TomorrowBannerSettings } from './tomorrowBanner'
 import { DEFAULT_BOTTOM_NAV_ITEMS, isNavItemKey, type MoreSection, type NavItemKey } from './navItems'
+import { DEFAULT_LOCKED_PAGES, DEFAULT_LOCK_CODE, isValidCode, normalizeLockCode, normalizeLockedPages } from './pageLock'
 
 export type FocusPeriod = 'today' | 'week'
 
@@ -124,4 +125,31 @@ export async function setTodaySectionsOrder(order: TodaySectionKey[] | null): Pr
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return
   await supabase.from('user_settings').upsert({ user_id: user.id, today_sections_order: order })
+}
+
+export type LockSettings = { code: string; lockedPages: NavItemKey[] }
+
+// Unlike the getters above, the page lock must not quietly fall back to
+// defaults when the read fails - that would unlock everything - so errors throw.
+export async function getLockSettings(): Promise<LockSettings> {
+  const { data, error } = await supabase.from('user_settings').select('lock_code, locked_pages').maybeSingle()
+  if (error) throw error
+  // No settings row yet: the column defaults apply (code 0000, Wealth locked).
+  if (!data) return { code: DEFAULT_LOCK_CODE, lockedPages: DEFAULT_LOCKED_PAGES }
+  return { code: normalizeLockCode(data.lock_code), lockedPages: normalizeLockedPages(data.locked_pages) }
+}
+
+export async function setLockedPages(pages: NavItemKey[]): Promise<void> {
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error('Not signed in')
+  const { error } = await supabase.from('user_settings').upsert({ user_id: user.id, locked_pages: pages })
+  if (error) throw error
+}
+
+export async function setLockCode(code: string): Promise<void> {
+  if (!isValidCode(code)) throw new Error('The code must be 4 digits')
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error('Not signed in')
+  const { error } = await supabase.from('user_settings').upsert({ user_id: user.id, lock_code: code })
+  if (error) throw error
 }

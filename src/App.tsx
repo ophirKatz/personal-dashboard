@@ -5,6 +5,9 @@ import { supabase } from './supabase'
 import Layout from './components/Layout'
 import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
+import Unlock from './pages/Unlock'
+import { LockProvider } from './features/lock/LockProvider'
+import LockGate from './features/lock/LockGate'
 import { checkStockAlerts, checkCurrencyAlerts, checkFriendReminders } from './features/notifications/notifications'
 import { syncPushSubscription } from './lib/push'
 import { upsertPrimaryGoogleAccount } from './lib/googleAccounts'
@@ -87,40 +90,46 @@ export default function App() {
   if (!user) return <Login />
 
   return (
-    <Suspense fallback={<PageFallback />}>
-      <Routes>
-        <Route element={<Layout />}>
-          <Route index element={<Dashboard />} />
-          <Route path="habits" element={<Habits />} />
-          <Route path="todos" element={<Todos />} />
-          <Route path="climbing" element={<Climbing />} />
-          <Route path="shopping" element={<Shopping />} />
-          <Route path="calendar" element={<Calendar />} />
-          <Route path="files" element={<Files />} />
-          <Route path="converter" element={<Converter />} />
-          <Route path="stocks" element={<Stocks />} />
-          <Route path="wealth" element={<Wealth />} />
-          {/* Finance was split into Converter + Stocks; keep old links working. */}
-          <Route path="finance" element={<Navigate to="/converter" replace />} />
-          <Route path="settings" element={<Settings />} />
-          <Route path="about" element={<About />} />
-          <Route path="friends" element={<Friends />} />
-          <Route path="recipes" element={<Recipes />} />
-          <Route path="reading" element={<Reading />} />
-          <Route path="runescape" element={<RuneScape />} />
-          <Route path="runescape/quests/:name" element={<QuestGuide />} />
-          <Route path="recipes/new" element={<RecipeEditor />} />
-          <Route path="recipes/:id" element={<RecipeDetail />} />
-          <Route path="recipes/:id/edit" element={<RecipeEditor />} />
-          <Route path="meals" element={<MealIdeas />} />
-          <Route path="meals/:id" element={<MealDetail />} />
-          <Route path="workout" element={<Workout />} />
-          <Route path="games" element={<Games />} />
-          <Route path="pdf-tools" element={<PdfTools />} />
-          <Route path="games/dice" element={<DiceRoller />} />
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Route>
-      </Routes>
-    </Suspense>
+    <LockProvider>
+      <Suspense fallback={<PageFallback />}>
+        <Routes>
+          <Route element={<Layout />}>
+            {/* The code screen sits outside the gate; every other page goes through it. */}
+            <Route path="unlock" element={<Unlock />} />
+            <Route element={<LockGate />}>
+              <Route index element={<Dashboard />} />
+              <Route path="habits" element={<Habits />} />
+              <Route path="todos" element={<Todos />} />
+              <Route path="climbing" element={<Climbing />} />
+              <Route path="shopping" element={<Shopping />} />
+              <Route path="calendar" element={<Calendar />} />
+              <Route path="files" element={<Files />} />
+              <Route path="converter" element={<Converter />} />
+              <Route path="stocks" element={<Stocks />} />
+              <Route path="wealth" element={<Wealth />} />
+              {/* Finance was split into Converter + Stocks; keep old links working. */}
+              <Route path="finance" element={<Navigate to="/converter" replace />} />
+              <Route path="settings" element={<Settings />} />
+              <Route path="about" element={<About />} />
+              <Route path="friends" element={<Friends />} />
+              <Route path="recipes" element={<Recipes />} />
+              <Route path="reading" element={<Reading />} />
+              <Route path="runescape" element={<RuneScape />} />
+              <Route path="runescape/quests/:name" element={<QuestGuide />} />
+              <Route path="recipes/new" element={<RecipeEditor />} />
+              <Route path="recipes/:id" element={<RecipeDetail />} />
+              <Route path="recipes/:id/edit" element={<RecipeEditor />} />
+              <Route path="meals" element={<MealIdeas />} />
+              <Route path="meals/:id" element={<MealDetail />} />
+              <Route path="workout" element={<Workout />} />
+              <Route path="games" element={<Games />} />
+              <Route path="pdf-tools" element={<PdfTools />} />
+              <Route path="games/dice" element={<DiceRoller />} />
+              <Route path="*" element={<Navigate to="/" replace />} />
+            </Route>
+          </Route>
+        </Routes>
+      </Suspense>
+    </LockProvider>
   )
 }

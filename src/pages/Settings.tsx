@@ -26,6 +26,7 @@ import MoreLayoutEditor from '../components/MoreLayoutEditor'
 import TodayLayoutEditor from '../components/TodayLayoutEditor'
 import TomorrowBannerEditor from '../components/TomorrowBannerEditor'
 import VoiceShortcutsSection from '../features/voice/VoiceShortcutsSection'
+import PageLockSettings from '../features/lock/PageLockSettings'
 
 const GOOGLE_CONNECT_MESSAGES: Record<string, string> = {
   success: 'Google account connected.',
@@ -443,6 +444,9 @@ export default function Settings() {
         </p>
         {!bottomNavLoading && <MoreLayoutEditor bottomNavItems={bottomNavItems} />}
       </div>
+
+      <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2 mt-6">Page lock</h2>
+      <PageLockSettings />
 
       <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2 mt-6">Focus summaries</h2>
       {([
