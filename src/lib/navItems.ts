@@ -1,7 +1,7 @@
-import { CheckSquare, Calendar, Folder, TrendingUp, Mountain, ShoppingCart, DollarSign, Users, ChefHat, Dices, BookOpen, Swords, Dumbbell, FileText, UtensilsCrossed } from 'lucide-react'
+import { CheckSquare, Calendar, Folder, TrendingUp, Mountain, ShoppingCart, ArrowLeftRight, ChartCandlestick, Wallet, Users, ChefHat, Dices, BookOpen, Swords, Dumbbell, FileText, UtensilsCrossed } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 
-export type NavItemKey = 'todos' | 'calendar' | 'files' | 'habits' | 'climbing' | 'shopping' | 'finance' | 'friends' | 'recipes' | 'games' | 'reading' | 'runescape' | 'workout' | 'pdf' | 'meals'
+export type NavItemKey = 'todos' | 'calendar' | 'files' | 'habits' | 'climbing' | 'shopping' | 'converter' | 'stocks' | 'wealth' | 'friends' | 'recipes' | 'games' | 'reading' | 'runescape' | 'workout' | 'pdf' | 'meals'
 
 export const NAV_ITEMS: Record<NavItemKey, { to: string; icon: LucideIcon; label: string }> = {
   todos: { to: '/todos', icon: CheckSquare, label: 'Tasks' },
@@ -10,7 +10,9 @@ export const NAV_ITEMS: Record<NavItemKey, { to: string; icon: LucideIcon; label
   habits: { to: '/habits', icon: TrendingUp, label: 'Habits' },
   climbing: { to: '/climbing', icon: Mountain, label: 'Climbing' },
   shopping: { to: '/shopping', icon: ShoppingCart, label: 'Shopping' },
-  finance: { to: '/finance', icon: DollarSign, label: 'Finance' },
+  converter: { to: '/converter', icon: ArrowLeftRight, label: 'Converter' },
+  stocks: { to: '/stocks', icon: ChartCandlestick, label: 'Stocks' },
+  wealth: { to: '/wealth', icon: Wallet, label: 'Wealth' },
   friends: { to: '/friends', icon: Users, label: 'Friends' },
   recipes: { to: '/recipes', icon: ChefHat, label: 'Recipes' },
   meals: { to: '/meals', icon: UtensilsCrossed, label: 'Meal ideas' },
@@ -29,6 +31,7 @@ export type MoreSection = { id: string; title: string; items: NavItemKey[] }
 
 export const DEFAULT_MORE_SECTIONS: MoreSection[] = [
   { id: 'leisure', title: 'Leisure', items: ['climbing', 'reading', 'runescape', 'workout', 'games'] },
+  { id: 'money', title: 'Money', items: ['wealth', 'converter', 'stocks'] },
   { id: 'other', title: 'Everything else', items: [] },
 ]
 

@@ -17,7 +17,9 @@ const Climbing = lazy(() => import('./pages/Climbing'))
 const Shopping = lazy(() => import('./pages/Shopping'))
 const Calendar = lazy(() => import('./pages/Calendar'))
 const Files = lazy(() => import('./pages/Files'))
-const Finance = lazy(() => import('./pages/Finance'))
+const Converter = lazy(() => import('./pages/Converter'))
+const Stocks = lazy(() => import('./pages/Stocks'))
+const Wealth = lazy(() => import('./pages/Wealth'))
 const Settings = lazy(() => import('./pages/Settings'))
 const About = lazy(() => import('./pages/About'))
 const Friends = lazy(() => import('./pages/Friends'))
@@ -95,7 +97,11 @@ export default function App() {
           <Route path="shopping" element={<Shopping />} />
           <Route path="calendar" element={<Calendar />} />
           <Route path="files" element={<Files />} />
-          <Route path="finance" element={<Finance />} />
+          <Route path="converter" element={<Converter />} />
+          <Route path="stocks" element={<Stocks />} />
+          <Route path="wealth" element={<Wealth />} />
+          {/* Finance was split into Converter + Stocks; keep old links working. */}
+          <Route path="finance" element={<Navigate to="/converter" replace />} />
           <Route path="settings" element={<Settings />} />
           <Route path="about" element={<About />} />
           <Route path="friends" element={<Friends />} />

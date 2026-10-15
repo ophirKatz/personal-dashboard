@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import type { MouseEvent, KeyboardEvent } from 'react'
-import { Bell, ShoppingCart, Mountain, DollarSign, Folder, Plus, X } from 'lucide-react'
+import { Bell, ShoppingCart, Mountain, ArrowLeftRight, Folder, Plus, X } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import type { User } from '@supabase/supabase-js'
 import { supabase } from '../supabase'
@@ -20,7 +20,6 @@ import { getShowFocusSection } from '../lib/userSettings'
 import { useLongPress } from '../lib/useLongPress'
 import ShoppingItemDrawer from '../features/shopping/ShoppingItemDrawer'
 import QuickLogSessionDrawer from '../features/climbing/QuickLogSessionDrawer'
-import FinanceQuickDrawer from '../features/finance/FinanceQuickDrawer'
 import StarredFilesDrawer from '../features/files/StarredFilesDrawer'
 import TaskDrawer from '../features/todos/TaskDrawer'
 import { Button } from '../components/ui/button'
@@ -42,7 +41,6 @@ export default function Dashboard() {
   const [user, setUser] = useState<User | null>(null)
   const [showAddItem, setShowAddItem] = useState(false)
   const [showLogSession, setShowLogSession] = useState(false)
-  const [showFinanceRates, setShowFinanceRates] = useState(false)
   const [showStarredFiles, setShowStarredFiles] = useState(false)
   const [showAddTask, setShowAddTask] = useState(false)
   const [friends, setFriends] = useState<Friend[]>([])
@@ -50,7 +48,6 @@ export default function Dashboard() {
   const navigate = useNavigate()
   const shoppingLongPress = useLongPress(() => setShowAddItem(true))
   const climbingLongPress = useLongPress(() => setShowLogSession(true))
-  const financeLongPress = useLongPress(() => setShowFinanceRates(true))
   const filesLongPress = useLongPress(() => setShowStarredFiles(true))
 
   function quickLinkClick(longPress: { onClick: (e: MouseEvent) => void }, path: string) {
@@ -267,17 +264,15 @@ export default function Dashboard() {
         <div
           role="link"
           tabIndex={0}
-          aria-label="Finance"
-          title="Long press for quick rates"
+          aria-label="Converter"
           className="flex flex-col items-center justify-center gap-1.5 p-3.5 bg-card border border-border rounded-xl active:scale-[0.98] transition-transform select-none cursor-pointer"
-          {...financeLongPress}
-          onClick={quickLinkClick(financeLongPress, '/finance')}
-          onKeyDown={quickLinkKeyDown('/finance')}
+          onClick={() => navigate('/converter')}
+          onKeyDown={quickLinkKeyDown('/converter')}
         >
           <div className="w-9 h-9 rounded-lg bg-amber-100 text-amber-700 flex items-center justify-center shrink-0 select-none">
-            <DollarSign className="h-4 w-4" />
+            <ArrowLeftRight className="h-4 w-4" />
           </div>
-          <span className="text-xs font-medium text-muted-foreground select-none">Finance</span>
+          <span className="text-xs font-medium text-muted-foreground select-none">Converter</span>
         </div>
         <div
           role="link"
@@ -348,7 +343,6 @@ export default function Dashboard() {
           userId={user.id}
         />
       )}
-      <FinanceQuickDrawer open={showFinanceRates} onClose={() => setShowFinanceRates(false)} />
       <StarredFilesDrawer open={showStarredFiles} onClose={() => setShowStarredFiles(false)} />
       {user && showAddTask && (
         <TaskDrawer
