@@ -51,6 +51,23 @@ export const SKILLS: Skill[] = [
 export const SKILL_BY_ID = new Map(SKILLS.map(s => [s.id, s]))
 export const SKILL_BY_NAME = new Map(SKILLS.map(s => [s.name.toLowerCase(), s]))
 
+/** Skill names in the in-game skills panel: 3 columns, read left to right, top to bottom. */
+const GAME_PANEL_ORDER = [
+  'Attack', 'Constitution', 'Mining',
+  'Strength', 'Agility', 'Smithing',
+  'Defence', 'Herblore', 'Fishing',
+  'Ranged', 'Thieving', 'Cooking',
+  'Prayer', 'Crafting', 'Firemaking',
+  'Magic', 'Fletching', 'Woodcutting',
+  'Runecrafting', 'Slayer', 'Farming',
+  'Construction', 'Hunter', 'Summoning',
+  'Dungeoneering', 'Divination', 'Invention',
+  'Archaeology', 'Necromancy',
+]
+
+/** Skills laid out like the in-game panel (SKILLS stays in RuneMetrics id order). */
+export const SKILLS_IN_GAME_ORDER: Skill[] = GAME_PANEL_ORDER.map(name => SKILL_BY_NAME.get(name.toLowerCase())!)
+
 /** Every skill can be trained past 99 up to a virtual level of 120 (200M xp is the hard cap). */
 export const VIRTUAL_MAX = 120
 

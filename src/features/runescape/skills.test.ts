@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { SKILLS, SKILL_BY_ID, levelForXp, progressToNext, realLevel, skillLevel, xpForLevel } from './skills'
+import { SKILLS, SKILLS_IN_GAME_ORDER, SKILL_BY_ID, levelForXp, progressToNext, realLevel, skillLevel, xpForLevel } from './skills'
 
 describe('xp table', () => {
   it('matches known RS3 thresholds', () => {
@@ -54,5 +54,15 @@ describe('skills table', () => {
   it('has 29 skills with contiguous ids', () => {
     expect(SKILLS).toHaveLength(29)
     SKILLS.forEach((s, i) => expect(s.id).toBe(i))
+  })
+
+  it('lists every skill exactly once in the in-game panel order', () => {
+    expect(SKILLS_IN_GAME_ORDER).toHaveLength(SKILLS.length)
+    expect(new Set(SKILLS_IN_GAME_ORDER.map(s => s.id)).size).toBe(SKILLS.length)
+    const names = SKILLS_IN_GAME_ORDER.map(s => s.name)
+    // First row, last full row and the lone final row of the panel.
+    expect(names.slice(0, 3)).toEqual(['Attack', 'Constitution', 'Mining'])
+    expect(names.slice(24, 27)).toEqual(['Dungeoneering', 'Divination', 'Invention'])
+    expect(names.slice(27)).toEqual(['Archaeology', 'Necromancy'])
   })
 })
