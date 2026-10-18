@@ -1,12 +1,13 @@
 import { cn } from '../../utils'
 import type { CharacterStats } from './api'
-import { SKILLS, VIRTUAL_MAX, formatXp, progressToNext, progressToVirtualMax, realLevel, skillLevel } from './skills'
+import { SKILLS_IN_GAME_ORDER, VIRTUAL_MAX, formatXp, progressToNext, progressToVirtualMax, realLevel, skillLevel } from './skills'
 import ProgressRing from './ProgressRing'
 
 export default function SkillGrid({ stats }: { stats: CharacterStats }) {
   return (
-    <div className="grid grid-cols-3 sm:grid-cols-4 gap-2.5">
-      {SKILLS.map((skill, i) => {
+    // Always 3 columns: the in-game order only reads right in rows of three.
+    <div className="grid grid-cols-3 gap-2.5">
+      {SKILLS_IN_GAME_ORDER.map((skill, i) => {
         const stat = stats.skills.get(skill.id)
         const virtual = stat ? skillLevel(skill, stat) : 1
         const real = stat ? realLevel(skill, stat) : 1
