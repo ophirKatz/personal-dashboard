@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
-import { ChevronDown, ChevronRight, Crown, Download, Loader2, ListFilter, Plus, RefreshCw, Search, Swords, Pencil, Target, ScrollText, BookOpen, LayoutGrid, AlertCircle, Check } from 'lucide-react'
+import { ChevronDown, ChevronRight, Crown, Download, Loader2, ListFilter, Plus, RefreshCw, Search, Shovel, Swords, Pencil, Target, ScrollText, BookOpen, LayoutGrid, AlertCircle, Check } from 'lucide-react'
 import type { User } from '@supabase/supabase-js'
 import { supabase } from '../supabase'
 import type { RsCharacter, RsGoal, RsQuest } from '../supabase'
@@ -356,6 +356,20 @@ export default function RuneScape() {
         </TabsList>
 
         <TabsContent value="overview" className="mt-4 space-y-5">
+          <Link
+            to="/runescape/archaeology"
+            onClick={() => haptic()}
+            className="flex items-center gap-3 rounded-2xl border border-border bg-card px-3.5 py-3 hover:bg-accent/50"
+          >
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-amber-100 text-amber-600">
+              <Shovel className="h-5 w-5" />
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block text-sm font-semibold">Archaeology collections</span>
+              <span className="block text-xs text-muted-foreground">Track artefacts found versus required</span>
+            </span>
+            <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
+          </Link>
           {statsLoading && !stats ? (
             <SkillSkeleton />
           ) : statsError ? (
