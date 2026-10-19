@@ -483,6 +483,15 @@ export type RsDiaryProgress = {
   completed_at: string
 }
 
+export type RsArchaeologyProgress = {
+  id: string
+  user_id: string
+  character_id: string
+  artefact_key: string
+  found: number
+  updated_at: string
+}
+
 export type MealTag = 'breakfast' | 'lunch' | 'dinner' | 'dessert'
 
 export type Meal = {
