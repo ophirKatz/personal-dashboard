@@ -366,7 +366,7 @@ export default function RuneScape() {
             </span>
             <span className="min-w-0 flex-1">
               <span className="block text-sm font-semibold">Archaeology collections</span>
-              <span className="block text-xs text-muted-foreground">Track artefacts found versus required</span>
+              <span className="block text-xs text-muted-foreground">Artefacts, mysteries and collections</span>
             </span>
             <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
           </Link>
