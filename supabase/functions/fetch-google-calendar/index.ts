@@ -19,6 +19,12 @@ type GoogleEventItem = {
   attendees?: { self?: boolean; responseStatus?: string; email?: string; displayName?: string; organizer?: boolean; resource?: boolean }[]
 }
 
+// Booked meeting rooms are "resource" attendees; their displayName is the room name.
+function roomName(ev: GoogleEventItem): string | null {
+  const names = (ev.attendees ?? []).filter(a => a.resource && a.displayName).map(a => a.displayName!)
+  return names.length > 0 ? names.join(', ') : null
+}
+
 // Calendar event titles that mark a climbing session — Hebrew for "training" and "climbing".
 const CLIMBING_TITLE_KEYWORDS = ['אימון', 'טיפוס']
 
@@ -144,6 +150,7 @@ async function syncCalendarForAccount(supabase: SupabaseClient, account: Account
       eventEndDate: ev.end.date ?? ev.end.dateTime?.slice(0, 10) ?? null,
       eventEndTime: ev.end.dateTime ? ev.end.dateTime.slice(11, 19) : null,
       location: ev.location ?? null,
+      room: roomName(ev),
       htmlLink: ev.htmlLink,
       attendees: ev.attendees
         ?.filter(a => !a.resource)
@@ -175,6 +182,7 @@ async function syncCalendarForAccount(supabase: SupabaseClient, account: Account
     event_end_date: e.eventEndDate,
     event_end_time: e.eventEndTime,
     location: e.location,
+    room: e.room,
     source: 'google',
     google_event_id: e.id,
     google_account_id: account.id,

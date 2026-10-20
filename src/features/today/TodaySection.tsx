@@ -32,6 +32,7 @@ export type TodayEvent = {
   endTime: string | null
   endDate: string | null
   location: string | null
+  room: string | null
   source: 'local' | 'google'
 }
 
@@ -68,6 +69,13 @@ function formatCountdown(minutes: number): string {
   const h = Math.floor(minutes / 60)
   const m = minutes % 60
   return m === 0 ? `${h}h` : `${h}h ${m}m`
+}
+
+// A location that's just a video-call link isn't a place — show the booked room
+// instead when there is one.
+function eventPlace(event: TodayEvent): string | null {
+  const isLink = event.location !== null && /^https?:\/\//i.test(event.location.trim())
+  return isLink ? event.room ?? event.location : event.location ?? event.room
 }
 
 function hasEventEnded(event: TodayEvent, now: Date): boolean {
@@ -192,12 +200,14 @@ export default function TodaySection({ habits, totalHabitsCount, onToggleHabit, 
             <p className="text-sm text-muted-foreground">{tomorrow ? 'No events tomorrow' : 'No events today'}</p>
           ) : (
             <div className="space-y-1.5">
-              {(showAllEvents[pageKey] ? list : list.slice(0, 3)).map(event => (
+              {(showAllEvents[pageKey] ? list : list.slice(0, 3)).map(event => {
+                const place = eventPlace(event)
+                return (
                 <div key={event.id}>
                   <button
-                    onClick={() => event.location && setExpandedEventId(id => (id === event.id ? null : event.id))}
+                    onClick={() => place && setExpandedEventId(id => (id === event.id ? null : event.id))}
                     className="flex items-center gap-2 w-full text-left"
-                    disabled={!event.location}
+                    disabled={!place}
                   >
                     <Clock className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
                     <span className="text-sm truncate flex-1">{event.title}</span>
@@ -207,14 +217,15 @@ export default function TodaySection({ habits, totalHabitsCount, onToggleHabit, 
                         : 'All day'}
                     </span>
                   </button>
-                  {expandedEventId === event.id && event.location && (
+                  {expandedEventId === event.id && place && (
                     <p className="flex items-center gap-1 text-xs text-muted-foreground mt-0.5 pl-6">
                       <MapPin className="h-3 w-3 shrink-0" />
-                      <span className="truncate">{event.location}</span>
+                      <span className="truncate">{place}</span>
                     </p>
                   )}
                 </div>
-              ))}
+                )
+              })}
               {list.length > 3 && (
                 <button
                   onClick={() => setShowAllEvents(v => ({ ...v, [pageKey]: !v[pageKey] }))}
