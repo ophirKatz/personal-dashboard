@@ -111,6 +111,7 @@ export type CalendarEvent = {
   event_end_time: string | null
   notes: string | null
   location: string | null
+  room: string | null
   created_at: string
   source: 'local' | 'google'
   google_event_id: string | null

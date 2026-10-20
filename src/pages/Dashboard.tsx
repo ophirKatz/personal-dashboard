@@ -173,6 +173,7 @@ export default function Dashboard() {
     endTime: event.event_end_time,
     endDate: event.event_end_date,
     location: event.location,
+    room: event.room,
     source: event.source,
   })
   const todayEvents = sortedEvents.filter(event => event.event_date === t).map(toTodayEvent)
