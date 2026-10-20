@@ -4,7 +4,7 @@ import { AlertCircle, ChevronLeft, ExternalLink, Shovel } from 'lucide-react'
 import { supabase } from '../supabase'
 import { Button } from '../components/ui/button'
 import { ACTIVE_CHARACTER_KEY } from '../features/runescape/goals'
-import ArchaeologyTracker from '../features/runescape/ArchaeologyTracker'
+import ArchaeologyBoard from '../features/runescape/ArchaeologyBoard'
 
 const WIKI_URL = 'https://runescape.wiki/w/Archaeology_training#Methods'
 
@@ -55,9 +55,9 @@ export default function Archaeology() {
           <div className="flex items-center gap-1.5 text-xs font-medium uppercase tracking-widest text-amber-300/90">
             <Shovel className="h-3.5 w-3.5" /> Archaeology
           </div>
-          <h1 className="mt-1 text-2xl font-bold tracking-tight">Collections</h1>
+          <h1 className="mt-1 text-2xl font-bold tracking-tight">Collections &amp; mysteries</h1>
           <p className="mt-1 text-sm text-white/70">
-            {load.state === 'ready' ? `${load.characterName} · ` : ''}Artefacts found versus required
+            {load.state === 'ready' ? `${load.characterName} · ` : ''}Artefacts found versus required, mysteries and collections
           </p>
           <a
             href={WIKI_URL}
@@ -72,7 +72,7 @@ export default function Archaeology() {
 
       {load.state === 'loading' && <div className="h-24 animate-pulse rounded-2xl bg-muted" />}
 
-      {load.state === 'ready' && <ArchaeologyTracker key={load.characterId} userId={load.userId} characterId={load.characterId} />}
+      {load.state === 'ready' && <ArchaeologyBoard key={load.characterId} userId={load.userId} characterId={load.characterId} />}
 
       {load.state === 'unavailable' && (
         <div className="flex flex-col items-center gap-2 rounded-2xl border border-dashed border-border py-12 text-center">

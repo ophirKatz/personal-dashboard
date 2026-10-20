@@ -1,11 +1,55 @@
 import type { RsArchaeologyProgress } from '../../supabase'
 
 export type ArchaeologyArtefact = { key: string; name: string; needed: number }
-export type ArchaeologyHotspot = { level: string; hotspot: string; artefacts: ArchaeologyArtefact[] }
+/** `level` is the wiki's level range for the step in the guide (e.g. "76–77"); `digSite` is where the hotspot is. */
+export type ArchaeologyHotspot = { level: string; hotspot: string; digSite: string; artefacts: ArchaeologyArtefact[] }
 export type ArchaeologyGroup = { group: string; hotspots: ArchaeologyHotspot[] }
+
+/**
+ * A collection that can be handed in (the NPC's and the Museum's versions need the same artefacts, so they share a row).
+ * `level` is the guide level at which its last artefact becomes available, i.e. when it can first be completed.
+ */
+export type ArchaeologyCollection = {
+  name: string
+  level: number
+  handlers: { name: string; museum: boolean }[]
+  finalHotspots: { hotspot: string; digSite: string }[]
+  artefacts: { key: string; name: string; hotspot: string; digSite: string }[]
+}
+
+export type ArchaeologyMystery = {
+  key: string
+  name: string
+  /** Wiki page title, for the link. */
+  title: string
+  level: number
+  /** Whether the Archaeology level can be boosted; undefined when the wiki doesn't say. */
+  boostable?: boolean
+  alignment: string
+  digSite: string
+  /** Everything required besides the Archaeology level: other skills, quests, qualifications, earlier mysteries. */
+  requirements: string[]
+  /** Keys of the mysteries that must come first. */
+  after: string[]
+  items: string[]
+  rewards: string[]
+}
+
+export type ArchaeologyMysteryNote = {
+  /** One line on what the mystery is about. */
+  about: string
+  /** How to begin it. */
+  start: string
+}
 
 /** How many of each artefact have been found, by `ArchaeologyArtefact.key`. A missing key means none. */
 export type FoundMap = Record<string, number>
+
+/**
+ * Mysteries are saved in the same table as artefacts, under a prefixed key with found 1 once solved,
+ * so they use the same "found >= needed" check (needed is 1). Artefact keys never contain a colon.
+ */
+export const mysteryProgressKey = (key: string) => `mystery:${key}`
 
 /** Upper bound for a typed count; the largest requirement is 7. */
 export const MAX_COUNT = 999
