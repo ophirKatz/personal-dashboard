@@ -68,11 +68,11 @@ export default function GoalCard({ goal, title, progress, onToggleComplete, onDe
       </ProgressRing>
       <div className="min-w-0 flex-1">
         {goal.type === 'quest' ? (
-          <Link to={`/runescape/quests/${encodeURIComponent(title)}`} className={cn('block font-semibold truncate hover:underline', done && 'text-emerald-800')}>
+          <Link to={`/runescape/quests/${encodeURIComponent(title)}`} className={cn('block font-semibold break-words hover:underline', done && 'text-emerald-800')}>
             {title}
           </Link>
         ) : (
-          <div className={cn('font-semibold truncate', done && 'text-emerald-800')}>{title}</div>
+          <div className={cn('font-semibold break-words', done && 'text-emerald-800')}>{title}</div>
         )}
         <div className="text-xs text-muted-foreground truncate">
           {progress.label}{progress.detail ? ` · ${progress.detail}` : ''}
