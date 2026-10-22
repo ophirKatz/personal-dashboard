@@ -1,44 +1,14 @@
-import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { AlertCircle, ChevronLeft, ExternalLink, Shovel } from 'lucide-react'
-import { supabase } from '../supabase'
 import { Button } from '../components/ui/button'
-import { ACTIVE_CHARACTER_KEY } from '../features/runescape/goals'
+import { useActiveCharacter } from '../features/runescape/useActiveCharacter'
 import ArchaeologyBoard from '../features/runescape/ArchaeologyBoard'
 
 const WIKI_URL = 'https://runescape.wiki/w/Archaeology_training#Methods'
 
-type Load =
-  | { state: 'loading' | 'unavailable' | 'error' }
-  | { state: 'ready'; userId: string; characterId: string; characterName: string }
-
-/** The character the RuneScape page is showing: the remembered one, else the first. */
-async function loadActiveCharacter(): Promise<Load> {
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return { state: 'unavailable' }
-  const { data, error } = await supabase.from('rs_characters').select('id, name').order('created_at')
-  if (error) return { state: 'error' }
-  if (data.length === 0) return { state: 'unavailable' }
-
-  let remembered: string | null = null
-  try { remembered = localStorage.getItem(ACTIVE_CHARACTER_KEY) } catch { /* storage unavailable */ }
-  const active = data.find(c => c.id === remembered) ?? data[0]
-  return { state: 'ready', userId: user.id, characterId: active.id, characterName: active.name }
-}
-
 export default function Archaeology() {
   const navigate = useNavigate()
-  const [load, setLoad] = useState<Load>({ state: 'loading' })
-  const [attempt, setAttempt] = useState(0)
-
-  useEffect(() => {
-    let cancelled = false
-    setLoad({ state: 'loading' })
-    loadActiveCharacter()
-      .then(s => { if (!cancelled) setLoad(s) })
-      .catch(() => { if (!cancelled) setLoad({ state: 'error' }) })
-    return () => { cancelled = true }
-  }, [attempt])
+  const { load, retry } = useActiveCharacter()
 
   return (
     <div className="p-4 max-w-2xl mx-auto space-y-4 pb-24">
@@ -87,7 +57,7 @@ export default function Archaeology() {
           <AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-destructive" />
           <div className="space-y-2">
             <p>Could not load your character.</p>
-            <Button size="sm" variant="outline" onClick={() => setAttempt(a => a + 1)}>Try again</Button>
+            <Button size="sm" variant="outline" onClick={retry}>Try again</Button>
           </div>
         </div>
       )}
