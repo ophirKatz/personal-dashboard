@@ -493,6 +493,14 @@ export type RsArchaeologyProgress = {
   updated_at: string
 }
 
+export type RsPvmProgress = {
+  id: string
+  user_id: string
+  character_id: string
+  goal_key: string
+  completed_at: string
+}
+
 export type MealTag = 'breakfast' | 'lunch' | 'dinner' | 'dessert'
 
 export type Meal = {
