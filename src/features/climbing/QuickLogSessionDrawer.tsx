@@ -83,7 +83,7 @@ export default function QuickLogSessionDrawer({ open, onClose, onSaved, userId }
 
           <QuickAttempt onAdd={addAttempt} />
 
-          <AttemptsList attempts={attempts} onToggleResult={toggleAttemptResult} onRemove={removeAttempt} />
+          <AttemptsList fixedHeight attempts={attempts} onToggleResult={toggleAttemptResult} onRemove={removeAttempt} />
 
           <Button onClick={handleSave} disabled={saving || attempts.length === 0} className="w-full" size="lg">
             {saving ? 'Saving…' : `Save Session${attempts.length ? ` (${attempts.length})` : ''}`}
