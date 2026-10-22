@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
-import { ChevronDown, ChevronRight, Crown, Download, Loader2, ListFilter, Plus, RefreshCw, Search, Shovel, Skull, Swords, Pencil, Target, ScrollText, BookOpen, LayoutGrid, AlertCircle, Check } from 'lucide-react'
+import { ChevronDown, ChevronRight, Crown, Download, Loader2, ListFilter, Plus, RefreshCw, Search, Shovel, Skull, Swords, Pencil, Target, ScrollText, BookOpen, LayoutGrid, AlertCircle, Check, Keyboard } from 'lucide-react'
 import type { User } from '@supabase/supabase-js'
 import { supabase } from '../supabase'
 import type { RsCharacter, RsGoal, RsQuest } from '../supabase'
@@ -381,6 +381,20 @@ export default function RuneScape() {
             <span className="min-w-0 flex-1">
               <span className="block text-sm font-semibold">PvM bossing path</span>
               <span className="block text-xs text-muted-foreground">Bosses to learn, what they teach, and goals</span>
+            </span>
+            <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
+          </Link>
+          <Link
+            to="/runescape/pvm/bars"
+            onClick={() => haptic()}
+            className="flex items-center gap-3 rounded-2xl border border-border bg-card px-3.5 py-3 hover:bg-accent/50"
+          >
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-sky-100 text-sky-600">
+              <Keyboard className="h-5 w-5" />
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block text-sm font-semibold">PvM ability bars</span>
+              <span className="block text-xs text-muted-foreground">Revolution bars for every combat style</span>
             </span>
             <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
           </Link>
