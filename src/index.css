@@ -42,6 +42,13 @@
   padding-bottom: env(safe-area-inset-bottom);
 }
 
+/* The home-screen app sometimes gets laid out edge-to-edge (viewport-fit=cover),
+   with content running under the status bar. Padding the top by the inset keeps
+   the first row of every page below it; it's 0 whenever iOS insets the webview. */
+.pt-safe {
+  padding-top: env(safe-area-inset-top);
+}
+
 /* iOS Safari auto-zooms the page on focus when a form field's font-size is
    below 16px. Force 16px on mobile so focusing inputs never triggers it. */
 @media (max-width: 767px) {

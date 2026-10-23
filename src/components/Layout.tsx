@@ -115,7 +115,7 @@ export default function Layout() {
 
       {/* Main content */}
       <main className="flex-1 overflow-y-auto">
-        <div className="pb-24 md:pb-6">
+        <div className="pt-safe pb-24 md:pb-6">
           <Outlet />
         </div>
       </main>
@@ -171,7 +171,7 @@ export default function Layout() {
             onAnimationEnd={handleMoreAnimationEnd}
             onClick={e => e.stopPropagation()}
           >
-            <div className="flex items-center justify-between px-4 py-4 border-b border-border">
+            <div className="flex items-center justify-between px-4 pb-4 pt-[max(1rem,env(safe-area-inset-top))] border-b border-border">
               <span className="font-semibold text-lg">More</span>
               <div className="flex items-center gap-1">
                 {moreFooterNav.map(({ to, icon: Icon, label }) => (
