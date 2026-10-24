@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
-import { ChevronDown, ChevronRight, Crown, Download, Loader2, ListFilter, Plus, RefreshCw, Search, Shovel, Skull, Swords, Pencil, Target, ScrollText, BookOpen, LayoutGrid, AlertCircle, Check, Keyboard } from 'lucide-react'
+import { ChevronDown, ChevronRight, Crown, Download, Loader2, List, ListFilter, ListTree, Plus, RefreshCw, Search, Shovel, Skull, Swords, Pencil, Target, ScrollText, BookOpen, LayoutGrid, AlertCircle, Check, Keyboard } from 'lucide-react'
 import type { User } from '@supabase/supabase-js'
 import { supabase } from '../supabase'
 import type { RsCharacter, RsGoal, RsQuest } from '../supabase'
@@ -19,6 +19,7 @@ import { errorMessage, fetchCharacterStats, formatActivityDate, fetchMiniquestNa
 import { formatXp } from '../features/runescape/skills'
 import { ACTIVE_CHARACTER_KEY, goalProgress, goalTitle, questKey, questStatusMap } from '../features/runescape/goals'
 import { loadQuestCatalogue, refreshQuestCatalogue } from '../features/runescape/quests'
+import { buildQuestTree, expandableIds, filterTree, type QuestTree, type TreeNode } from '../features/runescape/quest-tree'
 import { buildReport, compareRequirements, downloadMarkdown, fetchQuestRequirements, type ReportEntry } from '../features/runescape/report'
 import SkillGrid from '../features/runescape/SkillGrid'
 import GoalCard, { SortableGoalCard } from '../features/runescape/GoalCard'
@@ -31,6 +32,9 @@ const ACTIVE_KEY = ACTIVE_CHARACTER_KEY
 const ACTIVITY_PAGE = 8
 
 type QuestFilter = 'all' | QuestStatus
+type QuestView = 'list' | 'tree'
+
+const QUEST_VIEW_KEY = 'rs_quest_view'
 
 const STATUS_STYLE: Record<QuestStatus, { label: string; className: string }> = {
   COMPLETED: { label: 'Done', className: 'bg-emerald-100 text-emerald-700' },
@@ -40,6 +44,10 @@ const STATUS_STYLE: Record<QuestStatus, { label: string; className: string }> = 
 
 function readActiveId(): string | null {
   try { return localStorage.getItem(ACTIVE_KEY) } catch { return null }
+}
+
+function readQuestView(): QuestView {
+  try { return localStorage.getItem(QUEST_VIEW_KEY) === 'tree' ? 'tree' : 'list' } catch { return 'list' }
 }
 
 export default function RuneScape() {
@@ -65,6 +73,7 @@ export default function RuneScape() {
 
   const [questSearch, setQuestSearch] = useState('')
   const [questFilter, setQuestFilter] = useState<QuestFilter>('NOT_STARTED')
+  const [questView, setQuestView] = useState<QuestView>(readQuestView)
   const [miniquestNames, setMiniquestNames] = useState<string[]>([])
   const [sagaNames, setSagaNames] = useState<string[]>([])
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({})
@@ -202,6 +211,16 @@ export default function RuneScape() {
       .filter(r => matches(r.quest.name, r.status, true)),
     [catalogue, extraKeys, questEntries, matches],
   )
+
+  // The tree lists miniquests and sagas too: some quests are only reachable through them.
+  const questTree = useMemo(() => buildQuestTree(catalogue.map(q => q.name)), [catalogue])
+  const statusOf = useCallback((name: string) => questEntries?.get(questKey(name)) ?? null, [questEntries])
+
+  function chooseQuestView(view: QuestView) {
+    haptic()
+    setQuestView(view)
+    try { localStorage.setItem(QUEST_VIEW_KEY, view) } catch { /* storage unavailable */ }
+  }
 
   // Prefer catalogue metadata when the extra is in it; otherwise it's just a name from the wiki.
   // Without a RuneMetrics status for an entry we can't tell if it's done, so the status filter skips it.
@@ -522,6 +541,16 @@ export default function RuneScape() {
                 ))}
               </PopoverContent>
             </Popover>
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={() => chooseQuestView(questView === 'tree' ? 'list' : 'tree')}
+              aria-label={questView === 'tree' ? 'Switch to list view' : 'Switch to tree view'}
+              aria-pressed={questView === 'tree'}
+              title={questView === 'tree' ? 'Switch to list view' : 'Switch to tree view'}
+            >
+              {questView === 'tree' ? <List className="h-4 w-4" /> : <ListTree className="h-4 w-4" />}
+            </Button>
             <Button variant="outline" size="icon" onClick={() => refreshQuests()} disabled={refreshingQuests} aria-label="Refresh quest list">
               <RefreshCw className={cn('h-4 w-4', refreshingQuests && 'animate-spin')} />
             </Button>
@@ -543,6 +572,8 @@ export default function RuneScape() {
             <p className="rounded-2xl border border-dashed border-border py-10 text-center text-sm text-muted-foreground">
               {refreshingQuests ? 'Loading quests…' : 'No quests loaded yet. Tap refresh to fetch the list.'}
             </p>
+          ) : questView === 'tree' ? (
+            <QuestTreeView tree={questTree} search={questSearch.trim().toLowerCase()} statusFilter={questFilter} statusOf={statusOf} />
           ) : (
             <ul className="divide-y divide-border rounded-2xl border border-border bg-card">
               {visibleQuests.map(({ quest, status }) => (
@@ -552,7 +583,7 @@ export default function RuneScape() {
             </ul>
           )}
 
-          {extraGroups.filter(g => g.rows.length > 0).map(g => {
+          {questView === 'list' && extraGroups.filter(g => g.rows.length > 0).map(g => {
             const open = openGroups[g.id] ?? false
             return (
               <section key={g.id} className="space-y-2">
@@ -649,6 +680,136 @@ function QuestRow({ name, status, quest }: { name: string; status: QuestStatus |
           <ChevronRight className="h-4 w-4 text-muted-foreground/60" />
         </div>
       </Link>
+    </li>
+  )
+}
+
+const NEED_LABEL = { complete: null, partial: 'Partial completion', full: 'Full completion' } as const
+
+/** Quests as a tree: each quest's prerequisites sit under it, down to the ones with no requirements. */
+function QuestTreeView({ tree, search, statusFilter, statusOf }: {
+  tree: QuestTree
+  /** Lower-case search term. Matches quest names at any depth; the path down to each match is opened. */
+  search: string
+  /** Applies to the top-level quests, each of which keeps its whole tree of prerequisites. */
+  statusFilter: QuestFilter
+  statusOf: (name: string) => QuestStatus | null
+}) {
+  // Open/closed per node, over the default: closed, or open where a search match sits below.
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({})
+  const [standaloneOpen, setStandaloneOpen] = useState<boolean | undefined>(undefined)
+  // A new search starts from the defaults again, so "Collapse all" doesn't keep the path to a match shut.
+  const [seenSearch, setSeenSearch] = useState(search)
+  if (seenSearch !== search) {
+    setSeenSearch(search)
+    setExpanded({})
+    setStandaloneOpen(undefined)
+  }
+
+  const [roots, standalone] = useMemo(() => {
+    const show = (nodes: TreeNode[]) => {
+      const byStatus = statusFilter === 'all' ? nodes : nodes.filter(n => (statusOf(n.name) ?? 'NOT_STARTED') === statusFilter)
+      return search ? filterTree(byStatus, n => n.name.toLowerCase().includes(search)) : byStatus
+    }
+    return [show(tree.roots), show(tree.standalone)]
+  }, [tree, search, statusFilter, statusOf])
+  const showStandalone = standaloneOpen ?? search !== ''
+
+  function setAll(open: boolean) {
+    haptic()
+    setExpanded(Object.fromEntries(expandableIds(roots).map(id => [id, open])))
+  }
+  function toggle(node: TreeNode, open: boolean) {
+    haptic()
+    setExpanded(e => ({ ...e, [node.id]: !open }))
+  }
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between gap-3 text-xs text-muted-foreground">
+        <span>Each quest's prerequisites are nested under it.{statusFilter !== 'all' && ' The status filter applies to top-level quests.'}</span>
+        <span className="flex shrink-0 gap-3 font-medium">
+          <button onClick={() => setAll(true)} className="hover:text-foreground">Expand all</button>
+          <button onClick={() => setAll(false)} className="hover:text-foreground">Collapse all</button>
+        </span>
+      </div>
+
+      {roots.length > 0 && (
+        <ul className="rounded-2xl border border-border bg-card p-1.5">
+          {roots.map(node => <QuestTreeNode key={node.id} node={node} expanded={expanded} onToggle={toggle} statusOf={statusOf} />)}
+        </ul>
+      )}
+      {roots.length === 0 && standalone.length === 0 && (
+        <p className="rounded-2xl border border-border bg-card px-3.5 py-6 text-center text-sm text-muted-foreground">No matching quests.</p>
+      )}
+
+      {standalone.length > 0 && (
+        <section className="space-y-2">
+          <button
+            onClick={() => { haptic(); setStandaloneOpen(!showStandalone) }}
+            aria-expanded={showStandalone}
+            className="flex w-full items-center justify-between pt-2 text-sm font-semibold text-muted-foreground"
+          >
+            <span>Standalone · {standalone.length}</span>
+            <ChevronDown className={cn('h-4 w-4 transition-transform', !showStandalone && '-rotate-90')} />
+          </button>
+          {showStandalone && (
+            <>
+              <p className="text-xs text-muted-foreground">No requirements, and no quest needs them.</p>
+              <ul className="rounded-2xl border border-border bg-card p-1.5">
+                {standalone.map(node => <QuestTreeNode key={node.id} node={node} expanded={expanded} onToggle={toggle} statusOf={statusOf} />)}
+              </ul>
+            </>
+          )}
+        </section>
+      )}
+    </div>
+  )
+}
+
+function QuestTreeNode({ node, expanded, onToggle, statusOf }: {
+  node: TreeNode
+  expanded: Record<string, boolean>
+  onToggle: (node: TreeNode, open: boolean) => void
+  statusOf: (name: string) => QuestStatus | null
+}) {
+  const count = node.children.length
+  const open = count > 0 && (expanded[node.id] ?? node.open ?? false)
+  const status = statusOf(node.name)
+  const meta = [NEED_LABEL[node.need], count > 0 ? `${count} prerequisite${count === 1 ? '' : 's'}` : null].filter(Boolean).join(' · ')
+  return (
+    <li>
+      <div className="flex min-h-11 items-center rounded-lg hover:bg-accent/50">
+        {count > 0 ? (
+          <button
+            onClick={() => onToggle(node, open)}
+            aria-expanded={open}
+            aria-label={`${open ? 'Collapse' : 'Expand'} ${node.name}`}
+            className="flex h-11 w-7 shrink-0 items-center justify-center text-muted-foreground"
+          >
+            <ChevronRight className={cn('h-4 w-4 transition-transform', open && 'rotate-90')} />
+          </button>
+        ) : (
+          <span className="w-7 shrink-0" aria-hidden />
+        )}
+        <Link to={`/runescape/quests/${encodeURIComponent(node.name)}`} className="flex min-w-0 flex-1 items-center justify-between gap-2 py-1.5 pr-2">
+          <div className="min-w-0">
+            <div className="truncate text-sm font-medium">{node.name}</div>
+            {meta && <div className="truncate text-xs text-muted-foreground">{meta}</div>}
+          </div>
+          {/* No badge means not started: it's most rows, and the badge would crowd the deeper levels. */}
+          {(status === 'COMPLETED' || status === 'STARTED') && (
+            <span className={cn('shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold', STATUS_STYLE[status].className)}>
+              {STATUS_STYLE[status].label}
+            </span>
+          )}
+        </Link>
+      </div>
+      {open && (
+        <ul className="ml-[13px] border-l border-border">
+          {node.children.map(child => <QuestTreeNode key={child.id} node={child} expanded={expanded} onToggle={onToggle} statusOf={statusOf} />)}
+        </ul>
+      )}
     </li>
   )
 }
