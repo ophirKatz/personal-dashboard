@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { buildQuestTree, expandableIds, filterTree, parseRequirement, type TreeNode } from './quest-tree'
-import { QUEST_PREREQUISITES } from './quest-tree-data'
+import { buildQuestTree, buildUnlockTree, expandableIds, filterTree, parseRequirement, type TreeNode } from './quest-tree'
+import { QUEST_PREREQUISITES } from './quest-requirements-data'
 
 const names = (nodes: TreeNode[]) => nodes.map(n => n.name)
 
@@ -75,6 +75,85 @@ describe('buildQuestTree', () => {
     expect(names(roots)).toEqual(['Root'])
     expect(names(roots[0].children[0].children[0].children)).toEqual(['X'])
     expect(roots[0].children[0].children[0].children[0].children).toEqual([])
+  })
+})
+
+describe('buildUnlockTree', () => {
+  it('makes quests with no requirements the roots, with the quests that need them as children', () => {
+    const { roots } = buildUnlockTree(titles, data)
+    expect(names(roots)).toEqual(['A', 'E'])
+    const [a, e] = roots
+    expect(names(a.children)).toEqual(['B', 'D'])
+    expect(names(a.children[0].children)).toEqual(['C']) // C needs B, which needs A
+    expect(a.children[0].children[0].children).toEqual([]) // nothing needs C
+    expect(names(e.children)).toEqual(['D'])
+  })
+
+  it('repeats a quest with several prerequisites under each, with distinct ids', () => {
+    const [a, e] = buildUnlockTree(titles, data).roots
+    const d1 = a.children[1]
+    const d2 = e.children[0]
+    expect([d1.name, d2.name]).toEqual(['D', 'D'])
+    expect(d1.id).not.toBe(d2.id)
+  })
+
+  it('records how much of the parent the child needs', () => {
+    const [, e] = buildUnlockTree(titles, data).roots
+    expect(e.children[0].need).toBe('partial')
+  })
+
+  it('keeps quests that nobody requires and that require nothing apart', () => {
+    const { roots, standalone } = buildUnlockTree(titles, data)
+    expect(names(standalone)).toEqual(['F'])
+    expect(names(roots)).not.toContain('F')
+  })
+
+  it('shows what the quests need even when the list does not have it', () => {
+    const { roots, standalone } = buildUnlockTree(['Quest'], { Quest: ['Tutorial'] })
+    expect(names(roots)).toEqual(['Tutorial'])
+    expect(names(roots[0].children)).toEqual(['Quest'])
+    expect(standalone).toEqual([])
+  })
+
+  it('does not show quests that are neither in the list nor needed by it', () => {
+    const { roots, standalone } = buildUnlockTree(['Base'], { Hidden: ['Base'] })
+    expect(roots).toEqual([])
+    expect(names(standalone)).toEqual(['Base'])
+  })
+
+  it("matches titles regardless of case and shows the list's spelling", () => {
+    const { roots } = buildUnlockTree(['Child', 'The Parent'], { child: ['the parent'] })
+    expect(names(roots)).toEqual(['The Parent'])
+    expect(names(roots[0].children)).toEqual(['Child'])
+  })
+
+  it('stops at a cycle instead of recursing forever', () => {
+    const { roots } = buildUnlockTree(['A', 'B', 'C'], { B: ['A', 'C'], C: ['B'] })
+    expect(names(roots)).toEqual(['A'])
+    const b = roots[0].children[0]
+    expect(names(b.children)).toEqual(['C'])
+    expect(names(b.children[0].children)).toEqual(['B'])
+    expect(b.children[0].children[0].children).toEqual([])
+  })
+
+  it('has exactly the links of the prerequisite tree, the other way round', () => {
+    const links = (tree: ReturnType<typeof buildQuestTree>, flip: boolean) => {
+      const out = new Set<string>()
+      const walk = (node: TreeNode) => node.children.forEach(c => { out.add(flip ? `${c.name}>${node.name}` : `${node.name}>${c.name}`); walk(c) })
+      ;[...tree.roots, ...tree.standalone].forEach(walk)
+      return out
+    }
+    const all = [...new Set(Object.entries(QUEST_PREREQUISITES).flatMap(([title, list]) => [title, ...list.map(i => parseRequirement(i).name)]))]
+    const down = links(buildQuestTree(all), false)
+    const up = links(buildUnlockTree(all), true)
+    expect(down.size).toBeGreaterThan(300)
+    expect([...up].sort()).toEqual([...down].sort())
+  })
+
+  it('starts the real data at quests with no requirements', () => {
+    const { roots } = buildUnlockTree(Object.keys(QUEST_PREREQUISITES))
+    expect(names(roots)).toContain("Cook's Assistant")
+    expect(roots.every(r => !(r.name in QUEST_PREREQUISITES))).toBe(true)
   })
 })
 
