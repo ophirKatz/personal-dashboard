@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
-import { ChevronDown, ChevronRight, Crown, Download, Loader2, List, ListFilter, ListTree, Plus, RefreshCw, Search, Shovel, Skull, Swords, Pencil, Target, ScrollText, BookOpen, LayoutGrid, AlertCircle, Check, Keyboard } from 'lucide-react'
+import { ChevronDown, ChevronRight, Crown, Download, Loader2, List, ListFilter, ListTree, Lock, LockOpen, Plus, RefreshCw, Search, Shovel, Skull, Swords, Pencil, Target, ScrollText, BookOpen, LayoutGrid, AlertCircle, Check, Keyboard } from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
 import type { User } from '@supabase/supabase-js'
 import { supabase } from '../supabase'
 import type { RsCharacter, RsGoal, RsQuest } from '../supabase'
@@ -19,7 +20,8 @@ import { errorMessage, fetchCharacterStats, formatActivityDate, fetchMiniquestNa
 import { formatXp } from '../features/runescape/skills'
 import { ACTIVE_CHARACTER_KEY, goalProgress, goalTitle, questKey, questStatusMap } from '../features/runescape/goals'
 import { loadQuestCatalogue, refreshQuestCatalogue } from '../features/runescape/quests'
-import { buildQuestTree, expandableIds, filterTree, type QuestTree, type TreeNode } from '../features/runescape/quest-tree'
+import { buildQuestTree, buildUnlockTree, expandableIds, filterTree, type QuestTree, type TreeNode } from '../features/runescape/quest-tree'
+import { blockerText, characterFrom, createAvailability, totalQuestPoints, type Availability } from '../features/runescape/quest-availability'
 import { buildReport, compareRequirements, downloadMarkdown, fetchQuestRequirements, type ReportEntry } from '../features/runescape/report'
 import SkillGrid from '../features/runescape/SkillGrid'
 import GoalCard, { SortableGoalCard } from '../features/runescape/GoalCard'
@@ -32,9 +34,16 @@ const ACTIVE_KEY = ACTIVE_CHARACTER_KEY
 const ACTIVITY_PAGE = 8
 
 type QuestFilter = 'all' | QuestStatus
-type QuestView = 'list' | 'tree'
+type QuestView = 'list' | 'tree' | 'unlocks'
 
 const QUEST_VIEW_KEY = 'rs_quest_view'
+
+/** The Quests tab's views, in the order the view button cycles through them. */
+const QUEST_VIEWS: { id: QuestView; label: string; icon: LucideIcon }[] = [
+  { id: 'list', label: 'List', icon: List },
+  { id: 'tree', label: 'Prerequisite tree', icon: ListTree },
+  { id: 'unlocks', label: 'Unlock tree', icon: LockOpen },
+]
 
 const STATUS_STYLE: Record<QuestStatus, { label: string; className: string }> = {
   COMPLETED: { label: 'Done', className: 'bg-emerald-100 text-emerald-700' },
@@ -47,7 +56,10 @@ function readActiveId(): string | null {
 }
 
 function readQuestView(): QuestView {
-  try { return localStorage.getItem(QUEST_VIEW_KEY) === 'tree' ? 'tree' : 'list' } catch { return 'list' }
+  try {
+    const saved = localStorage.getItem(QUEST_VIEW_KEY)
+    return QUEST_VIEWS.find(v => v.id === saved)?.id ?? 'list'
+  } catch { return 'list' }
 }
 
 export default function RuneScape() {
@@ -214,7 +226,16 @@ export default function RuneScape() {
 
   // The tree lists miniquests and sagas too: some quests are only reachable through them.
   const questTree = useMemo(() => buildQuestTree(catalogue.map(q => q.name)), [catalogue])
+  const unlockTree = useMemo(() => buildUnlockTree(catalogue.map(q => q.name)), [catalogue])
+  // Needs the quest statuses and the levels, so a private RuneMetrics profile leaves the marks off.
+  const availabilityOf = useMemo(() => {
+    if (!stats || !questEntries) return null
+    return createAvailability(characterFrom(stats, questEntries, totalQuestPoints(catalogue, questEntries)))
+  }, [stats, questEntries, catalogue])
   const statusOf = useCallback((name: string) => questEntries?.get(questKey(name)) ?? null, [questEntries])
+
+  const currentView = QUEST_VIEWS.find(v => v.id === questView) ?? QUEST_VIEWS[0]
+  const nextView = QUEST_VIEWS[(QUEST_VIEWS.indexOf(currentView) + 1) % QUEST_VIEWS.length]
 
   function chooseQuestView(view: QuestView) {
     haptic()
@@ -544,12 +565,11 @@ export default function RuneScape() {
             <Button
               variant="outline"
               size="icon"
-              onClick={() => chooseQuestView(questView === 'tree' ? 'list' : 'tree')}
-              aria-label={questView === 'tree' ? 'Switch to list view' : 'Switch to tree view'}
-              aria-pressed={questView === 'tree'}
-              title={questView === 'tree' ? 'Switch to list view' : 'Switch to tree view'}
+              onClick={() => chooseQuestView(nextView.id)}
+              aria-label={`View: ${currentView.label}. Switch to ${nextView.label}`}
+              title={`${currentView.label} · tap for ${nextView.label}`}
             >
-              {questView === 'tree' ? <List className="h-4 w-4" /> : <ListTree className="h-4 w-4" />}
+              <currentView.icon className="h-4 w-4" />
             </Button>
             <Button variant="outline" size="icon" onClick={() => refreshQuests()} disabled={refreshingQuests} aria-label="Refresh quest list">
               <RefreshCw className={cn('h-4 w-4', refreshingQuests && 'animate-spin')} />
@@ -572,8 +592,16 @@ export default function RuneScape() {
             <p className="rounded-2xl border border-dashed border-border py-10 text-center text-sm text-muted-foreground">
               {refreshingQuests ? 'Loading quests…' : 'No quests loaded yet. Tap refresh to fetch the list.'}
             </p>
-          ) : questView === 'tree' ? (
-            <QuestTreeView tree={questTree} search={questSearch.trim().toLowerCase()} statusFilter={questFilter} statusOf={statusOf} />
+          ) : questView !== 'list' ? (
+            <QuestTreeView
+              key={questView}
+              direction={questView === 'unlocks' ? 'unlocks' : 'prerequisites'}
+              tree={questView === 'unlocks' ? unlockTree : questTree}
+              search={questSearch.trim().toLowerCase()}
+              statusFilter={questFilter}
+              statusOf={statusOf}
+              availabilityOf={availabilityOf}
+            />
           ) : (
             <ul className="divide-y divide-border rounded-2xl border border-border bg-card">
               {visibleQuests.map(({ quest, status }) => (
@@ -684,16 +712,33 @@ function QuestRow({ name, status, quest }: { name: string; status: QuestStatus |
   )
 }
 
-const NEED_LABEL = { complete: null, partial: 'Partial completion', full: 'Full completion' } as const
+type TreeDirection = 'prerequisites' | 'unlocks'
 
-/** Quests as a tree: each quest's prerequisites sit under it, down to the ones with no requirements. */
-function QuestTreeView({ tree, search, statusFilter, statusOf }: {
+/** What every row of a tree needs to know besides its own node. */
+type TreeShared = {
+  expanded: Record<string, boolean>
+  onToggle: (node: TreeNode, open: boolean) => void
+  statusOf: (name: string) => QuestStatus | null
+  /** Null when the character's quest statuses or levels aren't known. */
+  availabilityOf: ((name: string) => Availability) | null
+  direction: TreeDirection
+}
+
+const AVAILABLE_STYLE = 'bg-sky-100 text-sky-700'
+
+/**
+ * Quests as a tree. In a prerequisite tree each quest's prerequisites sit under it, down to the ones with no
+ * requirements; in an unlock tree it's the other way round: from the quests with no requirements down to what they unlock.
+ */
+function QuestTreeView({ tree, direction, search, statusFilter, statusOf, availabilityOf }: {
   tree: QuestTree
+  direction: TreeDirection
   /** Lower-case search term. Matches quest names at any depth; the path down to each match is opened. */
   search: string
-  /** Applies to the top-level quests, each of which keeps its whole tree of prerequisites. */
+  /** Applies to the top-level quests, each of which keeps its whole tree. */
   statusFilter: QuestFilter
   statusOf: (name: string) => QuestStatus | null
+  availabilityOf: ((name: string) => Availability) | null
 }) {
   // Open/closed per node, over the default: closed, or open where a search match sits below.
   const [expanded, setExpanded] = useState<Record<string, boolean>>({})
@@ -723,20 +768,29 @@ function QuestTreeView({ tree, search, statusFilter, statusOf }: {
     haptic()
     setExpanded(e => ({ ...e, [node.id]: !open }))
   }
+  const shared: TreeShared = { expanded, onToggle: toggle, statusOf, availabilityOf, direction }
 
   return (
     <div className="space-y-3">
-      <div className="flex items-center justify-between gap-3 text-xs text-muted-foreground">
-        <span>Each quest's prerequisites are nested under it.{statusFilter !== 'all' && ' The status filter applies to top-level quests.'}</span>
-        <span className="flex shrink-0 gap-3 font-medium">
-          <button onClick={() => setAll(true)} className="hover:text-foreground">Expand all</button>
-          <button onClick={() => setAll(false)} className="hover:text-foreground">Collapse all</button>
-        </span>
+      <div className="space-y-1 text-xs text-muted-foreground">
+        <div className="flex items-center justify-between gap-3">
+          <span>
+            {direction === 'unlocks' ? 'Quests that need a quest are nested under it.' : "Each quest's prerequisites are nested under it."}
+            {statusFilter !== 'all' && ' The status filter applies to top-level quests.'}
+          </span>
+          <span className="flex shrink-0 gap-3 font-medium">
+            <button onClick={() => setAll(true)} className="hover:text-foreground">Expand all</button>
+            <button onClick={() => setAll(false)} className="hover:text-foreground">Collapse all</button>
+          </span>
+        </div>
+        {availabilityOf && (
+          <p>Available: prerequisite quests done, and your levels and quest points met. Items and areas aren't checked.</p>
+        )}
       </div>
 
       {roots.length > 0 && (
         <ul className="rounded-2xl border border-border bg-card p-1.5">
-          {roots.map(node => <QuestTreeNode key={node.id} node={node} expanded={expanded} onToggle={toggle} statusOf={statusOf} />)}
+          {roots.map(node => <QuestTreeNode key={node.id} node={node} shared={shared} />)}
         </ul>
       )}
       {roots.length === 0 && standalone.length === 0 && (
@@ -757,7 +811,7 @@ function QuestTreeView({ tree, search, statusFilter, statusOf }: {
             <>
               <p className="text-xs text-muted-foreground">No requirements, and no quest needs them.</p>
               <ul className="rounded-2xl border border-border bg-card p-1.5">
-                {standalone.map(node => <QuestTreeNode key={node.id} node={node} expanded={expanded} onToggle={toggle} statusOf={statusOf} />)}
+                {standalone.map(node => <QuestTreeNode key={node.id} node={node} shared={shared} />)}
               </ul>
             </>
           )}
@@ -767,16 +821,28 @@ function QuestTreeView({ tree, search, statusFilter, statusOf }: {
   )
 }
 
-function QuestTreeNode({ node, expanded, onToggle, statusOf }: {
-  node: TreeNode
-  expanded: Record<string, boolean>
-  onToggle: (node: TreeNode, open: boolean) => void
-  statusOf: (name: string) => QuestStatus | null
-}) {
+function QuestTreeNode({ node, parent, shared }: { node: TreeNode; parent?: TreeNode; shared: TreeShared }) {
+  const { expanded, onToggle, statusOf, availabilityOf, direction } = shared
   const count = node.children.length
   const open = count > 0 && (expanded[node.id] ?? node.open ?? false)
   const status = statusOf(node.name)
-  const meta = [NEED_LABEL[node.need], count > 0 ? `${count} prerequisite${count === 1 ? '' : 's'}` : null].filter(Boolean).join(' · ')
+  // Only a quest still to be started has anything to check.
+  const availability = status === 'NOT_STARTED' && availabilityOf ? availabilityOf(node.name) : null
+
+  // What the link to the other quest needs: all of this quest in a prerequisite tree, all of the parent in an unlock tree.
+  const how = node.need === 'partial' ? 'Partial completion' : 'Full completion'
+  const needs = node.need === 'complete' ? null : direction === 'unlocks' ? `${how} of ${parent?.name ?? 'it'}` : how
+  const counts = count === 0 ? null
+    : direction === 'unlocks' ? `Unlocks ${count} quest${count === 1 ? '' : 's'}`
+    : `${count} prerequisite${count === 1 ? '' : 's'}`
+  const meta = [needs, counts].filter(Boolean).join(' · ')
+
+  // No mark means not started with nothing known about its requirements: most rows, and a mark on each would crowd the deeper levels.
+  const mark = status === 'COMPLETED' || status === 'STARTED' ? { label: STATUS_STYLE[status].label, className: STATUS_STYLE[status].className, locked: false }
+    : availability?.available ? { label: 'Available', className: AVAILABLE_STYLE, locked: false }
+    : availability ? { label: 'Locked', className: 'bg-muted text-muted-foreground', locked: true }
+    : null
+
   return (
     <li>
       <div className="flex min-h-11 items-center rounded-lg hover:bg-accent/50">
@@ -796,18 +862,21 @@ function QuestTreeNode({ node, expanded, onToggle, statusOf }: {
           <div className="min-w-0">
             <div className="truncate text-sm font-medium">{node.name}</div>
             {meta && <div className="truncate text-xs text-muted-foreground">{meta}</div>}
+            {availability && !availability.available && (
+              <div className="line-clamp-2 text-xs text-muted-foreground">Needs {blockerText(availability)}</div>
+            )}
           </div>
-          {/* No badge means not started: it's most rows, and the badge would crowd the deeper levels. */}
-          {(status === 'COMPLETED' || status === 'STARTED') && (
-            <span className={cn('shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold', STATUS_STYLE[status].className)}>
-              {STATUS_STYLE[status].label}
+          {mark && (
+            <span className={cn('inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold', mark.className)}>
+              {mark.locked && <Lock className="h-3 w-3" />}
+              {mark.label}
             </span>
           )}
         </Link>
       </div>
       {open && (
         <ul className="ml-[13px] border-l border-border">
-          {node.children.map(child => <QuestTreeNode key={child.id} node={child} expanded={expanded} onToggle={onToggle} statusOf={statusOf} />)}
+          {node.children.map(child => <QuestTreeNode key={child.id} node={child} parent={node} shared={shared} />)}
         </ul>
       )}
     </li>
