@@ -720,11 +720,14 @@ one", tap "This one!" to tell you. The link works for 24 hours; you can revoke i
 - `vercel.json` sends `X-Robots-Tag: noindex` and `Referrer-Policy: no-referrer` for `/pick/*`.
 - Expired links are swept whenever you create a new one.
 
-**Requires manual action:**
-1. Apply `supabase/migrations/20261025_add_meal_shares.sql`
-2. Deploy `supabase/functions/send-meal-pick-notification` **with JWT verification off**
-   (`supabase functions deploy send-meal-pick-notification --no-verify-jwt`) — it's called with the
-   cron secret, not a user JWT, like `send-notifications`.
+**Already applied to the live project (2026-10-25).** On another project, apply
+`supabase/migrations/20261025_add_meal_shares.sql` then
+`supabase/migrations/20261025_restrict_notify_meal_pick_execute.sql` (in that order), and deploy
+`supabase/functions/send-meal-pick-notification` **with JWT verification off**
+(`supabase functions deploy send-meal-pick-notification --no-verify-jwt`) — it's called with the
+cron secret, not a user JWT, like `send-notifications`. The second migration revokes the trigger
+function from the API roles; Supabase grants new functions to them directly, so the first file's
+`revoke ... from public` alone doesn't do it.
 
 Uses the existing `VAPID_*` / `CRON_SECRET` secrets and `push_subscriptions` from step 1g — no new
 secrets. If the project ref changes, update the URL inside `notify_meal_pick()`.

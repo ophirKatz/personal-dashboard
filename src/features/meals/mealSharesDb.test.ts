@@ -5,6 +5,7 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest'
 import { PGlite } from '@electric-sql/pglite'
 import migration from '../../../supabase/migrations/20261025_add_meal_shares.sql?raw'
+import restrictNotifyMigration from '../../../supabase/migrations/20261025_restrict_notify_meal_pick_execute.sql?raw'
 
 const db = new PGlite()
 
@@ -70,8 +71,12 @@ beforeAll(async () => {
     -- "anon sees nothing" below has to come from RLS, not from a missing grant.
     grant usage on schema public, auth to anon, authenticated;
     alter default privileges in schema public grant all on tables to anon, authenticated;
+    -- ...and EXECUTE on every new function, directly (not via PUBLIC), which is why a
+    -- plain "revoke ... from public" does not make a function private there.
+    alter default privileges in schema public grant execute on functions to anon, authenticated;
   `)
   await db.exec(migration)
+  await db.exec(restrictNotifyMigration)
 }, 30_000)
 
 afterAll(() => db.close())
@@ -106,6 +111,32 @@ describe('meal_shares defaults', () => {
   it('rejects a tag that is not a meal type or "all"', async () => {
     await as('postgres')
     await expect(q(`insert into public.meal_shares (user_id, tag) values ($1, 'snack')`, [owner])).rejects.toThrow()
+  })
+})
+
+describe('function privileges', () => {
+  const canExecute = async (role: string, fn: string) =>
+    (await q<{ ok: boolean }>(`select has_function_privilege($1, $2::regprocedure, 'execute') as ok`, [role, fn]))[0].ok
+
+  it('the API roles can call the two public functions', async () => {
+    await as('postgres')
+    for (const role of ['anon', 'authenticated']) {
+      expect(await canExecute(role, 'public.get_meal_share(text)')).toBe(true)
+      expect(await canExecute(role, 'public.pick_meal_share(text, uuid)')).toBe(true)
+    }
+  })
+
+  it('the API roles cannot execute the trigger function, even with Supabase-style default grants', async () => {
+    await as('postgres')
+    for (const role of ['anon', 'authenticated']) {
+      expect(await canExecute(role, 'public.notify_meal_pick()')).toBe(false)
+    }
+  })
+
+  it('the trigger function still runs when a pick fires it (it executes as its owner)', async () => {
+    await as('anon')
+    expect(await pickMeal(dinner.token as string, pasta)).toBe('ok')
+    expect(await calls()).toHaveLength(1)
   })
 })
 
