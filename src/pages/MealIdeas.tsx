@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { Plus, Search, Shuffle, UtensilsCrossed, X } from 'lucide-react'
+import { Plus, Search, Share2, Shuffle, UtensilsCrossed, X } from 'lucide-react'
 import type { User } from '@supabase/supabase-js'
 import { supabase } from '../supabase'
 import type { Meal, MealTag } from '../supabase'
@@ -10,6 +10,7 @@ import { Fab } from '../components/ui/fab'
 import MealCard from '../features/meals/MealCard'
 import AddMealDrawer from '../features/meals/AddMealDrawer'
 import RandomMealDrawer from '../features/meals/RandomMealDrawer'
+import ShareMealsDrawer from '../features/meals/ShareMealsDrawer'
 import {
   MEAL_TAGS,
   MEAL_TAG_LABELS,
@@ -34,6 +35,7 @@ export default function MealIdeas() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [showAdd, setShowAdd] = useState(false)
+  const [showShare, setShowShare] = useState(false)
   const [randomMeal, setRandomMeal] = useState<Meal | null>(null)
   const [randomOpen, setRandomOpen] = useState(false)
 
@@ -101,6 +103,11 @@ export default function MealIdeas() {
           <Shuffle className="h-4 w-4" />
           Random
         </Button>
+        {user && (
+          <Button variant="outline" size="icon" onClick={() => setShowShare(true)} aria-label="Share meal ideas">
+            <Share2 className="h-4 w-4" />
+          </Button>
+        )}
       </div>
 
       <div className="relative">
@@ -183,6 +190,10 @@ export default function MealIdeas() {
           defaultTags={tag === 'all' ? [] : [tag]}
           onAdded={handleAdded}
         />
+      )}
+
+      {user && showShare && (
+        <ShareMealsDrawer open={showShare} onClose={() => setShowShare(false)} userId={user.id} defaultTag={tag} />
       )}
 
       <RandomMealDrawer

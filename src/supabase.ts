@@ -516,6 +516,20 @@ export type Meal = {
   recipe?: Pick<Recipe, 'id' | 'title' | 'image_url'> | null
 }
 
+/** A time-limited public link to a meal picker; see supabase/migrations/20261025_add_meal_shares.sql. */
+export type MealShare = {
+  id: string
+  user_id: string
+  token: string
+  tag: MealTag | 'all'
+  picked_meal_id: string | null
+  picked_at: string | null
+  expires_at: string
+  created_at: string
+  /** Present when loaded with the `picked:meals!picked_meal_id(id,name)` embed. */
+  picked?: Pick<Meal, 'id' | 'name'> | null
+}
+
 export type WealthOwner = 'ophir' | 'yael' | 'shared'
 
 export type WealthItem = {

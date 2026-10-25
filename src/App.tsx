@@ -41,6 +41,7 @@ const Games = lazy(() => import('./pages/Games'))
 const Workout = lazy(() => import('./pages/Workout'))
 const DiceRoller = lazy(() => import('./pages/DiceRoller'))
 const PdfTools = lazy(() => import('./pages/PdfTools'))
+const SharedMealPicker = lazy(() => import('./pages/SharedMealPicker'))
 
 function PageFallback() {
   return (
@@ -51,6 +52,21 @@ function PageFallback() {
 }
 
 export default function App() {
+  // Public pages live outside the auth gate, so a visitor without a session sees
+  // them instead of <Login />, and none of the signed-in effects (alerts, push
+  // sync) run for them.
+  return (
+    <Routes>
+      <Route
+        path="pick/:token"
+        element={<Suspense fallback={<PageFallback />}><SharedMealPicker /></Suspense>}
+      />
+      <Route path="*" element={<AuthedApp />} />
+    </Routes>
+  )
+}
+
+function AuthedApp() {
   const [user, setUser] = useState<User | null | undefined>(undefined)
 
   useEffect(() => {
