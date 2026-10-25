@@ -699,6 +699,38 @@ unique index so re-running it is a no-op for events already logged.
 
 ---
 
+## 1o. Meal idea share links
+
+On the Meal ideas page, the share button creates a link to a public page (`/pick/<token>`) that
+needs no login. Whoever has the link sees a card like the Random drawer — shuffle with "Another
+one", tap "This one!" to tell you. The link works for 24 hours; you can revoke it earlier.
+
+**How it works:**
+- A link offers one meal type (or all), fixed when you create it. It reads your meals **live**, so
+  edits show up on the page's next load.
+- The `meal_shares` table is owner-only (RLS). The public page never touches it directly — it calls
+  two `SECURITY DEFINER` functions that need the unguessable token and an unexpired link:
+  `get_meal_share(token)` (the meals, or `null` if unknown/expired) and
+  `pick_meal_share(token, meal_id)` (records the pick). Nothing is exposed beyond name, description,
+  tags and photo.
+- A pick fires the `meal_shares_notify_pick` trigger, which calls the
+  `send-meal-pick-notification` Edge Function (same `cron_secret`-from-Vault auth as the other
+  DB-triggered functions) and sends you a push. Re-picking the same meal doesn't notify again;
+  picking a different one does. The pick also shows in the share drawer under "Active links".
+- `vercel.json` sends `X-Robots-Tag: noindex` and `Referrer-Policy: no-referrer` for `/pick/*`.
+- Expired links are swept whenever you create a new one.
+
+**Requires manual action:**
+1. Apply `supabase/migrations/20261025_add_meal_shares.sql`
+2. Deploy `supabase/functions/send-meal-pick-notification` **with JWT verification off**
+   (`supabase functions deploy send-meal-pick-notification --no-verify-jwt`) — it's called with the
+   cron secret, not a user JWT, like `send-notifications`.
+
+Uses the existing `VAPID_*` / `CRON_SECRET` secrets and `push_subscriptions` from step 1g — no new
+secrets. If the project ref changes, update the URL inside `notify_meal_pick()`.
+
+---
+
 ## 2. Vercel — Environment Variables
 
 As part of the import in step 0 (or right after), set these environment variables in the Vercel dashboard:
