@@ -6,7 +6,13 @@ import { Badge } from '../components/ui/badge'
 import { Button } from '../components/ui/button'
 import MealImage from '../features/meals/MealImage'
 import { MEAL_TAGS, MEAL_TAG_LABELS, pickRandomMeal } from '../features/meals/meals'
-import { formatTimeLeft, shareTagLabel } from '../features/meals/mealShares'
+import {
+  formatTimeLeft,
+  initialSharedMeal,
+  resolvePick,
+  resolveShareLoad,
+  shareTagLabel,
+} from '../features/meals/mealShares'
 import type { SharedMeal, SharedMealList } from '../features/meals/mealShares'
 
 type LoadState = 'loading' | 'ready' | 'invalid' | 'error'
@@ -29,20 +35,14 @@ export default function SharedMealPicker() {
       return
     }
     const { data, error } = await supabase.rpc('get_meal_share', { p_token: token })
-    if (error) {
-      setState('error')
+    const result = resolveShareLoad(data, error)
+    if (result.status !== 'ready') {
+      setState(result.status)
       return
     }
-    // The RPC answers null for an unknown or expired link.
-    if (!data) {
-      setState('invalid')
-      return
-    }
-    const next = data as SharedMealList
-    setList(next)
-    setPickedId(next.picked_meal_id)
-    // Come back to an earlier pick if there was one; otherwise start on a random meal.
-    setCurrent(next.meals.find(m => m.id === next.picked_meal_id) ?? pickRandomMeal(next.meals))
+    setList(result.list)
+    setPickedId(result.list.picked_meal_id)
+    setCurrent(initialSharedMeal(result.list))
     setState('ready')
   }, [token])
 
@@ -60,16 +60,17 @@ export default function SharedMealPicker() {
     setPickError(null)
     const { data, error } = await supabase.rpc('pick_meal_share', { p_token: token, p_meal_id: current.id })
     setPicking(false)
-    if (error) {
-      setPickError('Could not send your pick. Try again.')
-    } else if (data === 'ok') {
+    const outcome = resolvePick(data, error)
+    if (outcome === 'sent') {
       setPickedId(current.id)
-    } else if (data === 'expired') {
+    } else if (outcome === 'expired') {
       setState('invalid')
-    } else {
+    } else if (outcome === 'unavailable') {
       // The meal was removed since this page loaded - show the fresh list.
       setPickError('That one is no longer available.')
       load()
+    } else {
+      setPickError('Could not send your pick. Try again.')
     }
   }
 
@@ -137,7 +138,8 @@ export default function SharedMealPicker() {
               Another one
             </Button>
           )}
-          {pickError && <p className="text-center text-sm text-destructive">{pickError}</p>}
+          {/* Always rendered, so an error appearing never shifts the buttons she is about to retry. */}
+          <p aria-live="polite" className="min-h-5 text-center text-sm text-destructive">{pickError}</p>
           <p className="pt-1 text-center text-xs text-muted-foreground">
             {shareTagLabel(list.tag)} · link {formatTimeLeft(list.expires_at)}
           </p>
