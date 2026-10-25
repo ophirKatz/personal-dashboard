@@ -85,6 +85,35 @@ credentials or a logged-in session:
 - **Project URL**: `https://tjjvrqamitwtoslinrxy.supabase.co`
 - **Dashboard**: https://supabase.com/dashboard/project/tjjvrqamitwtoslinrxy
 
+# Applying Supabase migrations from a session (MCP tools)
+
+The Supabase MCP tools (`apply_migration`, `execute_sql`) **hold any statement
+containing `DROP` (and `DELETE`) for a confirmation that never reaches the
+user**. The call fails after 60s with "The server asked the user a question, and
+no answer came before the time limit". There is nothing for the user to answer,
+and retrying doesn't help. Seen in the `add_rs_pvm_progress` and
+`add_meal_shares` sessions (several timeouts each).
+
+- **Don't put `drop policy/trigger ... if exists` in migrations.** For new
+  objects plain `create` is enough, and the call then goes through instantly.
+  Keep the committed `.sql` identical to what you apply, so replaying the files
+  reproduces production.
+- **Avoid `DELETE`/`DROP` in `execute_sql` too.** Don't create test rows you'd
+  need to delete: use rows that expire on their own, or ask the user to remove
+  them in the app.
+- **After a timeout nothing was applied.** Confirm with a read-only query
+  (`select ... from information_schema.tables` / `supabase_migrations.schema_migrations`)
+  before doing anything else.
+- **Run `get_advisors` (security) after DDL.** Supabase grants EXECUTE on new
+  `public` functions to `anon` and `authenticated` directly, so
+  `revoke ... from public` does not make a function private. Trigger/internal
+  functions need `revoke execute on function ... from anon, authenticated`.
+- **The sandbox can't reach `*.supabase.co`** (egress is blocked), so you can't
+  `curl` the REST API. Test the anonymous path in SQL with one call such as
+  `set local role anon; select ...;` (the role resets when the call ends).
+- Edge Functions called with the cron secret deploy with `verify_jwt: false`,
+  like `send-notifications`.
+
 # Debugging Recipe Import Issues
 
 If "Prompt to recipe" or "Paste recipe text" fail with "Failed to send a request to the Edge Function":

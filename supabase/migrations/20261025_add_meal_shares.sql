@@ -6,6 +6,12 @@
 -- guessed at. Anonymous visitors only ever go through the two SECURITY DEFINER
 -- functions below, each of which requires the unguessable token and an
 -- unexpired link.
+--
+-- No statements that remove objects (no "if exists" re-run guards) on purpose: the
+-- Supabase MCP tools hold those for a confirmation that never reaches the user,
+-- so the call just times out (see CLAUDE.md). Everything below is new, so plain
+-- `create` is enough. Apart from this comment, the file is exactly what was
+-- applied to the live project.
 create table if not exists public.meal_shares (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users(id) on delete cascade,
@@ -23,7 +29,6 @@ create index if not exists meal_shares_user_id_idx on public.meal_shares (user_i
 
 alter table public.meal_shares enable row level security;
 
-drop policy if exists "user owns meal shares" on public.meal_shares;
 create policy "user owns meal shares"
   on public.meal_shares
   for all
@@ -140,7 +145,6 @@ $$;
 
 revoke all on function public.notify_meal_pick() from public;
 
-drop trigger if exists meal_shares_notify_pick on public.meal_shares;
 create trigger meal_shares_notify_pick
   after update of picked_meal_id on public.meal_shares
   for each row
