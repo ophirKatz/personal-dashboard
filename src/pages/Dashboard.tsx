@@ -14,7 +14,7 @@ import CurrentlyReadingWidget from '../features/reading/CurrentlyReadingWidget'
 import FocusSection from '../features/focus/FocusSection'
 import TodaySection from '../features/today/TodaySection'
 import type { TodayEvent } from '../features/today/TodaySection'
-import { hasWorkedOutToday } from '../features/workout/workout'
+import WorkoutWidget from '../features/workout/WorkoutWidget'
 import { getShowFocusSection } from '../lib/userSettings'
 import ShoppingItemDrawer from '../features/shopping/ShoppingItemDrawer'
 import QuickLogSessionDrawer from '../features/climbing/QuickLogSessionDrawer'
@@ -35,7 +35,6 @@ export default function Dashboard() {
   const [tomorrowTodos, setTomorrowTodos] = useState<Todo[]>([])
   const [events, setEvents] = useState<CalendarEvent[]>([])
   const [notifications, setNotifications] = useState<Notification[]>([])
-  const [workoutDoneToday, setWorkoutDoneToday] = useState(false)
   const [loading, setLoading] = useState(true)
   const [showFocusSection, setShowFocusSection] = useState(true)
   const [user, setUser] = useState<User | null>(null)
@@ -66,14 +65,13 @@ export default function Dashboard() {
     const v2 = await fetchHabitsV2Enabled()
     setHabitsV2Enabled(v2)
 
-    const [{ statuses: habitStatuses, logs: habitLogs }, todosRes, tomorrowTodosRes, eventsRes, notificationsRes, friendsRes, workedOut] = await Promise.all([
+    const [{ statuses: habitStatuses, logs: habitLogs }, todosRes, tomorrowTodosRes, eventsRes, notificationsRes, friendsRes] = await Promise.all([
       loadHabitStatuses(v2, habitLogsSince),
       supabase.from('todos').select('*').eq('completed', false).or(`due_date.eq.${t},due_date.is.null`).order('created_at'),
       supabase.from('todos').select('*').eq('completed', false).eq('due_date', tomorrow()).order('created_at'),
       supabase.from('events').select('*').gte('event_date', t).lte('event_date', in7).order('event_date').order('event_time'),
       supabase.from('notifications').select('*').eq('read', false).order('created_at', { ascending: false }),
       supabase.from('friends').select('*').order('name'),
-      hasWorkedOutToday(),
     ])
 
     setHabits(habitStatuses)
@@ -83,7 +81,6 @@ export default function Dashboard() {
     setEvents(eventsRes.data ?? [])
     setNotifications(notificationsRes.data ?? [])
     setFriends(friendsRes.data ?? [])
-    setWorkoutDoneToday(workedOut)
     setLoading(false)
   }
 
@@ -261,9 +258,11 @@ export default function Dashboard() {
           events={todayEvents}
           tomorrowTodos={tomorrowTodos}
           tomorrowEvents={tomorrowEvents}
-          workoutDoneToday={workoutDoneToday}
         />
       )}
+
+      {/* Workout: full until one is logged today, then a compact row */}
+      {!loading && <WorkoutWidget />}
 
       {/* Currently reading: only rendered while a book is set on the Reading page */}
       {!loading && <CurrentlyReadingWidget />}

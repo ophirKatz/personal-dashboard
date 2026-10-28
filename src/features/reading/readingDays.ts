@@ -26,21 +26,8 @@ export async function unlogReadingDay(day: string): Promise<Result> {
   return { error: error?.message ?? null }
 }
 
-/**
- * Consecutive days read. A streak stays alive through today: if today isn't logged yet it is
- * counted up to yesterday, so the number only drops once a whole day has been missed.
- */
-export function currentStreak(days: readonly string[], todayStr: string): number {
-  const set = new Set(days)
-  let cursor = parseISO(todayStr)
-  if (!set.has(fmt(cursor))) cursor = subDays(cursor, 1)
-  let streak = 0
-  while (set.has(fmt(cursor))) {
-    streak++
-    cursor = subDays(cursor, 1)
-  }
-  return streak
-}
+// Shared with the workout streak; re-exported so reading callers keep their import.
+export { currentStreak } from '../../lib/streak'
 
 /** The last `count` days ending today, oldest first, flagged with whether each was read. */
 export function recentDays(days: readonly string[], todayStr: string, count = 7) {

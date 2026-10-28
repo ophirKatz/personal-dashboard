@@ -1,6 +1,7 @@
 import { createClient } from 'npm:@supabase/supabase-js@2'
 import webpush from 'npm:web-push@3'
-import { todayInTZ, addDaysUTC } from '../_shared/time.ts'
+import { todayInTZ, addDaysUTC, timeInTZ } from '../_shared/time.ts'
+import { dueReminderSlot } from '../_shared/workoutReminders.ts'
 
 type PendingNotification = {
   userId: string
@@ -141,6 +142,35 @@ Deno.serve(async (req: Request) => {
       })
       await supabase.from('habits').update({ last_notified_date: todayIL }).eq('id', habit.id)
     }
+  }
+
+  // Workout reminders (configured on the Workout page). Times are wall-clock in the app
+  // timezone. Each slot is recorded in last_reminder_slot even when skipped, so it is judged
+  // once; the push goes out only while nothing has been logged today.
+  const nowTimeIL = timeInTZ()
+  const { data: workoutSettings } = await supabase
+    .from('workout_settings')
+    .select('user_id, reminder_times, last_reminder_slot')
+    .eq('reminder_enabled', true)
+
+  for (const settings of workoutSettings ?? []) {
+    const slot = dueReminderSlot(settings.reminder_times ?? [], nowTimeIL, todayIL, settings.last_reminder_slot)
+    if (!slot) continue
+    await supabase.from('workout_settings').update({ last_reminder_slot: slot }).eq('user_id', settings.user_id)
+
+    const { count } = await supabase
+      .from('workout_logs')
+      .select('id', { count: 'exact', head: true })
+      .eq('user_id', settings.user_id)
+      .eq('log_date', todayIL)
+    if ((count ?? 0) > 0) continue
+
+    pending.push({
+      userId: settings.user_id,
+      title: '💪 Workout time',
+      body: "You haven't logged a workout today.",
+      url: '/workout',
+    })
   }
 
   // Check for calendar event reminders that are due

@@ -92,15 +92,15 @@ describe('decideHabitTap', () => {
   })
 
   it('does nothing when fully caught up and there is no log for today to undo', () => {
-    const todayStr = today()
-    // For a weekly habit (period = 3 days), once logged in current period, period is satisfied
+    // A weekly habit at 2x/week has a 3-day period. Created 4 days ago, today is the second day of
+    // the second period, so yesterday falls inside the current period. (A fixed created_at made
+    // this fail every third day: whenever today began a period, yesterday belonged to the last one.)
     const habit = makeHabit({
       debt: 0,
       frequency: 'weekly',
-      times_per_week: 2
+      times_per_week: 2,
+      created_at: `${format(subDays(new Date(), 4), 'yyyy-MM-dd')}T00:00:00.000Z`,
     })
-    // Simulate: logged yesterday (within current 3-day period) but not today
-    // Get a date string for yesterday
     const yesterdayStr = format(subDays(new Date(), 1), 'yyyy-MM-dd')
     const logs = [makeLog({ logged_date: yesterdayStr, paid_debt: false })]
 

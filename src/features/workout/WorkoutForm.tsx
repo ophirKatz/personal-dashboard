@@ -23,6 +23,8 @@ import type { WorkoutExercise } from '../../supabase'
 type Props = {
   // When set, the form edits this logged instance instead of creating one.
   editing?: LogWithExercises
+  // Date a new log starts on (defaults to today); lets the home widget backfill a missed day.
+  initialDate?: string
   onSaved: () => void
 }
 
@@ -33,7 +35,7 @@ function itemsFromPreset(preset: PresetWithExercises, exercises: WorkoutExercise
   })
 }
 
-export default function WorkoutForm({ editing, onSaved }: Props) {
+export default function WorkoutForm({ editing, initialDate, onSaved }: Props) {
   const [user, setUser] = useState<User | null>(null)
   const [presets, setPresets] = useState<PresetWithExercises[]>([])
   const [exercises, setExercises] = useState<WorkoutExercise[]>([])
@@ -41,7 +43,7 @@ export default function WorkoutForm({ editing, onSaved }: Props) {
   const [items, setItems] = useState<WorkoutDraftItem[]>(
     editing?.items.map(i => ({ exercise_id: i.exercise_id, exercise_name: i.exercise_name, icon: i.icon, sets: i.sets, reps: i.reps })) ?? [],
   )
-  const [date, setDate] = useState(editing?.log_date ?? today())
+  const [date, setDate] = useState(editing?.log_date ?? initialDate ?? today())
   const [notes, setNotes] = useState(editing?.notes ?? '')
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)

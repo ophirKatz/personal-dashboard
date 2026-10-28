@@ -1,7 +1,8 @@
+import { format, parseISO, subDays } from 'date-fns'
 import { supabase } from '../../supabase'
-import type { WorkoutExercise, WorkoutLog, WorkoutLogExercise, WorkoutPreset, WorkoutPresetExercise } from '../../supabase'
-import { today } from '../../utils'
+import type { WorkoutExercise, WorkoutLog, WorkoutLogExercise, WorkoutPreset, WorkoutPresetExercise, WorkoutSettings } from '../../supabase'
 import { BUILTIN_EXERCISES } from './exerciseIcons'
+import { normalizeReminderTimes } from './workoutTracking'
 
 export type PresetWithExercises = WorkoutPreset & { items: WorkoutPresetExercise[] }
 export type LogWithExercises = WorkoutLog & { items: WorkoutLogExercise[] }
@@ -52,12 +53,49 @@ export async function loadLogs(limit = 100): Promise<LogWithExercises[]> {
   return logs.map(l => ({ ...l, items: (items ?? []).filter(i => i.log_id === l.id) }))
 }
 
-export async function hasWorkedOutToday(): Promise<boolean> {
-  const { count } = await supabase
+// Far enough back for any realistic streak; the owed-workouts walk reaches further when tracking began earlier.
+const STREAK_LOOKBACK_DAYS = 400
+
+export type WorkoutTracking = {
+  // Null when the settings table can't be read (e.g. migration not applied yet): no carry-over, no reminders.
+  settings: WorkoutSettings | null
+  // One entry per logged workout (two on a day appear twice), newest first.
+  days: string[]
+}
+
+function toSettings(row: WorkoutSettings): WorkoutSettings {
+  return { ...row, reminder_times: normalizeReminderTimes(row.reminder_times) }
+}
+
+// The user's settings row, created on first use with tracking starting today so past days never count as missed.
+export async function ensureWorkoutSettings(todayStr: string): Promise<WorkoutSettings | null> {
+  const read = () => supabase.from('workout_settings').select('*').maybeSingle()
+  const { data, error } = await read()
+  if (error) return null
+  if (data) return toSettings(data)
+  await supabase.from('workout_settings').upsert({ tracking_start_date: todayStr }, { onConflict: 'user_id', ignoreDuplicates: true })
+  const { data: created } = await read()
+  return created ? toSettings(created) : null
+}
+
+export async function loadWorkoutTracking(todayStr: string): Promise<WorkoutTracking> {
+  const settings = await ensureWorkoutSettings(todayStr)
+  const lookback = format(subDays(parseISO(todayStr), STREAK_LOOKBACK_DAYS), 'yyyy-MM-dd')
+  const since = settings && settings.tracking_start_date < lookback ? settings.tracking_start_date : lookback
+  const { data } = await supabase
     .from('workout_logs')
-    .select('id', { count: 'exact', head: true })
-    .eq('log_date', today())
-  return (count ?? 0) > 0
+    .select('log_date')
+    .gte('log_date', since)
+    .order('log_date', { ascending: false })
+  return { settings, days: (data ?? []).map(r => r.log_date as string) }
+}
+
+type SettingsPatch = Partial<Pick<WorkoutSettings, 'tracking_start_date' | 'reminder_enabled' | 'reminder_times'>>
+
+// Returns an error message, or null on success.
+export async function updateWorkoutSettings(userId: string, patch: SettingsPatch): Promise<string | null> {
+  const { error } = await supabase.from('workout_settings').update(patch).eq('user_id', userId)
+  return error?.message ?? null
 }
 
 async function replaceLogItems(userId: string, logId: string, items: WorkoutDraftItem[]) {
