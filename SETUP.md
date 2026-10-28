@@ -201,7 +201,7 @@ listens for `push` events.
 - That function checks for incomplete todos with a reminder enabled (`remind_at <= now()` and not
   yet notified), habits with a matching `reminder_time` that haven't been logged today, and
   workout reminders (the times in `workout_settings.reminder_times`, compared in Asia/Jerusalem
-  and sent only while no workout is logged that day), then sends a push via the `web-push`
+  and sent every day, whether or not a workout is already logged), then sends a push via the `web-push`
   library to every stored subscription for that user
 
 **This was already set up for you (via MCPs), no action needed:**

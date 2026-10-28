@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { dueReminderSlot } from '../../../supabase/functions/_shared/workoutReminders'
+import { dueReminderSlot, workoutReminderBody } from '../../../supabase/functions/_shared/workoutReminders'
 import { timeInTZ } from '../../../supabase/functions/_shared/time'
 
 const day = '2026-10-28'
@@ -43,6 +43,17 @@ describe('dueReminderSlot', () => {
 
   it('does nothing without times', () => {
     expect(dueReminderSlot([], '18:00', day, null)).toBeNull()
+  })
+})
+
+describe('workoutReminderBody', () => {
+  it('nudges when nothing is logged yet', () => {
+    expect(workoutReminderBody(false)).toBe("You haven't logged a workout today.")
+  })
+
+  // Reminders fire even after a workout, so this text must never say none was logged.
+  it('does not claim nothing was logged once a workout is', () => {
+    expect(workoutReminderBody(true)).not.toMatch(/haven't logged/i)
   })
 })
 
