@@ -205,12 +205,11 @@ export default function TodaySection({ habits, totalHabitsCount, onToggleHabit, 
                 return (
                 <div key={event.id}>
                   <button
-                    onClick={() => place && setExpandedEventId(id => (id === event.id ? null : event.id))}
-                    className="flex items-center gap-2 w-full text-left"
-                    disabled={!place}
+                    onClick={() => setExpandedEventId(id => (id === event.id ? null : event.id))}
+                    className="flex items-start gap-2 w-full text-left"
                   >
-                    <Clock className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                    <span className="text-sm truncate flex-1">{event.title}</span>
+                    <Clock className="h-3.5 w-3.5 text-muted-foreground shrink-0 mt-0.5" />
+                    <span className={`text-sm flex-1 min-w-0 ${expandedEventId === event.id ? 'break-words' : 'truncate'}`}>{event.title}</span>
                     <span className="text-xs text-muted-foreground shrink-0">
                       {event.time
                         ? `${formatTime(event.time)}${event.endTime ? ` – ${formatTime(event.endTime)}` : ''}`
