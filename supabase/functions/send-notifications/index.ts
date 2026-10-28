@@ -1,7 +1,7 @@
 import { createClient } from 'npm:@supabase/supabase-js@2'
 import webpush from 'npm:web-push@3'
 import { todayInTZ, addDaysUTC, timeInTZ } from '../_shared/time.ts'
-import { dueReminderSlot } from '../_shared/workoutReminders.ts'
+import { dueReminderSlot, workoutReminderBody } from '../_shared/workoutReminders.ts'
 
 type PendingNotification = {
   userId: string
@@ -145,8 +145,8 @@ Deno.serve(async (req: Request) => {
   }
 
   // Workout reminders (configured on the Workout page). Times are wall-clock in the app
-  // timezone. Each slot is recorded in last_reminder_slot even when skipped, so it is judged
-  // once; the push goes out only while nothing has been logged today.
+  // timezone; each slot is recorded in last_reminder_slot so it fires once. They go out every
+  // day whether or not a workout is already logged: that only changes the wording.
   const nowTimeIL = timeInTZ()
   const { data: workoutSettings } = await supabase
     .from('workout_settings')
@@ -163,12 +163,11 @@ Deno.serve(async (req: Request) => {
       .select('id', { count: 'exact', head: true })
       .eq('user_id', settings.user_id)
       .eq('log_date', todayIL)
-    if ((count ?? 0) > 0) continue
 
     pending.push({
       userId: settings.user_id,
       title: '💪 Workout time',
-      body: "You haven't logged a workout today.",
+      body: workoutReminderBody((count ?? 0) > 0),
       url: '/workout',
     })
   }

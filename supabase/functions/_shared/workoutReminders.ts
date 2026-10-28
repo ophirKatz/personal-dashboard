@@ -35,3 +35,11 @@ export function dueReminderSlot(
   const slot = `${todayStr} ${latest}`
   return lastSlot !== null && lastSlot >= slot ? null : slot
 }
+
+/**
+ * Push text for a workout reminder. Reminders go out every day whether or not a workout is
+ * already logged, so the wording must not claim none was.
+ */
+export function workoutReminderBody(loggedToday: boolean): string {
+  return loggedToday ? 'You already worked out today. Up for another?' : "You haven't logged a workout today."
+}

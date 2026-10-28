@@ -29,7 +29,7 @@ function Toggle({ checked, onChange, label }: { checked: boolean; onChange: () =
   )
 }
 
-/** Reminders (push at set times, only while nothing is logged yet) and the carry-over of missed workouts. */
+/** Reminders (a push every day at set times) and the carry-over of missed workouts. */
 export default function WorkoutTrackingSettings() {
   const [tracking, setTracking] = useState<WorkoutTracking | null>(null)
   const [enabled, setEnabled] = useState(false)
@@ -120,7 +120,7 @@ export default function WorkoutTrackingSettings() {
           <Bell className="h-4 w-4 shrink-0 text-muted-foreground" />
           <div className="min-w-0 flex-1">
             <p className="text-sm font-medium">Workout reminders</p>
-            <p className="text-xs text-muted-foreground">A push at each time below, only if you haven't logged a workout yet that day</p>
+            <p className="text-xs text-muted-foreground">A push every day at each time below</p>
           </div>
           <Toggle checked={enabled} onChange={toggleEnabled} label="Workout reminders" />
         </div>
