@@ -8,7 +8,6 @@ import WeatherWidget from '../weather/WeatherWidget'
 import { celebrateFromElement } from '../../lib/confetti'
 import { haptic } from '../../lib/haptics'
 import PostponeMenu from '../todos/PostponeMenu'
-import WorkoutWidget from '../workout/WorkoutWidget'
 import { dismissTomorrowBanner, getTodaySectionsOrder, getTomorrowBannerSettings } from '../../lib/userSettings'
 import {
   DEFAULT_TOMORROW_BANNER_SETTINGS,
@@ -46,7 +45,6 @@ type Props = {
   events: TodayEvent[]
   tomorrowTodos: Todo[]
   tomorrowEvents: TodayEvent[]
-  workoutDoneToday: boolean
 }
 
 const PRIORITY_DOT = {
@@ -85,7 +83,7 @@ function hasEventEnded(event: TodayEvent, now: Date): boolean {
   return new Date(`${endDate}T${endTime}`).getTime() < now.getTime()
 }
 
-export default function TodaySection({ habits, totalHabitsCount, onToggleHabit, todos, onCompleteTodo, onPostponeTodo, events, tomorrowTodos, tomorrowEvents, workoutDoneToday }: Props) {
+export default function TodaySection({ habits, totalHabitsCount, onToggleHabit, todos, onCompleteTodo, onPostponeTodo, events, tomorrowTodos, tomorrowEvents }: Props) {
   const [now, setNow] = useState(() => new Date())
   useEffect(() => {
     const id = setInterval(() => setNow(new Date()), 30_000)
@@ -373,9 +371,6 @@ export default function TodaySection({ habits, totalHabitsCount, onToggleHabit, 
           </div>
         </div>
         ),
-    workout: (
-        <WorkoutWidget doneToday={workoutDoneToday} />
-    ),
   }
 
   const isTomorrow = page === 'tomorrow'

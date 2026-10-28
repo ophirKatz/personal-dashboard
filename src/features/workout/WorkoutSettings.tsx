@@ -10,6 +10,7 @@ import { haptic } from '../../lib/haptics'
 import { cn } from '../../utils'
 import { CUSTOM_ICON_KEYS, exerciseIcon } from './exerciseIcons'
 import Stepper from './Stepper'
+import WorkoutTrackingSettings from './WorkoutTrackingSettings'
 import {
   addExercise, deleteExercise, deletePreset, ensureBuiltinExercises, loadExercises, loadPresets,
   savePreset, setDefaultPreset, type PresetWithExercises,
@@ -79,6 +80,8 @@ export default function WorkoutSettings() {
 
   return (
     <div className="space-y-8">
+      <WorkoutTrackingSettings />
+
       <section className="space-y-3">
         <div className="flex items-center justify-between">
           <h2 className="text-base font-semibold">Presets</h2>

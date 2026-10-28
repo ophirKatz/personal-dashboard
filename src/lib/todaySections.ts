@@ -1,14 +1,13 @@
-export type TodaySectionKey = 'next_up' | 'events' | 'tasks' | 'habits' | 'workout'
+export type TodaySectionKey = 'next_up' | 'events' | 'tasks' | 'habits'
 
 export const TODAY_SECTION_LABELS: Record<TodaySectionKey, string> = {
   next_up: 'Next up',
   events: 'Events',
   tasks: 'Tasks',
   habits: 'Habits',
-  workout: 'Workout',
 }
 
-export const DEFAULT_TODAY_SECTIONS_ORDER: TodaySectionKey[] = ['next_up', 'events', 'tasks', 'habits', 'workout']
+export const DEFAULT_TODAY_SECTIONS_ORDER: TodaySectionKey[] = ['next_up', 'events', 'tasks', 'habits']
 
 export const TODAY_SECTIONS_CHANGED_EVENT = 'today-sections-changed'
 

@@ -430,6 +430,15 @@ export type WorkoutLogExercise = {
   position: number
 }
 
+export type WorkoutSettings = {
+  user_id: string
+  tracking_start_date: string
+  reminder_enabled: boolean
+  reminder_times: string[]
+  last_reminder_slot: string | null
+  created_at: string
+}
+
 export type RsCharacter = {
   id: string
   user_id: string
