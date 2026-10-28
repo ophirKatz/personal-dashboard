@@ -381,8 +381,8 @@ export default function Calendar() {
                     {dateEvents.map(event => (
                       <div
                         key={event.id}
-                        onClick={hasAttendees(event) ? () => setExpandedEventId(id => id === event.id ? null : event.id) : undefined}
-                        className={cn('flex items-start gap-3 p-4 bg-card border border-border rounded-xl', hasAttendees(event) && 'cursor-pointer')}
+                        onClick={() => setExpandedEventId(id => id === event.id ? null : event.id)}
+                        className="flex items-start gap-3 p-4 bg-card border border-border rounded-xl cursor-pointer"
                       >
                         {event.event_time && (() => {
                           const info = eventTimeInfo(event)!
@@ -396,7 +396,7 @@ export default function Calendar() {
                         })()}
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-1.5">
-                            <p className="font-medium truncate">{event.title}</p>
+                            <p className={cn('font-medium', expandedEventId === event.id ? 'break-words' : 'truncate')}>{event.title}</p>
                             {event.source === 'google' && (() => {
                               const badge = accountBadge(event.google_account_id, accounts)
                               return (
