@@ -77,9 +77,12 @@ export default function Layout() {
   }
 
   return (
-    <div className="flex h-dvh overflow-hidden bg-background">
-      {/* Desktop sidebar */}
-      <aside className="hidden md:flex flex-col w-52 border-r border-border shrink-0 p-3 gap-1">
+    // fixed inset-0 rather than h-dvh: iOS standalone keeps a stale dvh after
+    // rotating to landscape, leaving a dead strip and letting the body scroll.
+    <div className="fixed inset-0 flex overflow-hidden bg-background">
+      {/* Desktop sidebar - also shown on phones in landscape (>=768px wide),
+          where it's shorter than its items and sits beside the notch */}
+      <aside className="hidden md:flex flex-col w-[calc(13rem+env(safe-area-inset-left))] border-r border-border shrink-0 p-3 pt-[max(0.75rem,env(safe-area-inset-top))] pb-[max(0.75rem,env(safe-area-inset-bottom))] pl-[max(0.75rem,env(safe-area-inset-left))] gap-1 overflow-y-auto overscroll-contain">
         <div className="flex items-center gap-2 px-3 py-3 mb-2">
           <Mountain className="h-5 w-5 text-primary" />
           <span className="font-semibold">Dashboard</span>
@@ -114,8 +117,8 @@ export default function Layout() {
       </aside>
 
       {/* Main content */}
-      <main className="flex-1 overflow-y-auto">
-        <div className="pt-safe pb-24 md:pb-6">
+      <main className="flex-1 min-w-0 overflow-y-auto overscroll-contain">
+        <div className="pt-safe px-safe md:pl-0 pb-24 md:pb-6">
           <Outlet />
         </div>
       </main>
@@ -123,7 +126,7 @@ export default function Layout() {
       {/* Mobile bottom nav */}
       <nav
         ref={tabBarRef}
-        className="md:hidden fixed bottom-0 left-0 right-0 bg-background/95 backdrop-blur border-t border-border flex items-center justify-around px-1 pt-1 pb-safe z-40"
+        className="md:hidden fixed bottom-0 left-0 right-0 bg-background/95 backdrop-blur border-t border-border flex items-center justify-around px-[max(0.25rem,env(safe-area-inset-left))] pt-1 pb-safe z-40"
       >
         {primaryNav.map(({ to, icon: Icon, label }) => (
           <NavLink
@@ -165,7 +168,7 @@ export default function Layout() {
         >
           <div
             className={cn(
-              'absolute inset-0 bg-background flex flex-col duration-200',
+              'absolute inset-0 bg-background flex flex-col px-safe duration-200',
               morePanel === 'closing' ? 'animate-out slide-out-to-bottom' : 'animate-in slide-in-from-bottom',
             )}
             onAnimationEnd={handleMoreAnimationEnd}

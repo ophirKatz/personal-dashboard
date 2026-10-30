@@ -49,6 +49,20 @@
   padding-top: env(safe-area-inset-top);
 }
 
+/* Landscape on a notched iPhone puts the notch/home indicator on the side;
+   keep content clear of it. 0 in portrait and on desktop. */
+.px-safe {
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
+}
+
+/* The app shell scrolls inside <main>; stop the document itself from
+   rubber-banding underneath it on iOS. */
+html,
+body {
+  overscroll-behavior: none;
+}
+
 /* iOS Safari auto-zooms the page on focus when a form field's font-size is
    below 16px. Force 16px on mobile so focusing inputs never triggers it. */
 @media (max-width: 767px) {
