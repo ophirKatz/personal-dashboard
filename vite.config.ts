@@ -45,8 +45,8 @@ export default defineConfig({
       srcDir: 'src',
       filename: 'sw.ts',
       manifest: {
-        name: 'Personal Dashboard',
-        short_name: 'Dashboard',
+        name: 'Orbit',
+        short_name: 'Orbit',
         description: 'Track todos, habits, and climbing sessions.',
         theme_color: '#2563eb',
         background_color: '#ffffff',

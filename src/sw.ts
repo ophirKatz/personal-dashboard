@@ -13,7 +13,7 @@ type PushPayload = {
 }
 
 self.addEventListener('push', (event: PushEvent) => {
-  let payload: PushPayload = { title: 'Personal Dashboard', body: '' }
+  let payload: PushPayload = { title: 'Orbit', body: '' }
   if (event.data) {
     try {
       payload = event.data.json()

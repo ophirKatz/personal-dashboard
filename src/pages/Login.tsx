@@ -15,7 +15,7 @@ export default function Login() {
           </div>
         </div>
         <div className="space-y-2">
-          <h1 className="text-3xl font-bold tracking-tight">Personal Dashboard</h1>
+          <h1 className="text-3xl font-bold tracking-tight">Orbit</h1>
           <p className="text-muted-foreground">Habits, tasks, climbing & more.</p>
         </div>
         <button

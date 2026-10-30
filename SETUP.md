@@ -1,4 +1,4 @@
-# Personal Dashboard — Setup & Manual Steps
+# Orbit — Setup & Manual Steps
 
 This document covers every manual configuration step required to get the dashboard fully running. Code and infrastructure (Supabase schema, storage) were handled via MCPs; the steps below require browser-based configuration that MCPs cannot perform.
 

@@ -82,7 +82,7 @@ export default function Layout() {
       <aside className="hidden md:flex flex-col w-52 border-r border-border shrink-0 p-3 gap-1">
         <div className="flex items-center gap-2 px-3 py-3 mb-2">
           <Mountain className="h-5 w-5 text-primary" />
-          <span className="font-semibold">Dashboard</span>
+          <span className="font-semibold">Orbit</span>
         </div>
         {[...primaryNav, ...moreNav].map(({ to, icon: Icon, label }) => (
           <NavLink
