@@ -315,12 +315,12 @@ export default function TodaySection({ habits, totalHabitsCount, onToggleHabit, 
               : 'bg-primary/5 border border-primary/20'
           }`}
         >
-          <Clock className={`h-4 w-4 shrink-0 ${urgency === 'high' ? 'text-destructive' : urgency === 'medium' ? 'text-amber-600' : 'text-primary'}`} />
+          <Clock className={`h-4 w-4 shrink-0 ${urgency === 'high' ? 'text-destructive' : urgency === 'medium' ? 'text-amber-600 dark:text-amber-400' : 'text-primary'}`} />
           <div className="flex-1 min-w-0">
             <p className="text-xs text-muted-foreground">Next up</p>
             <p className="text-sm font-medium truncate">{nextUp.label}</p>
           </div>
-          <span className={`text-sm font-semibold shrink-0 ${urgency === 'high' ? 'text-destructive' : urgency === 'medium' ? 'text-amber-600' : 'text-primary'}`}>
+          <span className={`text-sm font-semibold shrink-0 ${urgency === 'high' ? 'text-destructive' : urgency === 'medium' ? 'text-amber-600 dark:text-amber-400' : 'text-primary'}`}>
             in {formatCountdown(nextUp.minutes)}
           </span>
         </div>

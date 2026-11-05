@@ -228,7 +228,7 @@ export default function Dashboard() {
           to="/shopping"
           label="Shopping"
           icon={ShoppingCart}
-          iconClassName="bg-emerald-100 text-emerald-700"
+          iconClassName="bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-400"
           subtitle={shoppingSubtitle}
           onQuickAdd={() => setShowAddItem(true)}
           quickAddLabel="Add shopping item"
@@ -238,7 +238,7 @@ export default function Dashboard() {
           to="/climbing"
           label="Climbing"
           icon={Mountain}
-          iconClassName="bg-orange-100 text-orange-700"
+          iconClassName="bg-orange-100 text-orange-700 dark:bg-orange-500/15 dark:text-orange-400"
           subtitle={climbingSubtitle}
           onQuickAdd={() => setShowLogSession(true)}
           quickAddLabel="Log climbing session"

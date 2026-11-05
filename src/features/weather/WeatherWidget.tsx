@@ -4,13 +4,13 @@ import { supabase } from '../../supabase'
 import type { WeatherCache } from '../../supabase'
 
 function temperatureStyle(celsius: number) {
-  if (celsius < 0) return { color: 'text-blue-600', emoji: '🥶' }
-  if (celsius < 10) return { color: 'text-sky-500', emoji: '❄️' }
+  if (celsius < 0) return { color: 'text-blue-600 dark:text-blue-400', emoji: '🥶' }
+  if (celsius < 10) return { color: 'text-sky-500 dark:text-sky-400', emoji: '❄️' }
   if (celsius < 18) return { color: 'text-cyan-600', emoji: '😌' }
-  if (celsius < 24) return { color: 'text-emerald-600', emoji: '🙂' }
-  if (celsius < 30) return { color: 'text-amber-500', emoji: '☀️' }
+  if (celsius < 24) return { color: 'text-emerald-600 dark:text-emerald-400', emoji: '🙂' }
+  if (celsius < 30) return { color: 'text-amber-500 dark:text-amber-400', emoji: '☀️' }
   if (celsius < 35) return { color: 'text-orange-500', emoji: '🥵' }
-  return { color: 'text-red-600', emoji: '🔥' }
+  return { color: 'text-red-600 dark:text-red-400', emoji: '🔥' }
 }
 
 function formatAgo(iso: string): string {
