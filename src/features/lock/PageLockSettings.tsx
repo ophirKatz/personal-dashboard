@@ -121,7 +121,7 @@ export default function PageLockSettings() {
       {lock.status === 'ready' && (
         <>
           {lock.usingDefaultCode && (
-            <div className="mt-4 flex items-start gap-2 rounded-xl bg-amber-100 p-3 text-sm text-amber-800">
+            <div className="mt-4 flex items-start gap-2 rounded-xl bg-amber-100 dark:bg-amber-500/15 p-3 text-sm text-amber-800 dark:text-amber-300">
               <TriangleAlert className="h-4 w-4 mt-0.5 shrink-0" />
               <span>You're still using the default code ({DEFAULT_LOCK_CODE}). Change it so the lock means something.</span>
             </div>

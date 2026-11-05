@@ -27,9 +27,9 @@ export default function SkillGrid({ stats }: { stats: CharacterStats }) {
             className={cn(
               'flex flex-col gap-1 overflow-hidden rounded-xl border p-2 animate-in fade-in-0 slide-in-from-bottom-2 fill-mode-backwards duration-300',
               maxed
-                ? 'border-amber-300/70 bg-gradient-to-b from-amber-50 to-amber-100/60'
+                ? 'border-amber-300/70 dark:border-amber-500/30 bg-gradient-to-b from-amber-50 to-amber-100/60'
                 : mastered
-                  ? 'border-amber-200 bg-amber-50/50'
+                  ? 'border-amber-200 dark:border-amber-500/30 bg-amber-50/50 dark:bg-amber-500/10'
                   : 'border-border bg-card',
             )}
           >
@@ -41,16 +41,16 @@ export default function SkillGrid({ stats }: { stats: CharacterStats }) {
                 trackClassName={mastered ? 'stroke-amber-200' : 'stroke-muted'}
                 barClassName={maxed ? 'stroke-amber-500' : mastered ? 'stroke-amber-400' : 'stroke-primary'}
               >
-                <Icon className={cn('h-3.5 w-3.5', maxed ? 'text-amber-600' : mastered ? 'text-amber-500' : 'text-muted-foreground')} />
+                <Icon className={cn('h-3.5 w-3.5', maxed ? 'text-amber-600 dark:text-amber-400' : mastered ? 'text-amber-500' : 'text-muted-foreground')} />
               </ProgressRing>
-              <div className={cn('text-xl font-bold leading-none tabular-nums', mastered && 'text-amber-700')}>{stat ? real : '—'}</div>
+              <div className={cn('text-xl font-bold leading-none tabular-nums', mastered && 'text-amber-700 dark:text-amber-300')}>{stat ? real : '—'}</div>
             </div>
             <div className="flex items-baseline justify-between gap-1 leading-none">
               <span className="truncate text-[10px] text-muted-foreground">{skill.name}</span>
-              {hasVirtual && <span className="text-[10px] font-bold text-amber-600 tabular-nums">{virtual}</span>}
+              {hasVirtual && <span className="text-[10px] font-bold text-amber-600 dark:text-amber-400 tabular-nums">{virtual}</span>}
             </div>
             <div
-              className={cn('h-1 w-full overflow-hidden rounded-full', mastered && !skill.elite ? 'bg-amber-200/70' : 'bg-transparent')}
+              className={cn('h-1 w-full overflow-hidden rounded-full', mastered && !skill.elite ? 'bg-amber-200/70 dark:bg-amber-500/25' : 'bg-transparent')}
               title={mastered && !skill.elite ? `${Math.round(toMax * 100)}% to level ${VIRTUAL_MAX}` : undefined}
             >
               {mastered && !skill.elite && (

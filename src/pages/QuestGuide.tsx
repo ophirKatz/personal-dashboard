@@ -13,11 +13,11 @@ import '../features/runescape/wiki-content.css'
 type Load = { state: 'loading' } | { state: 'ready'; guide: Guide } | { state: 'missing' } | { state: 'error' }
 
 const CARDS: { key: FactKey; icon: typeof Gift; accent: string; collapsed?: boolean }[] = [
-  { key: 'requirements', icon: ListChecks, accent: 'text-sky-600 bg-sky-100' },
-  { key: 'items', icon: Backpack, accent: 'text-amber-600 bg-amber-100' },
-  { key: 'rewards', icon: Gift, accent: 'text-emerald-600 bg-emerald-100' },
-  { key: 'recommended', icon: Lightbulb, accent: 'text-violet-600 bg-violet-100', collapsed: true },
-  { key: 'enemies', icon: Skull, accent: 'text-rose-600 bg-rose-100', collapsed: true },
+  { key: 'requirements', icon: ListChecks, accent: 'text-sky-600 dark:text-sky-400 bg-sky-100 dark:bg-sky-500/15' },
+  { key: 'items', icon: Backpack, accent: 'text-amber-600 dark:text-amber-400 bg-amber-100 dark:bg-amber-500/15' },
+  { key: 'rewards', icon: Gift, accent: 'text-emerald-600 dark:text-emerald-400 bg-emerald-100 dark:bg-emerald-500/15' },
+  { key: 'recommended', icon: Lightbulb, accent: 'text-violet-600 dark:text-violet-400 bg-violet-100 dark:bg-violet-500/15', collapsed: true },
+  { key: 'enemies', icon: Skull, accent: 'text-rose-600 dark:text-rose-400 bg-rose-100 dark:bg-rose-500/15', collapsed: true },
 ]
 
 const CHIPS: FactKey[] = ['difficulty', 'length', 'start']

@@ -44,7 +44,7 @@ export default function Pvm() {
         to="/runescape/pvm/bars"
         className="flex items-center gap-3 rounded-2xl border border-border bg-card px-3.5 py-3 hover:bg-accent/50"
       >
-        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-sky-100 text-sky-600">
+        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-sky-100 dark:bg-sky-500/15 text-sky-600 dark:text-sky-400">
           <Keyboard className="h-5 w-5" />
         </span>
         <span className="min-w-0 flex-1">

@@ -179,14 +179,14 @@ export default function Wealth() {
       )}
 
       {warning && (
-        <div className="flex items-center justify-between gap-2 rounded-lg bg-amber-100 p-3 text-sm text-amber-800">
+        <div className="flex items-center justify-between gap-2 rounded-lg bg-amber-100 dark:bg-amber-500/15 p-3 text-sm text-amber-800 dark:text-amber-300">
           <span>{warning}</span>
           <button type="button" onClick={() => setWarning(null)} aria-label="Dismiss"><X className="h-4 w-4" /></button>
         </div>
       )}
 
       {unconverted > 0 && (
-        <div className="flex items-center justify-between gap-2 rounded-lg bg-amber-100 p-3 text-sm text-amber-800">
+        <div className="flex items-center justify-between gap-2 rounded-lg bg-amber-100 dark:bg-amber-500/15 p-3 text-sm text-amber-800 dark:text-amber-300">
           <span>
             Exchange rates unavailable — {unconverted} non-₪ {unconverted === 1 ? 'account is' : 'accounts are'} left out of the totals.
           </span>

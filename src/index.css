@@ -25,6 +25,31 @@
     --ring: 221.2 83.2% 53.3%;
     --radius: 0.75rem;
   }
+
+  /* Dark theme: deep navy (not pure black) so cards still separate from the
+     page, with a brighter primary blue for contrast on dark surfaces. */
+  .dark {
+    --background: 224 40% 7%;
+    --foreground: 210 40% 96%;
+    --card: 223 34% 11%;
+    --card-foreground: 210 40% 96%;
+    --popover: 223 34% 11%;
+    --popover-foreground: 210 40% 96%;
+    --primary: 217 91% 64%;
+    --primary-foreground: 224 40% 7%;
+    --secondary: 220 28% 17%;
+    --secondary-foreground: 210 40% 96%;
+    --muted: 220 28% 16%;
+    --muted-foreground: 216 18% 64%;
+    --accent: 220 28% 17%;
+    --accent-foreground: 210 40% 96%;
+    --destructive: 0 84% 64%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 220 24% 19%;
+    --input: 220 24% 21%;
+    --ring: 217 91% 64%;
+    color-scheme: dark;
+  }
 }
 
 @layer base {

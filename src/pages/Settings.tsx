@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { Bell, BellOff, Sparkles, Plus, X, Palette } from 'lucide-react'
+import { Bell, BellOff, Sparkles, Plus, X, Palette, Sun, Moon, Monitor } from 'lucide-react'
+import { getThemePreference, setThemePreference, type ThemePreference } from '../lib/theme'
 import { supabase } from '../supabase'
 import { Button } from '../components/ui/button'
 import { haptic } from '../lib/haptics'
@@ -256,7 +257,10 @@ export default function Settings() {
         <h1 className="text-2xl font-bold">Settings</h1>
       </div>
 
-      <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">Notifications</h2>
+      <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">Appearance</h2>
+      <AppearanceCard />
+
+      <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2 mt-6">Notifications</h2>
       <div className="bg-card border border-border rounded-2xl p-4">
         <div className="flex items-center gap-3">
           <div className="p-2.5 rounded-xl bg-muted">
@@ -503,6 +507,38 @@ export default function Settings() {
           <VoiceShortcutsSection userId={userId} />
         </>
       )}
+    </div>
+  )
+}
+
+const THEME_OPTIONS: { value: ThemePreference; label: string; icon: typeof Sun }[] = [
+  { value: 'light', label: 'Light', icon: Sun },
+  { value: 'dark', label: 'Dark', icon: Moon },
+  { value: 'system', label: 'System', icon: Monitor },
+]
+
+function AppearanceCard() {
+  const [theme, setTheme] = useState<ThemePreference>(getThemePreference)
+  return (
+    <div className="bg-card border border-border rounded-2xl p-4">
+      <p className="font-medium">Theme</p>
+      <p className="text-sm text-muted-foreground mb-3">System follows your device's light/dark setting.</p>
+      <div role="radiogroup" aria-label="Theme" className="grid grid-cols-3 gap-1 p-1 rounded-xl bg-muted">
+        {THEME_OPTIONS.map(({ value, label, icon: Icon }) => (
+          <button
+            key={value}
+            role="radio"
+            aria-checked={theme === value}
+            onClick={() => { setTheme(value); setThemePreference(value) }}
+            className={`flex items-center justify-center gap-1.5 py-2 rounded-lg text-sm font-medium transition-colors ${
+              theme === value ? 'bg-background dark:bg-white/10 text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            <Icon className="h-4 w-4" />
+            {label}
+          </button>
+        ))}
+      </div>
     </div>
   )
 }

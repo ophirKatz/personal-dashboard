@@ -7,9 +7,9 @@ export function nextClimbResult(result: ClimbResult): ClimbResult {
 }
 
 export const CLIMB_RESULT_BADGE: Record<ClimbResult, string> = {
-  sent: 'bg-green-100 text-green-700',
-  project: 'bg-amber-100 text-amber-700',
-  completed_project: 'bg-fuchsia-100 text-fuchsia-700',
+  sent: 'bg-green-100 dark:bg-green-500/15 text-green-700 dark:text-green-300',
+  project: 'bg-amber-100 dark:bg-amber-500/15 text-amber-700 dark:text-amber-300',
+  completed_project: 'bg-fuchsia-100 dark:bg-fuchsia-500/15 text-fuchsia-700 dark:text-fuchsia-300',
 }
 
 export const CLIMB_RESULT_LABEL: Record<ClimbResult, string> = {

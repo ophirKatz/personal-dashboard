@@ -49,7 +49,7 @@ export default function GoalsList({ goals, values, todayStr, onOpen }: Props) {
                 )}
               </div>
               {p.reached ? (
-                <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-emerald-100 px-2 py-1 text-xs font-medium text-emerald-700">
+                <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-emerald-100 dark:bg-emerald-500/15 px-2 py-1 text-xs font-medium text-emerald-700 dark:text-emerald-300">
                   <Check className="h-3 w-3" /> Reached
                 </span>
               ) : p.unavailable ? (

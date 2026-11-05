@@ -24,9 +24,9 @@ export function categoryIcon(key: string): LucideIcon {
 }
 
 const OWNER_STYLES: Record<WealthOwner, string> = {
-  ophir: 'bg-sky-100 text-sky-700',
-  yael: 'bg-rose-100 text-rose-700',
-  shared: 'bg-emerald-100 text-emerald-700',
+  ophir: 'bg-sky-100 dark:bg-sky-500/15 text-sky-700 dark:text-sky-300',
+  yael: 'bg-rose-100 dark:bg-rose-500/15 text-rose-700 dark:text-rose-300',
+  shared: 'bg-emerald-100 dark:bg-emerald-500/15 text-emerald-700 dark:text-emerald-300',
 }
 
 /** The Ophir / Yael / Shared tag shown on a card. */

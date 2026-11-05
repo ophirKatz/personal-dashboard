@@ -90,7 +90,7 @@ export default function StockCard() {
         <>
           <div className="flex items-baseline gap-2">
             <span className="text-3xl font-bold">${quote.current.toFixed(2)}</span>
-            <span className={`flex items-center gap-0.5 text-sm font-medium ${up ? 'text-emerald-600' : 'text-destructive'}`}>
+            <span className={`flex items-center gap-0.5 text-sm font-medium ${up ? 'text-emerald-600 dark:text-emerald-400' : 'text-destructive'}`}>
               {up ? <TrendingUp className="h-3.5 w-3.5" /> : <TrendingDown className="h-3.5 w-3.5" />}
               {quote.change.toFixed(2)} ({quote.percentChange.toFixed(2)}%)
             </span>

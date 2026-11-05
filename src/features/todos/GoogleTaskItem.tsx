@@ -75,7 +75,7 @@ export default function GoogleTaskItem({ task, linkedFriends, onEdit, onDelete, 
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-1.5">
           <p dir="auto" className={cn('font-medium truncate', done && 'line-through text-muted-foreground')}>{task.title}</p>
-          <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-blue-100 text-blue-700 shrink-0">Google</span>
+          <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-blue-100 dark:bg-blue-500/15 text-blue-700 dark:text-blue-300 shrink-0">Google</span>
         </div>
         {task.due_date && (
           <p className={cn('text-xs text-muted-foreground mt-1', overdue && 'text-destructive')}>{formatDate(task.due_date)}</p>
