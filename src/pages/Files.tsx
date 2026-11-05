@@ -373,7 +373,7 @@ export default function Files() {
                   </span>
                 )
               })}
-              <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-blue-100 text-blue-700 shrink-0">Google</span>
+              <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-blue-100 dark:bg-blue-500/15 text-blue-700 dark:text-blue-300 shrink-0">Google</span>
             </div>
             <p className="text-sm text-muted-foreground">
               {syncing
@@ -548,7 +548,7 @@ export default function Files() {
                       <div>
                         <p className="font-medium text-sm truncate max-w-full">{gf.folder_name}</p>
                         <div className="flex items-center gap-1.5">
-                          <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-blue-100 text-blue-700">Google</span>
+                          <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-blue-100 dark:bg-blue-500/15 text-blue-700 dark:text-blue-300">Google</span>
                           {syncing ? (
                             <RefreshCw className="h-3 w-3 text-muted-foreground animate-spin" />
                           ) : gf.sync_status === 'error' ? (

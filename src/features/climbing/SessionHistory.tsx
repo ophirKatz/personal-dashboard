@@ -91,7 +91,7 @@ export default function SessionHistory() {
                 {sends.length > 0 && (
                   <div className="flex gap-1.5 mt-2 flex-wrap">
                     {Object.entries(sendsByGrade).map(([grade, count]) => (
-                      <span key={grade} className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-medium">
+                      <span key={grade} className="text-xs bg-green-100 dark:bg-green-500/15 text-green-700 dark:text-green-300 px-2 py-0.5 rounded-full font-medium">
                         {grade} ×{count}
                       </span>
                     ))}

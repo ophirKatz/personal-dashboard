@@ -168,7 +168,7 @@ export default function DiaryTracker({ userId, characterId, onMissingCount }: Pr
               <div className="flex items-center justify-between gap-2">
                 <span className="font-semibold">{g.area}</span>
                 <span className="flex items-center gap-2 text-xs tabular-nums text-muted-foreground">
-                  {complete ? <span className="rounded-full bg-emerald-100 px-2 py-0.5 font-semibold text-emerald-700">Complete</span> : `${g.total - g.done} missing`}
+                  {complete ? <span className="rounded-full bg-emerald-100 dark:bg-emerald-500/15 px-2 py-0.5 font-semibold text-emerald-700 dark:text-emerald-300">Complete</span> : `${g.total - g.done} missing`}
                   <ChevronDown className={cn('h-4 w-4 transition-transform', !isOpen && '-rotate-90')} />
                 </span>
               </div>
@@ -182,7 +182,7 @@ export default function DiaryTracker({ userId, characterId, onMissingCount }: Pr
                 {g.tiers.filter(t => t.tier !== 'All').map(t => {
                   const d = t.tasks.filter(x => doneIds.has(x.id)).length
                   return (
-                    <span key={t.tier} className={cn('rounded-full px-2 py-0.5 text-[11px] font-semibold', d === t.tasks.length ? 'bg-emerald-100 text-emerald-700' : 'bg-muted text-muted-foreground')}>
+                    <span key={t.tier} className={cn('rounded-full px-2 py-0.5 text-[11px] font-semibold', d === t.tasks.length ? 'bg-emerald-100 dark:bg-emerald-500/15 text-emerald-700 dark:text-emerald-300' : 'bg-muted text-muted-foreground')}>
                       {t.tier} {d}/{t.tasks.length}
                     </span>
                   )
@@ -224,7 +224,7 @@ export default function DiaryTracker({ userId, characterId, onMissingCount }: Pr
                           <ChevronDown className={cn('h-4 w-4 text-muted-foreground transition-transform', !tierOpen && '-rotate-90')} />
                           <span className="text-sm font-semibold">{t.tier}</span>
                           {allDone
-                            ? <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-semibold text-emerald-700">Complete</span>
+                            ? <span className="rounded-full bg-emerald-100 dark:bg-emerald-500/15 px-2 py-0.5 text-[11px] font-semibold text-emerald-700 dark:text-emerald-300">Complete</span>
                             : <span className="text-xs tabular-nums text-muted-foreground">{tierDone}/{t.tasks.length} · {t.tasks.length - tierDone} missing</span>}
                         </button>
                         <button

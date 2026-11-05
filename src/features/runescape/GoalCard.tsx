@@ -53,7 +53,7 @@ export default function GoalCard({ goal, title, progress, onToggleComplete, onDe
       style={sortable?.style}
       className={cn(
         'relative flex items-center gap-3 rounded-2xl border p-3.5 transition-colors animate-in fade-in-0 slide-in-from-bottom-2 duration-300',
-        done ? 'border-emerald-200 bg-emerald-50/60' : 'border-border bg-card',
+        done ? 'border-emerald-200 dark:border-emerald-500/30 bg-emerald-50/60 dark:bg-emerald-500/10' : 'border-border bg-card',
         sortable?.dragging && 'z-10 shadow-lg ring-2 ring-primary/40',
       )}
     >
@@ -64,15 +64,15 @@ export default function GoalCard({ goal, title, progress, onToggleComplete, onDe
         barClassName={done ? 'stroke-emerald-500' : 'stroke-primary'}
         trackClassName={done ? 'stroke-emerald-100' : 'stroke-muted'}
       >
-        {done ? <Check className="h-5 w-5 text-emerald-600" /> : <Icon className="h-5 w-5 text-muted-foreground" />}
+        {done ? <Check className="h-5 w-5 text-emerald-600 dark:text-emerald-400" /> : <Icon className="h-5 w-5 text-muted-foreground" />}
       </ProgressRing>
       <div className="min-w-0 flex-1">
         {goal.type === 'quest' ? (
-          <Link to={`/runescape/quests/${encodeURIComponent(title)}`} className={cn('block font-semibold break-words hover:underline', done && 'text-emerald-800')}>
+          <Link to={`/runescape/quests/${encodeURIComponent(title)}`} className={cn('block font-semibold break-words hover:underline', done && 'text-emerald-800 dark:text-emerald-300')}>
             {title}
           </Link>
         ) : (
-          <div className={cn('font-semibold break-words', done && 'text-emerald-800')}>{title}</div>
+          <div className={cn('font-semibold break-words', done && 'text-emerald-800 dark:text-emerald-300')}>{title}</div>
         )}
         <div className="text-xs text-muted-foreground truncate">
           {progress.label}{progress.detail ? ` · ${progress.detail}` : ''}

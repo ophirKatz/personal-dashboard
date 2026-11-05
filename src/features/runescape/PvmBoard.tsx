@@ -100,7 +100,7 @@ export default function PvmBoard({ userId, characterId }: Props) {
             <span><span className="font-medium text-foreground">Next:</span> {next.boss.name} · {next.goal.text}</span>
           </p>
         ) : (
-          <p className="text-xs font-medium text-emerald-700">Every goal on the path is done.</p>
+          <p className="text-xs font-medium text-emerald-700 dark:text-emerald-300">Every goal on the path is done.</p>
         )}
       </section>
 
@@ -111,7 +111,7 @@ export default function PvmBoard({ userId, characterId }: Props) {
             return (
               <TabsTrigger key={stage.id} value={stage.id} className="flex-col gap-0.5 px-0.5 py-1.5">
                 <span className="text-[13px] max-[359px]:text-[11px]">{stage.label}</span>
-                <span className={cn('text-[11px] font-normal tabular-nums', c.done === c.total ? 'text-emerald-600' : 'text-muted-foreground')}>{c.done}/{c.total}</span>
+                <span className={cn('text-[11px] font-normal tabular-nums', c.done === c.total ? 'text-emerald-600 dark:text-emerald-400' : 'text-muted-foreground')}>{c.done}/{c.total}</span>
               </TabsTrigger>
             )
           })}

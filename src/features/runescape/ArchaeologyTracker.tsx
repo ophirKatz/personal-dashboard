@@ -47,12 +47,12 @@ function CountInput({ value, label, onCommit }: { value: number; label: string; 
 function ArtefactRow({ artefact, digSite, found, onChange }: { artefact: ArchaeologyArtefact; digSite: string; found: number; onChange: (n: number) => void }) {
   const done = isComplete(found, artefact.needed)
   return (
-    <li className={cn('flex items-center gap-3 px-3.5 py-2', done && 'bg-emerald-50/60')}>
+    <li className={cn('flex items-center gap-3 px-3.5 py-2', done && 'bg-emerald-50/60 dark:bg-emerald-500/10')}>
       <span className={cn('flex h-5 w-5 shrink-0 items-center justify-center rounded-full border', done ? 'border-emerald-500 bg-emerald-500 text-white' : 'border-border')}>
         {done && <Check className="h-3.5 w-3.5" />}
       </span>
       <span className="min-w-0 flex-1">
-        <span className={cn('block text-sm font-medium', done && 'text-emerald-800')}>
+        <span className={cn('block text-sm font-medium', done && 'text-emerald-800 dark:text-emerald-300')}>
           {artefact.name}
           {done && <span className="sr-only"> (complete)</span>}
         </span>
@@ -117,7 +117,7 @@ export default function ArchaeologyTracker({ found, onChange }: Props) {
               <div className="flex items-center justify-between gap-2">
                 <span className="font-semibold">{g.group}</span>
                 <span className="flex items-center gap-2 text-xs tabular-nums text-muted-foreground">
-                  {complete ? <span className="rounded-full bg-emerald-100 px-2 py-0.5 font-semibold text-emerald-700">Complete</span> : `${s.total - s.complete} to go`}
+                  {complete ? <span className="rounded-full bg-emerald-100 dark:bg-emerald-500/15 px-2 py-0.5 font-semibold text-emerald-700 dark:text-emerald-300">Complete</span> : `${s.total - s.complete} to go`}
                   <ChevronDown className={cn('h-4 w-4 transition-transform', !isOpen && '-rotate-90')} />
                 </span>
               </div>
@@ -144,7 +144,7 @@ export default function ArchaeologyTracker({ found, onChange }: Props) {
                             {h.hotspot} <span className="text-xs font-normal text-muted-foreground">Lv {h.level}</span>
                           </span>
                           {hs.complete === hs.total
-                            ? <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-semibold text-emerald-700">Complete</span>
+                            ? <span className="rounded-full bg-emerald-100 dark:bg-emerald-500/15 px-2 py-0.5 text-[11px] font-semibold text-emerald-700 dark:text-emerald-300">Complete</span>
                             : <span className="text-xs tabular-nums text-muted-foreground">{hs.complete}/{hs.total}</span>}
                         </div>
                         <ul className="divide-y divide-border">

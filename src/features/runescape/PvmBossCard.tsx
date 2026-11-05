@@ -58,7 +58,7 @@ export default function PvmBossCard({ boss, done, open, onToggleOpen, onToggleGo
         <div className="flex items-center justify-between gap-2">
           <span className="font-semibold">{boss.name}</span>
           <span className="flex shrink-0 items-center gap-2 text-xs tabular-nums text-muted-foreground">
-            {complete && <span className="rounded-full bg-emerald-100 px-2 py-0.5 font-semibold text-emerald-700">Complete</span>}
+            {complete && <span className="rounded-full bg-emerald-100 dark:bg-emerald-500/15 px-2 py-0.5 font-semibold text-emerald-700 dark:text-emerald-300">Complete</span>}
             <ChevronDown className={cn('h-4 w-4 transition-transform', !open && '-rotate-90')} />
           </span>
         </div>

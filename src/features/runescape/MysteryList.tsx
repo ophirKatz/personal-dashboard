@@ -35,7 +35,7 @@ function BulletList({ title, items }: { title: string; items: string[] }) {
 function MysteryRow({ mystery: m, solved, open, onToggleSolved, onToggleOpen }: { mystery: ArchaeologyMystery; solved: boolean; open: boolean; onToggleSolved: () => void; onToggleOpen: () => void }) {
   const note = ARCHAEOLOGY_MYSTERY_NOTES[m.key]
   return (
-    <li className={cn('flex items-start gap-3 px-3.5 py-3', solved && 'bg-emerald-50/60')}>
+    <li className={cn('flex items-start gap-3 px-3.5 py-3', solved && 'bg-emerald-50/60 dark:bg-emerald-500/10')}>
       <button
         type="button"
         role="checkbox"
@@ -48,7 +48,7 @@ function MysteryRow({ mystery: m, solved, open, onToggleSolved, onToggleOpen }: 
       </button>
       <div className="min-w-0 flex-1 space-y-1.5">
         <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-          <span className={cn('text-sm font-semibold', solved && 'text-emerald-800')}>{m.name}</span>
+          <span className={cn('text-sm font-semibold', solved && 'text-emerald-800 dark:text-emerald-300')}>{m.name}</span>
           <span className="rounded-full bg-muted px-2 py-0.5 text-[11px] font-semibold tabular-nums text-muted-foreground">Lv {m.level}</span>
         </div>
         <p className="text-xs text-muted-foreground">{m.digSite} · {m.alignment}</p>

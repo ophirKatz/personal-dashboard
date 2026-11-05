@@ -255,7 +255,7 @@ export default function Calendar() {
   }
 
   const ATTENDEE_STATUS = {
-    accepted: { icon: Check, label: 'Accepted', className: 'text-green-600' },
+    accepted: { icon: Check, label: 'Accepted', className: 'text-green-600 dark:text-green-400' },
     declined: { icon: X, label: 'Declined', className: 'text-red-500' },
     tentative: { icon: HelpCircle, label: 'Maybe', className: 'text-amber-500' },
     needsAction: { icon: Clock, label: 'No response', className: 'text-muted-foreground' },

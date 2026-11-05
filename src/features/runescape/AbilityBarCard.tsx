@@ -38,7 +38,7 @@ export default function AbilityBarCard({ bar, accent }: Props) {
     <article className="space-y-3 rounded-2xl border border-border bg-card p-3.5">
       <header className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
         <h3 className="text-sm font-semibold">{bar.title}</h3>
-        <span className={cn('rounded-full px-2 py-0.5 text-[11px] font-medium', manual ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700')}>
+        <span className={cn('rounded-full px-2 py-0.5 text-[11px] font-medium', manual ? 'bg-amber-100 dark:bg-amber-500/15 text-amber-700 dark:text-amber-300' : 'bg-emerald-100 dark:bg-emerald-500/15 text-emerald-700 dark:text-emerald-300')}>
           {manual ? `Manual · Revolution size ${bar.revolution}` : 'Revolution++'}
         </span>
       </header>
