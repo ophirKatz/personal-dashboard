@@ -72,7 +72,7 @@ const DrawerContent = React.forwardRef<
             // overflow-x-hidden mirrors DialogContent: a stray overflowing
             // child (e.g. a native date/time control) gets clipped to the
             // sheet's rounded edge instead of bleeding past the screen
-            'pointer-events-auto mx-auto w-full max-w-2xl overflow-x-hidden overflow-y-auto bg-background shadow-2xl ring-1 ring-border/50 duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:slide-out-to-bottom data-[state=open]:slide-in-from-bottom rounded-t-3xl pb-[max(1.25rem,env(safe-area-inset-bottom))]',
+            'peer pointer-events-auto mx-auto w-full max-w-2xl overflow-x-hidden overflow-y-auto bg-background shadow-2xl ring-1 ring-border/50 duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:slide-out-to-bottom data-[state=open]:slide-in-from-bottom rounded-t-3xl pb-[max(1.25rem,env(safe-area-inset-bottom))]',
             className,
           )}
           {...props}
@@ -80,6 +80,16 @@ const DrawerContent = React.forwardRef<
           <div className="mx-auto mt-3 h-1.5 w-10 rounded-full bg-muted" />
           {children}
         </DialogPrimitive.Content>
+        {/* The wrapper ends at the top of the on-screen keyboard. iOS's
+            keyboard (and its floating accessory bar) is translucent with
+            gaps around it, so without this the dimmed page shows through
+            underneath the sheet. Extend the sheet's surface down past the
+            wrapper; with no keyboard it sits off-screen. Hidden once the
+            sheet starts closing so it doesn't linger during slide-out. */}
+        <div
+          aria-hidden
+          className="absolute inset-x-0 top-full mx-auto h-[100lvh] w-full max-w-2xl bg-background peer-data-[state=closed]:hidden"
+        />
       </div>
     </DrawerPortal>
   )
