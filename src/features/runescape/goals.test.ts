@@ -11,7 +11,7 @@ const base: RsGoal = {
 
 const stats = (level: number, xp: number): CharacterStats => ({
   name: 'x', skills: new Map([[0, { id: 0, level, xp, rank: null }]]), totalLevel: level, totalXp: xp,
-  combatLevel: null, questsComplete: null, activities: [], source: 'hiscores',
+  combatLevel: null, activities: [],
 })
 
 const quest: RsQuest = { id: 'q1', name: "Cook's Assistant", difficulty: 'Novice', members: false, quest_points: 1, updated_at: '' }
@@ -29,7 +29,7 @@ describe('goalProgress', () => {
     expect(goalProgress(base, stats(99, xpForLevel(99)), quests, null).done).toBe(true)
   })
 
-  it('quest goal follows RuneMetrics status by name', () => {
+  it('quest goal follows the player\'s quest status by name', () => {
     const goal: RsGoal = { ...base, type: 'quest', skill_id: null, target_level: null, quest_id: 'q1' }
     expect(goalProgress(goal, null, quests, new Map([["cook's assistant", 'COMPLETED']])).done).toBe(true)
     expect(goalProgress(goal, null, quests, new Map([["cook's assistant", 'STARTED']])).label).toBe('In progress')

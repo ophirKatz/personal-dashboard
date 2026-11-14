@@ -227,7 +227,7 @@ export default function RuneScape() {
   // The tree lists miniquests and sagas too: some quests are only reachable through them.
   const questTree = useMemo(() => buildQuestTree(catalogue.map(q => q.name)), [catalogue])
   const unlockTree = useMemo(() => buildUnlockTree(catalogue.map(q => q.name)), [catalogue])
-  // Needs the quest statuses and the levels, so a private RuneMetrics profile leaves the marks off.
+  // Needs the quest statuses and the levels, so the marks stay off when quest progress can't be loaded.
   const availabilityOf = useMemo(() => {
     if (!stats || !questEntries) return null
     return createAvailability(characterFrom(stats, questEntries, totalQuestPoints(catalogue, questEntries)))
@@ -244,7 +244,7 @@ export default function RuneScape() {
   }
 
   // Prefer catalogue metadata when the extra is in it; otherwise it's just a name from the wiki.
-  // Without a RuneMetrics status for an entry we can't tell if it's done, so the status filter skips it.
+  // Without a quest status for an entry we can't tell if it's done, so the status filter skips it.
   const extraGroups = useMemo(() => {
     const byKey = new Map(catalogue.map(q => [questKey(q.name), q]))
     const build = (names: string[]) => names
@@ -372,7 +372,7 @@ export default function RuneScape() {
           <HeroStat label="Total level" value={stats ? stats.totalLevel.toLocaleString('en-US') : '—'} icon={<Crown className="h-3.5 w-3.5" />} />
           <HeroStat label="Total XP" value={stats ? formatXp(stats.totalXp) : '—'} />
           <HeroStat label="Combat" value={stats?.combatLevel ? String(stats.combatLevel) : '—'} />
-          <HeroStat label="Quests done" value={completedQuestCount !== null ? String(completedQuestCount) : stats?.questsComplete != null ? String(stats.questsComplete) : '—'} />
+          <HeroStat label="Quests done" value={completedQuestCount !== null ? String(completedQuestCount) : '—'} />
         </div>
       </section>
 
@@ -450,11 +450,6 @@ export default function RuneScape() {
             </div>
           ) : stats && (
             <>
-              {stats.source === 'hiscores' && (
-                <p className="rounded-xl bg-amber-50 dark:bg-amber-500/10 px-3.5 py-2.5 text-xs text-amber-800 dark:text-amber-300">
-                  Showing public hiscores only. Enable "Show RuneMetrics profile" in your RuneScape settings to unlock combat level, quest progress and recent activity.
-                </p>
-              )}
               <section className="space-y-2.5">
                 <button
                   onClick={() => { haptic(); setSkillsOpen(o => !o) }}
@@ -580,13 +575,13 @@ export default function RuneScape() {
               onClick={exportReport}
               disabled={exporting || !stats || !questEntries || catalogue.length === 0}
               aria-label="Export report"
-              title={questEntries ? 'Export quest report' : 'Needs a public RuneMetrics profile'}
+              title={questEntries ? 'Export quest report' : 'Needs quest progress'}
             >
               {exporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
             </Button>
           </div>
           {!questEntries && catalogue.length > 0 && (
-            <p className="text-xs text-muted-foreground">Quest status needs a public RuneMetrics profile. Showing the quest list only.</p>
+            <p className="text-xs text-muted-foreground">Couldn't load your quest progress. Showing the quest list only.</p>
           )}
           {catalogue.length === 0 ? (
             <p className="rounded-2xl border border-dashed border-border py-10 text-center text-sm text-muted-foreground">
