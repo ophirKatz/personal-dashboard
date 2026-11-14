@@ -21,6 +21,30 @@ export type QuestEntry = {
   difficulty: string | null
   members: boolean | null
   questPoints: number | null
+  /** Whether the game says the player meets the requirements to start the quest; only meaningful before it's done. */
+  eligible: boolean | null
+}
+
+export type QuestProgress = {
+  entries: QuestEntry[]
+  /** Quest points earned, as the game counts them (summing the completed quests is wrong in some cases). */
+  questPoints: number | null
+  /** Most quest points that can currently be earned. */
+  questPointsMax: number | null
+}
+
+/** Quest difficulty as the Adventurer's Log numbers it. */
+const DIFFICULTY_NAMES: Record<string, string> = {
+  '0': 'Novice', '1': 'Intermediate', '2': 'Experienced', '3': 'Master', '4': 'Grandmaster',
+  // The "parent" node of a grouped quest such as Recipe for Disaster.
+  '250': 'Multi',
+}
+
+/** Quest rows store difficulty as the API's number ("2"); show its name. Anything else is shown as stored. */
+export function difficultyLabel(difficulty: string | null): string | null {
+  if (!difficulty) return null
+  if (!/^\d+$/.test(difficulty)) return difficulty
+  return DIFFICULTY_NAMES[difficulty] ?? null
 }
 
 export type RsErrorCode = 'NOT_FOUND' | 'UPSTREAM_ERROR' | 'INVALID_PLAYER'
@@ -152,10 +176,11 @@ export async function fetchCharacterStats(name: string, signal?: AbortSignal): P
   }
 }
 
-/** Adventurer's Log Player Data (`includeQuests`): an object keyed by internal quest id. */
-export function parseQuests(data: unknown): QuestEntry[] {
-  const raw = (data as Row | null)?.quests
-  return (isObject(raw) ? Object.values(raw) : []).flatMap(q => {
+/** Adventurer's Log Player Data (`includeQuests`): quests as an object keyed by internal quest id, plus quest points. */
+export function parseQuestProgress(data: unknown): QuestProgress {
+  const d = (data ?? {}) as Row
+  const raw = d.quests
+  const entries = (isObject(raw) ? Object.values(raw) : []).flatMap(q => {
     if (!isObject(q)) return []
     const title = String(q.title ?? '').trim()
     if (!title) return []
@@ -167,12 +192,24 @@ export function parseQuests(data: unknown): QuestEntry[] {
       difficulty,
       members: typeof q.members === 'boolean' ? q.members : null,
       questPoints: q.qp === undefined ? null : num(q.qp),
+      eligible: typeof q.eligible === 'boolean' ? q.eligible : null,
     }]
   })
+  return {
+    entries,
+    questPoints: d.qp === undefined ? null : num(d.qp),
+    questPointsMax: d.qp_max === undefined ? null : num(d.qp_max),
+  }
+}
+
+export const parseQuests = (data: unknown): QuestEntry[] => parseQuestProgress(data).entries
+
+export async function fetchQuestProgress(name: string, signal?: AbortSignal): Promise<QuestProgress> {
+  return parseQuestProgress(await call('quests', name, signal))
 }
 
 export async function fetchQuests(name: string, signal?: AbortSignal): Promise<QuestEntry[]> {
-  return parseQuests(await call('quests', name, signal))
+  return (await fetchQuestProgress(name, signal)).entries
 }
 
 /** Fallback catalogue (names only) from the RS Wiki when the Adventurer's Log can't be reached. */

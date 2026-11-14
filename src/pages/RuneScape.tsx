@@ -16,7 +16,7 @@ import { SortableContext, arrayMove, sortableKeyboardCoordinates, verticalListSo
 import { restrictToVerticalAxis } from '@dnd-kit/modifiers'
 import { cn } from '../utils'
 import { haptic } from '../lib/haptics'
-import { errorMessage, fetchCharacterStats, formatActivityDate, fetchMiniquestNames, fetchQuests, fetchSagaNames, type CharacterStats, type QuestStatus } from '../features/runescape/api'
+import { difficultyLabel, errorMessage, fetchCharacterStats, formatActivityDate, fetchMiniquestNames, fetchQuestProgress, fetchSagaNames, type CharacterStats, type QuestStatus } from '../features/runescape/api'
 import { formatXp } from '../features/runescape/skills'
 import { ACTIVE_CHARACTER_KEY, goalProgress, goalTitle, questKey, questStatusMap } from '../features/runescape/goals'
 import { loadQuestCatalogue, refreshQuestCatalogue } from '../features/runescape/quests'
@@ -72,6 +72,8 @@ export default function RuneScape() {
   const [statsLoading, setStatsLoading] = useState(false)
   const [statsError, setStatsError] = useState<string | null>(null)
   const [questEntries, setQuestEntries] = useState<Map<string, QuestStatus> | null>(null)
+  // What else the quest call says: the game's own eligibility verdicts and the quest points it counts.
+  const [questInfo, setQuestInfo] = useState<{ eligible: Map<string, boolean>; questPoints: number | null; questPointsMax: number | null } | null>(null)
 
   const [catalogue, setCatalogue] = useState<RsQuest[]>([])
   const [goals, setGoals] = useState<RsGoal[]>([])
@@ -157,11 +159,22 @@ export default function RuneScape() {
     setStatsLoading(true)
     setStatsError(null)
     const name = active.name
-    const [statsRes, questsRes] = await Promise.allSettled([fetchCharacterStats(name, signal), fetchQuests(name, signal)])
+    const [statsRes, questsRes] = await Promise.allSettled([fetchCharacterStats(name, signal), fetchQuestProgress(name, signal)])
     if (signal?.aborted) return
     if (statsRes.status === 'fulfilled') setStats(statsRes.value)
     else { setStats(null); setStatsError(errorMessage(statsRes.reason)) }
-    setQuestEntries(questsRes.status === 'fulfilled' ? questStatusMap(questsRes.value) : null)
+    if (questsRes.status === 'fulfilled') {
+      const { entries, questPoints, questPointsMax } = questsRes.value
+      setQuestEntries(questStatusMap(entries))
+      setQuestInfo({
+        eligible: new Map(entries.flatMap(q => (q.eligible === null ? [] : [[questKey(q.title), q.eligible] as const]))),
+        questPoints,
+        questPointsMax,
+      })
+    } else {
+      setQuestEntries(null)
+      setQuestInfo(null)
+    }
     setStatsLoading(false)
   }, [active])
 
@@ -228,10 +241,12 @@ export default function RuneScape() {
   const questTree = useMemo(() => buildQuestTree(catalogue.map(q => q.name)), [catalogue])
   const unlockTree = useMemo(() => buildUnlockTree(catalogue.map(q => q.name)), [catalogue])
   // Needs the quest statuses and the levels, so the marks stay off when quest progress can't be loaded.
+  // The game's own quest point count beats adding up the completed quests, which is off in some cases.
   const availabilityOf = useMemo(() => {
     if (!stats || !questEntries) return null
-    return createAvailability(characterFrom(stats, questEntries, totalQuestPoints(catalogue, questEntries)))
-  }, [stats, questEntries, catalogue])
+    const questPoints = questInfo?.questPoints ?? totalQuestPoints(catalogue, questEntries)
+    return createAvailability(characterFrom(stats, questEntries, questPoints, questInfo?.eligible))
+  }, [stats, questEntries, questInfo, catalogue])
   const statusOf = useCallback((name: string) => questEntries?.get(questKey(name)) ?? null, [questEntries])
 
   const currentView = QUEST_VIEWS.find(v => v.id === questView) ?? QUEST_VIEWS[0]
@@ -372,7 +387,11 @@ export default function RuneScape() {
           <HeroStat label="Total level" value={stats ? stats.totalLevel.toLocaleString('en-US') : '—'} icon={<Crown className="h-3.5 w-3.5" />} />
           <HeroStat label="Total XP" value={stats ? formatXp(stats.totalXp) : '—'} />
           <HeroStat label="Combat" value={stats?.combatLevel ? String(stats.combatLevel) : '—'} />
-          <HeroStat label="Quests done" value={completedQuestCount !== null ? String(completedQuestCount) : '—'} />
+          <HeroStat
+            label="Quests done"
+            value={completedQuestCount !== null ? String(completedQuestCount) : '—'}
+            sub={questInfo?.questPoints != null ? `${questInfo.questPoints}${questInfo.questPointsMax != null ? ` / ${questInfo.questPointsMax}` : ''} QP` : undefined}
+          />
         </div>
       </section>
 
@@ -685,7 +704,7 @@ export default function RuneScape() {
 
 function QuestRow({ name, status, quest }: { name: string; status: QuestStatus | null; quest: RsQuest | null }) {
   const meta = quest
-    ? [quest.difficulty, quest.quest_points != null ? `${quest.quest_points} QP` : null, quest.members === false ? 'F2P' : null].filter(Boolean).join(' · ')
+    ? [difficultyLabel(quest.difficulty), quest.quest_points != null ? `${quest.quest_points} QP` : null, quest.members === false ? 'F2P' : null].filter(Boolean).join(' · ')
     : ''
   return (
     <li>
@@ -779,7 +798,7 @@ function QuestTreeView({ tree, direction, search, statusFilter, statusOf, availa
           </span>
         </div>
         {availabilityOf && (
-          <p>Available: prerequisite quests done, and your levels and quest points met. Items and areas aren't checked.</p>
+          <p>Available: the game says you meet the requirements to start it. Locked quests list what's missing where we know it.</p>
         )}
       </div>
 
@@ -878,11 +897,12 @@ function QuestTreeNode({ node, parent, shared }: { node: TreeNode; parent?: Tree
   )
 }
 
-function HeroStat({ label, value, icon }: { label: string; value: string; icon?: React.ReactNode }) {
+function HeroStat({ label, value, icon, sub }: { label: string; value: string; icon?: React.ReactNode; sub?: string }) {
   return (
     <div className="rounded-2xl bg-white/10 px-3 py-2.5 backdrop-blur">
       <div className="flex items-center gap-1 text-[11px] uppercase tracking-wide text-white/60">{icon}{label}</div>
       <div className="mt-0.5 truncate text-lg font-bold tabular-nums">{value}</div>
+      {sub && <div className="truncate text-[11px] tabular-nums text-white/60">{sub}</div>}
     </div>
   )
 }

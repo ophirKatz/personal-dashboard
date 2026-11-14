@@ -15,6 +15,8 @@ export type Character = {
   questPoints: number | null
   /** Status of a quest by title; undefined for quests the character's quest list doesn't have (tutorials and the like). */
   status: (title: string) => QuestStatus | undefined
+  /** The game's own verdict on whether the character meets a quest's requirements, if it gave one. */
+  eligible?: (title: string) => boolean | undefined
 }
 
 export type LevelOption = { skill: string; level: number; current: number | null }
@@ -43,7 +45,7 @@ export function parseLevelRequirement(text: string): { skill: string; level: num
   })
 }
 
-/** Partial completion is taken as met once the quest is started: RuneMetrics doesn't say how far along it is. */
+/** Partial completion is taken as met once the quest is started: the quest list doesn't say how far along it is. */
 function questMet(need: Need, status: QuestStatus): boolean {
   if (status === 'COMPLETED') return true
   return need === 'partial' && status === 'STARTED'
@@ -53,6 +55,8 @@ function questMet(need: Need, status: QuestStatus): boolean {
  * Checks quests against a character: are the prerequisite quests done, and are the skill levels and quest points there?
  * Only what the wiki lists as needed to start is checked, and what the character data can answer: prerequisites the
  * quest list doesn't track and levels it doesn't know are skipped, and items, areas and unlocks are never looked at.
+ * Where the game has given its own verdict (`eligible`) that decides `available` instead, since it knows about all of
+ * those; the check above still supplies what's missing.
  */
 export function createAvailability(who: Character, data: RequirementData = DEFAULT_DATA): (title: string) => Availability {
   const lookup = (record: Record<string, string[]>) => new Map(Object.entries(record).map(([title, items]) => [questKey(title), items]))
@@ -78,21 +82,32 @@ export function createAvailability(who: Character, data: RequirementData = DEFAU
       return met ? [] : [options]
     })
 
-    return { quests, levels, available: quests.length === 0 && levels.length === 0 }
+    const eligible = who.eligible?.(title)
+    // The game says go: whatever the wiki check found missing doesn't hold.
+    if (eligible === true) return { quests: [], levels: [], available: true }
+    return { quests, levels, available: eligible ?? (quests.length === 0 && levels.length === 0) }
   }
 }
 
-/** What's in the way, in a line: "Magic 70 (you 65), Strength 60 or Agility 60 (you 45, 58), Lost City". */
+/**
+ * What's in the way, in a line: "Magic 70 (you 65), Strength 60 or Agility 60 (you 45, 58), Lost City".
+ * When the game says the quest is locked but nothing above explains it, it's something this list doesn't track.
+ */
 export function blockerText({ quests, levels }: Availability): string {
   const levelTexts = levels.map(options => {
     const need = options.map(o => `${o.skill} ${o.level}`).join(' or ')
     return `${need} (you ${options.map(o => o.current ?? '?').join(', ')})`
   })
   const questTexts = quests.map(q => (q.need === 'partial' ? `${q.name} (partly)` : q.need === 'full' ? `${q.name} (100%)` : q.name))
-  return [...levelTexts, ...questTexts].join(', ')
+  return [...levelTexts, ...questTexts].join(', ') || "something this list doesn't track"
 }
 
-export function characterFrom(stats: CharacterStats, statuses: Map<string, QuestStatus>, questPoints: number | null): Character {
+export function characterFrom(
+  stats: CharacterStats,
+  statuses: Map<string, QuestStatus>,
+  questPoints: number | null,
+  eligible?: Map<string, boolean>,
+): Character {
   return {
     level: name => {
       const skill = SKILL_BY_NAME.get(name.toLowerCase())
@@ -101,6 +116,7 @@ export function characterFrom(stats: CharacterStats, statuses: Map<string, Quest
     },
     questPoints,
     status: title => statuses.get(questKey(title)),
+    eligible: eligible && (title => eligible.get(questKey(title))),
   }
 }
 

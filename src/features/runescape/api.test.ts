@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
-  RsApiError, combatLevel, fetchCharacterStats, formatActivityDate, parseEvents, parseHiscores, parseQuests, parseSkills,
+  RsApiError, combatLevel, difficultyLabel, fetchCharacterStats, formatActivityDate, parseEvents, parseHiscores,
+  parseQuestProgress, parseQuests, parseSkills,
 } from './api'
 import type { SkillStat } from './api'
 
@@ -119,20 +120,52 @@ describe('parseQuests', () => {
       },
     }
     expect(parseQuests(data)).toEqual([
-      { title: "Cook's Assistant", status: 'COMPLETED', difficulty: '0', members: false, questPoints: 1 },
-      { title: "Mourning's End Part I", status: 'NOT_STARTED', difficulty: '3', members: true, questPoints: 2 },
-      { title: 'Recipe for Disaster', status: 'STARTED', difficulty: '2', members: true, questPoints: 1 },
+      { title: "Cook's Assistant", status: 'COMPLETED', difficulty: '0', members: false, questPoints: 1, eligible: true },
+      { title: "Mourning's End Part I", status: 'NOT_STARTED', difficulty: '3', members: true, questPoints: 2, eligible: false },
+      { title: 'Recipe for Disaster', status: 'STARTED', difficulty: '2', members: true, questPoints: 1, eligible: false },
     ])
   })
   it('treats an unknown status as not started and tolerates missing fields', () => {
     expect(parseQuests({ quests: { 1: { title: 'A', status: 'WEIRD' } } })).toEqual([
-      { title: 'A', status: 'NOT_STARTED', difficulty: null, members: null, questPoints: null },
+      { title: 'A', status: 'NOT_STARTED', difficulty: null, members: null, questPoints: null, eligible: null },
     ])
   })
   it('is empty for missing or malformed data', () => {
     expect(parseQuests({})).toEqual([])
     expect(parseQuests({ quests: 'nope' })).toEqual([])
     expect(parseQuests(null)).toEqual([])
+  })
+})
+
+describe('parseQuestProgress', () => {
+  it('reads the quest points the game counts alongside the quests', () => {
+    const progress = parseQuestProgress({ qp: 469, qp_max: 476, quests: { 1: { title: 'A', status: 'COMPLETED', qp: 2 } } })
+    expect(progress.questPoints).toBe(469)
+    expect(progress.questPointsMax).toBe(476)
+    expect(progress.entries).toHaveLength(1)
+  })
+  it('leaves quest points unknown when the response has none', () => {
+    expect(parseQuestProgress({ quests: {} })).toEqual({ entries: [], questPoints: null, questPointsMax: null })
+    expect(parseQuestProgress(null)).toEqual({ entries: [], questPoints: null, questPointsMax: null })
+  })
+  it('keeps the game\'s own count when it differs from adding up the completed quests', () => {
+    // Sheep Shearer-style special cases: the completed quests below add up to 3, the game says 4.
+    const data = { qp: 4, qp_max: 10, quests: { 1: { title: 'A', status: 'COMPLETED', qp: 2 }, 2: { title: 'B', status: 'COMPLETED', qp: 1 } } }
+    const { entries, questPoints } = parseQuestProgress(data)
+    expect(entries.reduce((sum, q) => sum + (q.status === 'COMPLETED' ? q.questPoints ?? 0 : 0), 0)).toBe(3)
+    expect(questPoints).toBe(4)
+  })
+})
+
+describe('difficultyLabel', () => {
+  it('names the numbers the Adventurer\'s Log uses', () => {
+    expect(['0', '1', '2', '3', '4', '250'].map(difficultyLabel)).toEqual(['Novice', 'Intermediate', 'Experienced', 'Master', 'Grandmaster', 'Multi'])
+  })
+  it('shows text as stored and hides numbers it does not know', () => {
+    expect(difficultyLabel('Novice')).toBe('Novice')
+    expect(difficultyLabel('7')).toBeNull()
+    expect(difficultyLabel(null)).toBeNull()
+    expect(difficultyLabel('')).toBeNull()
   })
 })
 
