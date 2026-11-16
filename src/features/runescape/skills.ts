@@ -50,6 +50,9 @@ export const SKILLS: Skill[] = [
 
 export const SKILL_BY_ID = new Map(SKILLS.map(s => [s.id, s]))
 export const SKILL_BY_NAME = new Map(SKILLS.map(s => [s.name.toLowerCase(), s]))
+// Hiscores and the Adventurer's Log still use the old names for these two skills.
+SKILL_BY_NAME.set('hitpoints', SKILL_BY_ID.get(3)!)
+SKILL_BY_NAME.set('runecraft', SKILL_BY_ID.get(20)!)
 
 /** Skill names in the in-game skills panel: 3 columns, read left to right, top to bottom. */
 const GAME_PANEL_ORDER = [

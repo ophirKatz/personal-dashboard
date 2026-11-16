@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import type { QuestStatus } from './api'
+import type { CharacterStats, QuestStatus } from './api'
 import {
-  blockerText, createAvailability, parseLevelRequirement, totalQuestPoints,
+  blockerText, characterFrom, createAvailability, parseLevelRequirement, totalQuestPoints,
   type Character, type RequirementData,
 } from './quest-availability'
 import { QUEST_PREREQUISITES, QUEST_SKILL_REQUIREMENTS } from './quest-requirements-data'
@@ -86,6 +86,47 @@ describe('createAvailability', () => {
     expect(createAvailability(me(), data)('plain').levels).toEqual([])
     const short = createAvailability(me({ levels: { Cooking: 3 } }), data)('PLAIN')
     expect(short.levels).toEqual([[{ skill: 'Cooking', level: 10, current: 3 }]])
+  })
+
+  describe("with the game's own verdict (eligible)", () => {
+    const short = { ...ready, levels: { ...ready.levels, Magic: 65 } } // the wiki check would lock "Quest" on Magic
+
+    it('says available when the game does, even if the wiki check found something missing', () => {
+      const a = createAvailability(me({ ...short, eligible: () => true }), data)('Quest')
+      expect(a).toEqual({ quests: [], levels: [], available: true })
+    })
+
+    it('says locked when the game does, and keeps what the wiki check found missing', () => {
+      const a = createAvailability(me({ ...short, eligible: () => false }), data)('Quest')
+      expect(a.available).toBe(false)
+      expect(a.levels).toEqual([[{ skill: 'Magic', level: 70, current: 65 }]])
+    })
+
+    it('says locked, with nothing listed, when the game does but the wiki check sees no problem', () => {
+      // e.g. an unlock, area or item requirement the requirements data does not cover.
+      const a = createAvailability(me({ ...ready, eligible: () => false }), data)('Quest')
+      expect(a).toEqual({ quests: [], levels: [], available: false })
+      expect(blockerText(a)).toBe("something this list doesn't track")
+    })
+
+    it('falls back to the wiki check for quests the game gave no verdict on', () => {
+      const eligible = (title: string) => (title === 'Other' ? true : undefined)
+      expect(createAvailability(me({ ...short, eligible }), data)('Quest').available).toBe(false)
+      expect(createAvailability(me({ ...ready, eligible }), data)('Quest').available).toBe(true)
+    })
+  })
+})
+
+describe('characterFrom', () => {
+  const stats = { skills: new Map() } as unknown as CharacterStats
+  it('looks the verdict up by quest title, ignoring case', () => {
+    const who = characterFrom(stats, new Map(), 10, new Map([['benedict\'s world tour (miniquest)', true], ['gower quest', false]]))
+    expect(who.eligible?.("Benedict's World Tour (miniquest)")).toBe(true)
+    expect(who.eligible?.('Gower Quest')).toBe(false)
+    expect(who.eligible?.('Unknown')).toBeUndefined()
+  })
+  it('has no verdicts to give when none were passed', () => {
+    expect(characterFrom(stats, new Map(), 10).eligible).toBeUndefined()
   })
 })
 

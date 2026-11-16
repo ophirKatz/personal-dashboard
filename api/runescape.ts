@@ -3,15 +3,21 @@ import type { VercelRequest, VercelResponse } from '@vercel/node'
 const UA = 'personal-dashboard (rs3 tracker)'
 const PLAYER_RE = /^[A-Za-z0-9 _-]{1,12}$/
 
+// The RuneMetrics API (apps.runescape.com/runemetrics) went offline on 10 Nov 2026. Its replacement is the
+// Adventurer's Log API: https://developer.runescape.com/platform/modules/adventurers-log/
+const ADVENTURERS_LOG = 'https://secure.runescape.com/m=adventurers-log/api/v1'
+
 function upstreamUrl(kind: string, player: string): string | null {
   const p = encodeURIComponent(player)
   switch (kind) {
     case 'hiscores':
       return `https://secure.runescape.com/m=hiscore/index_lite.json?player=${p}`
-    case 'profile':
-      return `https://apps.runescape.com/runemetrics/profile/profile?user=${p}&activities=20`
+    case 'skills':
+      return `${ADVENTURERS_LOG}/playerData/${p}?includeSkills=true`
     case 'quests':
-      return `https://apps.runescape.com/runemetrics/quests?user=${p}`
+      return `${ADVENTURERS_LOG}/playerData/${p}?includeQuests=true`
+    case 'events':
+      return `${ADVENTURERS_LOG}/playerEvents/${p}`
     default:
       return null
   }
@@ -88,11 +94,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return
   }
 
-  // RuneMetrics reports failures in a 200 body: { error: 'PROFILE_PRIVATE' | 'NO_PROFILE' | ... }
+  // The Adventurer's Log API signals failures with an HTTP status plus { error: 'PLAYER_NOT_FOUND' | ... } (handled
+  // above), but guard against the same body arriving with a 200.
   const err = (data as { error?: unknown } | null)?.error
   if (typeof err === 'string') {
-    const code = err === 'PROFILE_PRIVATE' ? 'PROFILE_PRIVATE' : err === 'NO_PROFILE' ? 'NOT_FOUND' : 'UPSTREAM_ERROR'
-    res.status(code === 'NOT_FOUND' ? 404 : code === 'PROFILE_PRIVATE' ? 403 : 502).json({ error: code })
+    const notFound = err === 'PLAYER_NOT_FOUND'
+    res.status(notFound ? 404 : 502).json({ error: notFound ? 'NOT_FOUND' : 'UPSTREAM_ERROR' })
     return
   }
 

@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerBody } from '../../components/ui/drawer'
 import { cn } from '../../utils'
 import { SKILLS, SKILL_BY_ID, VIRTUAL_MAX } from './skills'
-import type { QuestStatus } from './api'
+import { difficultyLabel, type QuestStatus } from './api'
 import { questKey } from './goals'
 
 type Props = {
@@ -153,7 +153,7 @@ export default function GoalDrawer({
                     <span className="min-w-0 truncate">{q.name}</span>
                     {questId === q.id
                       ? <Check className="h-4 w-4 shrink-0 text-primary" />
-                      : q.difficulty && <span className="shrink-0 text-xs text-muted-foreground">{q.difficulty}</span>}
+                      : difficultyLabel(q.difficulty) && <span className="shrink-0 text-xs text-muted-foreground">{difficultyLabel(q.difficulty)}</span>}
                   </button>
                 ))}
               </div>

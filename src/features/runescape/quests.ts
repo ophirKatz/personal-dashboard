@@ -9,11 +9,12 @@ export async function loadQuestCatalogue(): Promise<RsQuest[]> {
 }
 
 /**
- * Re-syncs the shared quest catalogue. RuneMetrics gives full metadata but needs a public
- * profile; the wiki fallback only provides names. Existing rows are kept (goals reference them).
+ * Re-syncs the shared quest catalogue. The Adventurer's Log gives full metadata; the wiki fallback only
+ * provides names, so it must never overwrite metadata already stored. Existing rows are kept (goals reference them).
  */
 export async function refreshQuestCatalogue(characterName: string, existing: RsQuest[]): Promise<{ added: number; total: number }> {
   let rows: { name: string; difficulty: string | null; members: boolean | null; quest_points: number | null }[]
+  let namesOnly = false
   try {
     rows = (await fetchQuests(characterName)).map(q => ({
       name: q.title, difficulty: q.difficulty, members: q.members, quest_points: q.questPoints,
@@ -21,6 +22,7 @@ export async function refreshQuestCatalogue(characterName: string, existing: RsQ
   } catch (err) {
     if (!(err instanceof RsApiError)) throw err
     rows = (await fetchWikiQuestNames()).map(name => ({ name, difficulty: null, members: null, quest_points: null }))
+    namesOnly = true
   }
   if (rows.length === 0) throw new RsApiError('UPSTREAM_ERROR')
 
@@ -28,7 +30,7 @@ export async function refreshQuestCatalogue(characterName: string, existing: RsQ
   const added = rows.filter(r => !known.has(r.name.toLowerCase())).length
   const { error } = await supabase
     .from('rs_quests')
-    .upsert(rows.map(r => ({ ...r, updated_at: new Date().toISOString() })), { onConflict: 'name' })
+    .upsert(rows.map(r => ({ ...r, updated_at: new Date().toISOString() })), { onConflict: 'name', ignoreDuplicates: namesOnly })
   if (error) throw error
   return { added, total: rows.length }
 }
