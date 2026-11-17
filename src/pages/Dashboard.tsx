@@ -19,6 +19,7 @@ import { getShowFocusSection } from '../lib/userSettings'
 import ShoppingItemDrawer from '../features/shopping/ShoppingItemDrawer'
 import QuickLogSessionDrawer from '../features/climbing/QuickLogSessionDrawer'
 import { fetchNextClimbingSession, nextSessionLabel } from '../features/climbing/nextClimbingSession'
+import { fetchClimbLogPending } from '../features/climbing/climbLogPending'
 import { fetchItemsToBuyCount, itemsToBuyLabel } from '../features/shopping/itemsToBuy'
 import QuickLinkCard from '../features/dashboard/QuickLinkCard'
 import TaskDrawer from '../features/todos/TaskDrawer'
@@ -43,6 +44,8 @@ export default function Dashboard() {
   // Quick-link subtitles: undefined while loading, '—' if the query failed.
   const [shoppingSubtitle, setShoppingSubtitle] = useState<string | undefined>()
   const [climbingSubtitle, setClimbingSubtitle] = useState<string | undefined>()
+  // A climbing session has ended and none has been logged since: the card glows until one is.
+  const [climbLogPending, setClimbLogPending] = useState(false)
   const [showAddTask, setShowAddTask] = useState(false)
   const [friends, setFriends] = useState<Friend[]>([])
 
@@ -53,6 +56,10 @@ export default function Dashboard() {
 
   function loadClimbingSubtitle() {
     fetchNextClimbingSession().then(e => setClimbingSubtitle(nextSessionLabel(e)), () => setClimbingSubtitle('—'))
+  }
+
+  function loadClimbLogPending() {
+    fetchClimbLogPending().then(setClimbLogPending, () => setClimbLogPending(false))
   }
 
   async function loadLocalData() {
@@ -87,10 +94,13 @@ export default function Dashboard() {
   useEffect(() => {
     loadShoppingSubtitle()
     loadClimbingSubtitle()
+    loadClimbLogPending()
     loadLocalData().then(() => {
       refreshGoogleCalendarEvents().then(() => {
         loadLocalData()
         loadClimbingSubtitle()
+        // The sync is what records that a session ended, so look again once it has run.
+        loadClimbLogPending()
       })
     })
     getShowFocusSection().then(setShowFocusSection)
@@ -240,6 +250,7 @@ export default function Dashboard() {
           icon={Mountain}
           iconClassName="bg-orange-100 text-orange-700 dark:bg-orange-500/15 dark:text-orange-400"
           subtitle={climbingSubtitle}
+          glow={climbLogPending}
           onQuickAdd={() => setShowLogSession(true)}
           quickAddLabel="Log climbing session"
           longPressHint="Long press to log a session"
@@ -296,7 +307,7 @@ export default function Dashboard() {
         <QuickLogSessionDrawer
           open={showLogSession}
           onClose={() => setShowLogSession(false)}
-          onSaved={() => setShowLogSession(false)}
+          onSaved={() => { setShowLogSession(false); loadClimbLogPending() }}
           userId={user.id}
         />
       )}

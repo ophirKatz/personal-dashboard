@@ -405,6 +405,8 @@ export type WorkoutPresetExercise = {
   exercise_id: string
   sets: number
   reps: number
+  // Set for distance exercises (running), where sets/reps are unused placeholders.
+  distance_km: number | null
   position: number
 }
 
@@ -427,6 +429,8 @@ export type WorkoutLogExercise = {
   icon: string
   sets: number
   reps: number
+  // Set for distance exercises (running), where sets/reps are unused placeholders.
+  distance_km: number | null
   position: number
 }
 

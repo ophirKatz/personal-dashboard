@@ -10,13 +10,15 @@ import { haptic } from '../../lib/haptics'
 import { cn } from '../../utils'
 import { CUSTOM_ICON_KEYS, exerciseIcon } from './exerciseIcons'
 import Stepper from './Stepper'
+import DistanceStepper from './DistanceStepper'
 import WorkoutTrackingSettings from './WorkoutTrackingSettings'
 import {
   addExercise, deleteExercise, deletePreset, ensureBuiltinExercises, loadExercises, loadPresets,
-  savePreset, setDefaultPreset, type PresetWithExercises,
+  savePreset, setDefaultPreset, type PresetDraftItem, type PresetWithExercises,
 } from './workout'
+import { defaultAmount, formatAmount } from './workoutUtils'
 
-type DraftPreset = { id?: string; name: string; items: { exercise_id: string; sets: number; reps: number }[] }
+type DraftPreset = { id?: string; name: string; items: PresetDraftItem[] }
 
 export default function WorkoutSettings() {
   const [user, setUser] = useState<User | null>(null)
@@ -64,15 +66,15 @@ export default function WorkoutSettings() {
     load()
   }
 
-  function toggleDraftExercise(id: string) {
+  function toggleDraftExercise(ex: WorkoutExercise) {
     setDraft(d => {
       if (!d) return d
-      const has = d.items.some(i => i.exercise_id === id)
-      return { ...d, items: has ? d.items.filter(i => i.exercise_id !== id) : [...d.items, { exercise_id: id, sets: 3, reps: 10 }] }
+      const has = d.items.some(i => i.exercise_id === ex.id)
+      return { ...d, items: has ? d.items.filter(i => i.exercise_id !== ex.id) : [...d.items, { exercise_id: ex.id, ...defaultAmount(ex) }] }
     })
   }
 
-  function updateDraftItem(id: string, patch: { sets?: number; reps?: number }) {
+  function updateDraftItem(id: string, patch: Partial<Omit<PresetDraftItem, 'exercise_id'>>) {
     setDraft(d => d && { ...d, items: d.items.map(i => (i.exercise_id === id ? { ...i, ...patch } : i)) })
   }
 
@@ -103,7 +105,7 @@ export default function WorkoutSettings() {
                 <Star className={cn('h-4 w-4', p.is_default ? 'fill-amber-400 text-amber-500' : 'text-muted-foreground')} />
               </button>
               <button
-                onClick={() => setDraft({ id: p.id, name: p.name, items: p.items.map(i => ({ exercise_id: i.exercise_id, sets: i.sets, reps: i.reps })) })}
+                onClick={() => setDraft({ id: p.id, name: p.name, items: p.items.map(i => ({ exercise_id: i.exercise_id, sets: i.sets, reps: i.reps, distance_km: i.distance_km ?? null })) })}
                 aria-label="Edit preset"
                 className="p-1.5 rounded-lg hover:bg-accent text-muted-foreground"
               >
@@ -120,7 +122,7 @@ export default function WorkoutSettings() {
             <p className="text-xs text-muted-foreground mt-1">
               {p.items.map(i => {
                 const ex = exercises.find(e => e.id === i.exercise_id)
-                return ex ? `${ex.name} ${i.sets}×${i.reps}` : null
+                return ex ? `${ex.name} ${formatAmount(i)}` : null
               }).filter(Boolean).join(' · ') || 'No exercises'}
             </p>
           </div>
@@ -184,15 +186,21 @@ export default function WorkoutSettings() {
                   const item = draft.items.find(i => i.exercise_id === ex.id)
                   return (
                     <div key={ex.id} className={cn('rounded-xl border p-3 space-y-2', item ? 'border-primary/40 bg-primary/5' : 'border-border')}>
-                      <button type="button" onClick={() => toggleDraftExercise(ex.id)} className="flex items-center gap-2 w-full text-left">
+                      <button type="button" onClick={() => toggleDraftExercise(ex)} className="flex items-center gap-2 w-full text-left">
                         <Icon className="h-4 w-4 text-muted-foreground" />
                         <span className="text-sm flex-1">{ex.name}</span>
                         <span className="text-xs text-muted-foreground">{item ? 'Included' : 'Add'}</span>
                       </button>
                       {item && (
                         <div className="flex flex-wrap gap-x-5 gap-y-2">
-                          <Stepper label="Sets" value={item.sets} onChange={v => updateDraftItem(ex.id, { sets: v })} />
-                          <Stepper label="Reps" bigStep={10} value={item.reps} onChange={v => updateDraftItem(ex.id, { reps: v })} />
+                          {item.distance_km != null ? (
+                            <DistanceStepper value={item.distance_km} onChange={v => updateDraftItem(ex.id, { distance_km: v })} />
+                          ) : (
+                            <>
+                              <Stepper label="Sets" value={item.sets} onChange={v => updateDraftItem(ex.id, { sets: v })} />
+                              <Stepper label="Reps" bigStep={10} value={item.reps} onChange={v => updateDraftItem(ex.id, { reps: v })} />
+                            </>
+                          )}
                         </div>
                       )}
                     </div>

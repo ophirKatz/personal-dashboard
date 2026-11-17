@@ -1,4 +1,4 @@
-import { Activity, ArrowUpFromLine, Bike, ChevronsDown, ChevronsUp, Dumbbell, Flame, Footprints, HeartPulse, PersonStanding, Timer, Weight, Zap } from 'lucide-react'
+import { Activity, ArrowUpFromLine, Bike, ChevronsDown, ChevronsUp, Dumbbell, Flame, Footprints, HeartPulse, PersonStanding, Route, Timer, Weight, Zap } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 
 export const EXERCISE_ICONS: Record<string, LucideIcon> = {
@@ -8,6 +8,7 @@ export const EXERCISE_ICONS: Record<string, LucideIcon> = {
   calf_raises: Footprints,
   squats: ChevronsDown,
   pull_ups: ChevronsUp,
+  running: Route,
   flame: Flame,
   timer: Timer,
   heart: HeartPulse,
@@ -30,4 +31,6 @@ export const BUILTIN_EXERCISES = [
   { key: 'calf_raises', name: 'Calf raises' },
   { key: 'squats', name: 'Squats' },
   { key: 'pull_ups', name: 'Pull ups' },
+  // Measured in kilometres rather than sets x reps (see isDistanceExercise).
+  { key: 'running', name: 'Running' },
 ]
