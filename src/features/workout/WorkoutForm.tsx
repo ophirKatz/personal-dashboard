@@ -12,12 +12,13 @@ import { celebrate } from '../../lib/confetti'
 import { today } from '../../utils'
 import { exerciseIcon } from './exerciseIcons'
 import Stepper from './Stepper'
+import DistanceStepper from './DistanceStepper'
 import {
   createLog, ensureBuiltinExercises, loadPresets, updateLog,
   type PresetWithExercises, type WorkoutDraftItem, type LogWithExercises,
 } from './workout'
 import { loadExercises } from './workout'
-import { pickDefaultPreset } from './workoutUtils'
+import { defaultAmount, pickDefaultPreset } from './workoutUtils'
 import type { WorkoutExercise } from '../../supabase'
 
 type Props = {
@@ -31,7 +32,7 @@ type Props = {
 function itemsFromPreset(preset: PresetWithExercises, exercises: WorkoutExercise[]): WorkoutDraftItem[] {
   return preset.items.flatMap(i => {
     const ex = exercises.find(e => e.id === i.exercise_id)
-    return ex ? [{ exercise_id: ex.id, exercise_name: ex.name, icon: ex.icon, sets: i.sets, reps: i.reps }] : []
+    return ex ? [{ exercise_id: ex.id, exercise_name: ex.name, icon: ex.icon, sets: i.sets, reps: i.reps, distance_km: i.distance_km ?? null }] : []
   })
 }
 
@@ -41,7 +42,7 @@ export default function WorkoutForm({ editing, initialDate, onSaved }: Props) {
   const [exercises, setExercises] = useState<WorkoutExercise[]>([])
   const [presetId, setPresetId] = useState<string>(editing?.preset_id ?? '')
   const [items, setItems] = useState<WorkoutDraftItem[]>(
-    editing?.items.map(i => ({ exercise_id: i.exercise_id, exercise_name: i.exercise_name, icon: i.icon, sets: i.sets, reps: i.reps })) ?? [],
+    editing?.items.map(i => ({ exercise_id: i.exercise_id, exercise_name: i.exercise_name, icon: i.icon, sets: i.sets, reps: i.reps, distance_km: i.distance_km ?? null })) ?? [],
   )
   const [date, setDate] = useState(editing?.log_date ?? initialDate ?? today())
   const [notes, setNotes] = useState(editing?.notes ?? '')
@@ -81,7 +82,7 @@ export default function WorkoutForm({ editing, initialDate, onSaved }: Props) {
 
   function addExercise(id: string) {
     const ex = exercises.find(e => e.id === id)
-    if (ex) setItems(prev => [...prev, { exercise_id: ex.id, exercise_name: ex.name, icon: ex.icon, sets: 3, reps: 10 }])
+    if (ex) setItems(prev => [...prev, { exercise_id: ex.id, exercise_name: ex.name, icon: ex.icon, ...defaultAmount(ex) }])
   }
 
   async function handleSave() {
@@ -162,8 +163,14 @@ export default function WorkoutForm({ editing, initialDate, onSaved }: Props) {
                 </button>
               </div>
               <div className="flex flex-wrap gap-x-5 gap-y-2">
-                <Stepper label="Sets" value={item.sets} onChange={v => updateItem(index, { sets: v })} />
-                <Stepper label="Reps" bigStep={10} value={item.reps} onChange={v => updateItem(index, { reps: v })} />
+                {item.distance_km != null ? (
+                  <DistanceStepper value={item.distance_km} onChange={v => updateItem(index, { distance_km: v })} />
+                ) : (
+                  <>
+                    <Stepper label="Sets" value={item.sets} onChange={v => updateItem(index, { sets: v })} />
+                    <Stepper label="Reps" bigStep={10} value={item.reps} onChange={v => updateItem(index, { reps: v })} />
+                  </>
+                )}
               </div>
             </div>
           )

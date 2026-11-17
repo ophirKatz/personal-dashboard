@@ -3,6 +3,7 @@ import { supabase } from '../../supabase'
 import type { WorkoutExercise, WorkoutLog, WorkoutLogExercise, WorkoutPreset, WorkoutPresetExercise, WorkoutSettings } from '../../supabase'
 import { BUILTIN_EXERCISES } from './exerciseIcons'
 import { normalizeReminderTimes } from './workoutTracking'
+import { amountColumns } from './workoutUtils'
 
 export type PresetWithExercises = WorkoutPreset & { items: WorkoutPresetExercise[] }
 export type LogWithExercises = WorkoutLog & { items: WorkoutLogExercise[] }
@@ -14,7 +15,12 @@ export type WorkoutDraftItem = {
   icon: string
   sets: number
   reps: number
+  // Kilometres, for distance exercises (running); null for sets x reps.
+  distance_km: number | null
 }
+
+// One exercise of a preset being edited.
+export type PresetDraftItem = { exercise_id: string; sets: number; reps: number; distance_km: number | null }
 
 // Built-ins are seeded lazily per user; the unique index makes this idempotent.
 export async function ensureBuiltinExercises(userId: string): Promise<void> {
@@ -102,7 +108,15 @@ async function replaceLogItems(userId: string, logId: string, items: WorkoutDraf
   await supabase.from('workout_log_exercises').delete().eq('log_id', logId)
   if (items.length === 0) return
   await supabase.from('workout_log_exercises').insert(
-    items.map((it, position) => ({ ...it, user_id: userId, log_id: logId, position })),
+    items.map((it, position) => ({
+      exercise_id: it.exercise_id,
+      exercise_name: it.exercise_name,
+      icon: it.icon,
+      ...amountColumns(it),
+      user_id: userId,
+      log_id: logId,
+      position,
+    })),
   )
 }
 
@@ -134,7 +148,7 @@ export async function deleteLog(id: string): Promise<void> {
 
 export async function savePreset(
   userId: string,
-  preset: { id?: string; name: string; items: { exercise_id: string; sets: number; reps: number }[] },
+  preset: { id?: string; name: string; items: PresetDraftItem[] },
 ): Promise<void> {
   let id = preset.id
   if (id) {
@@ -152,7 +166,13 @@ export async function savePreset(
   }
   if (preset.items.length > 0) {
     await supabase.from('workout_preset_exercises').insert(
-      preset.items.map((it, position) => ({ ...it, user_id: userId, preset_id: id!, position })),
+      preset.items.map((it, position) => ({
+        exercise_id: it.exercise_id,
+        ...amountColumns(it),
+        user_id: userId,
+        preset_id: id!,
+        position,
+      })),
     )
   }
 }

@@ -66,6 +66,11 @@ const config: Config = {
           '0%, 100%': { transform: 'scale(1) rotate(-3deg)' },
           '50%': { transform: 'scale(1.12) rotate(3deg)' },
         },
+        // Orange (Tailwind orange-500) to match the climbing card's icon.
+        'glow-pulse': {
+          '0%, 100%': { boxShadow: '0 0 6px 1px rgb(249 115 22 / 0.35), 0 0 0 1px rgb(249 115 22 / 0.55)' },
+          '50%': { boxShadow: '0 0 18px 5px rgb(249 115 22 / 0.55), 0 0 0 1px rgb(249 115 22 / 0.9)' },
+        },
       },
       animation: {
         'nudge-ring': 'nudge-ring 2.4s ease-out infinite',
@@ -73,6 +78,7 @@ const config: Config = {
         'pop-in': 'pop-in 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) both',
         'cover-flip': 'cover-flip 0.8s ease-in-out',
         flicker: 'flicker 1.2s ease-in-out infinite',
+        'glow-pulse': 'glow-pulse 2.2s ease-in-out infinite',
       },
       borderRadius: {
         lg: 'var(--radius)',

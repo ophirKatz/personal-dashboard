@@ -1,4 +1,6 @@
 import { createClient, SupabaseClient } from 'npm:@supabase/supabase-js@2'
+import { timeInTZ, todayInTZ } from '../_shared/time.ts'
+import { latestEndedSessionDate, type SessionTimes } from '../_shared/climbingSessions.ts'
 
 const CALENDAR_BASE = 'https://www.googleapis.com/calendar/v3/calendars/primary/events'
 
@@ -165,7 +167,7 @@ async function syncCalendarForAccount(supabase: SupabaseClient, account: Account
 
   const { data: existingRows, error: selectError } = await supabase
     .from('events')
-    .select('google_event_id')
+    .select('google_event_id, title, event_date, event_time, event_end_date, event_end_time')
     .eq('user_id', account.user_id)
     .eq('google_account_id', account.id)
   if (selectError) {
@@ -173,6 +175,22 @@ async function syncCalendarForAccount(supabase: SupabaseClient, account: Account
     return
   }
   const existingIds = new Set((existingRows ?? []).map(r => r.google_event_id).filter((id): id is string => id !== null))
+
+  // Before the stale delete below: the cache only keeps events from today onward, so an ended
+  // session is still in existingRows now but gone after the next day's sync.
+  try {
+    await recordEndedClimbingSession(supabase, account.user_id, [
+      ...(existingRows ?? []).filter(r => isClimbingSessionTitle(r.title ?? '')).map(r => ({
+        eventDate: r.event_date as string,
+        eventTime: r.event_time as string | null,
+        eventEndDate: r.event_end_date as string | null,
+        eventEndTime: r.event_end_time as string | null,
+      })),
+      ...events.filter(e => isClimbingSessionTitle(e.title)),
+    ])
+  } catch (err) {
+    console.error(`[fetch-google-calendar] recording ended climbing session failed for account ${account.id}:`, err)
+  }
 
   const rows = events.map(e => ({
     user_id: account.user_id,
@@ -206,6 +224,33 @@ async function syncCalendarForAccount(supabase: SupabaseClient, account: Account
   }
 
   await createClimbingLogTasks(supabase, account.user_id, events)
+}
+
+// Remembers the date of the latest climbing session that has finished, which the home widget uses
+// to glow until a session is logged. Only ever moves forward. Best-effort: a failure here must not
+// fail the calendar sync (and, before the migration is applied, the column read just errors).
+async function recordEndedClimbingSession(supabase: SupabaseClient, userId: string, sessions: SessionTimes[]) {
+  const ended = latestEndedSessionDate(sessions, todayInTZ(), timeInTZ())
+  if (!ended) return
+
+  const { data: current, error: readError } = await supabase
+    .from('user_settings')
+    .select('climbing_session_ended_on')
+    .eq('user_id', userId)
+    .maybeSingle()
+  if (readError) {
+    console.error(`[fetch-google-calendar] read climbing_session_ended_on failed for user ${userId}: ${JSON.stringify(readError)}`)
+    return
+  }
+  const previous = current?.climbing_session_ended_on as string | null | undefined
+  if (previous && previous >= ended) return
+
+  const { error: writeError } = await supabase
+    .from('user_settings')
+    .upsert({ user_id: userId, climbing_session_ended_on: ended }, { onConflict: 'user_id' })
+  if (writeError) {
+    console.error(`[fetch-google-calendar] write climbing_session_ended_on failed for user ${userId}: ${JSON.stringify(writeError)}`)
+  }
 }
 
 // Every climbing session synced from the calendar gets a matching "Log a climb"

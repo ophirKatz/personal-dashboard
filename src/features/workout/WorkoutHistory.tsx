@@ -5,6 +5,7 @@ import { haptic } from '../../lib/haptics'
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerBody } from '../../components/ui/drawer'
 import { exerciseIcon } from './exerciseIcons'
 import { deleteLog, loadLogs, type LogWithExercises } from './workout'
+import { formatAmount } from './workoutUtils'
 import WorkoutForm from './WorkoutForm'
 
 export default function WorkoutHistory() {
@@ -58,7 +59,7 @@ export default function WorkoutHistory() {
                 <div key={item.id} className="flex items-center gap-2 text-sm">
                   <Icon className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
                   <span className="flex-1 truncate">{item.exercise_name}</span>
-                  <span className="text-muted-foreground tabular-nums">{item.sets}×{item.reps}</span>
+                  <span className="text-muted-foreground tabular-nums">{formatAmount(item)}</span>
                 </div>
               )
             })}

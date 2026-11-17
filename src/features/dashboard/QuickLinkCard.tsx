@@ -3,6 +3,7 @@ import { Plus } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useLongPress } from '../../lib/useLongPress'
+import { cn } from '../../utils'
 
 type Props = {
   to: string
@@ -15,9 +16,11 @@ type Props = {
   onQuickAdd: () => void
   quickAddLabel: string
   longPressHint: string
+  // Pulses an orange glow around the card to draw attention to it.
+  glow?: boolean
 }
 
-export default function QuickLinkCard({ to, label, icon: Icon, iconClassName, subtitle, onQuickAdd, quickAddLabel, longPressHint }: Props) {
+export default function QuickLinkCard({ to, label, icon: Icon, iconClassName, subtitle, onQuickAdd, quickAddLabel, longPressHint, glow }: Props) {
   const navigate = useNavigate()
   const longPress = useLongPress(onQuickAdd)
 
@@ -40,7 +43,11 @@ export default function QuickLinkCard({ to, label, icon: Icon, iconClassName, su
         role="link"
         tabIndex={0}
         title={longPressHint}
-        className="p-2.5 bg-card border border-border rounded-xl active:scale-[0.98] transition-transform select-none cursor-pointer"
+        className={cn(
+          'p-2.5 bg-card border border-border rounded-xl active:scale-[0.98] transition-transform select-none cursor-pointer',
+          // Static glow for reduced-motion; the pulse animation replaces it when motion is allowed.
+          glow && 'border-orange-400/70 shadow-[0_0_14px_2px_rgb(249_115_22/0.45)] motion-safe:animate-glow-pulse',
+        )}
         {...longPress}
         onClick={onClick}
         onKeyDown={onKeyDown}
