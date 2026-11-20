@@ -4,8 +4,9 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '../components/ui/tabs'
 import WorkoutForm from '../features/workout/WorkoutForm'
 import WorkoutHistory from '../features/workout/WorkoutHistory'
 import WorkoutSettings from '../features/workout/WorkoutSettings'
+import WorkoutStats from '../features/workout/WorkoutStats'
 
-const TABS = ['log', 'history', 'settings'] as const
+const TABS = ['log', 'history', 'stats', 'settings'] as const
 type Tab = (typeof TABS)[number]
 
 export default function Workout() {
@@ -26,6 +27,7 @@ export default function Workout() {
         <TabsList className="w-full mb-6">
           <TabsTrigger value="log" className="flex-1">Log</TabsTrigger>
           <TabsTrigger value="history" className="flex-1">History</TabsTrigger>
+          <TabsTrigger value="stats" className="flex-1">Stats</TabsTrigger>
           <TabsTrigger value="settings" className="flex-1">Settings</TabsTrigger>
         </TabsList>
 
@@ -34,6 +36,9 @@ export default function Workout() {
         </TabsContent>
         <TabsContent value="history">
           <WorkoutHistory key={refreshKey} />
+        </TabsContent>
+        <TabsContent value="stats">
+          <WorkoutStats />
         </TabsContent>
         <TabsContent value="settings">
           <WorkoutSettings />

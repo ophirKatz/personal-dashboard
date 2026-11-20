@@ -3,6 +3,7 @@ import { supabase } from '../../supabase'
 import type { WorkoutExercise, WorkoutLog, WorkoutLogExercise, WorkoutPreset, WorkoutPresetExercise, WorkoutSettings } from '../../supabase'
 import { BUILTIN_EXERCISES } from './exerciseIcons'
 import { normalizeReminderTimes } from './workoutTracking'
+import type { StatsLog } from './workoutStats'
 import { amountColumns } from './workoutUtils'
 
 export type PresetWithExercises = WorkoutPreset & { items: WorkoutPresetExercise[] }
@@ -57,6 +58,27 @@ export async function loadLogs(limit = 100): Promise<LogWithExercises[]> {
     .in('log_id', logs.map(l => l.id))
     .order('position')
   return logs.map(l => ({ ...l, items: (items ?? []).filter(i => i.log_id === l.id) }))
+}
+
+// One API response is capped (1000 rows by default), so the statistics read the history a page at a time.
+const STATS_PAGE_SIZE = 1000
+
+// Every logged workout with its exercises, newest first, for the statistics tab. Throws if a page
+// can't be read: totals built from a partial history would be wrong without looking it.
+export async function loadWorkoutStats(): Promise<StatsLog[]> {
+  const logs: StatsLog[] = []
+  for (let from = 0; ; from += STATS_PAGE_SIZE) {
+    const { data, error } = await supabase
+      .from('workout_logs')
+      .select('id, log_date, workout_log_exercises(*)')
+      .order('log_date', { ascending: false })
+      .order('id') // a tiebreak, so a page boundary inside one day can't repeat or skip a workout
+      .range(from, from + STATS_PAGE_SIZE - 1)
+    if (error) throw error
+    const rows = data ?? []
+    for (const row of rows) logs.push({ id: row.id, log_date: row.log_date, items: row.workout_log_exercises ?? [] })
+    if (rows.length < STATS_PAGE_SIZE) return logs
+  }
 }
 
 // Far enough back for any realistic streak; the owed-workouts walk reaches further when tracking began earlier.
