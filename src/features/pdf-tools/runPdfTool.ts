@@ -1,8 +1,17 @@
 import { supabase } from '../../supabase'
-import type { PdfToolKey } from './tools'
+import { DEFAULT_COMPRESSION_LEVEL, type CompressionLevel, type PdfToolKey } from './tools'
 
-export type PdfToolOptions = { pages?: string; angle?: number; text?: string; opacity?: number }
-export type PdfToolOutput = { blob: Blob; filename: string }
+export type PdfToolOptions = {
+  pages?: string; angle?: number; text?: string; opacity?: number
+  level?: CompressionLevel
+  onProgress?: (done: number, total: number) => void
+}
+export type PdfToolOutput = {
+  blob: Blob
+  filename: string
+  // Set by tools that shrink a file, so the UI can show what was saved.
+  originalBytes?: number
+}
 
 const MAX_FETCH_RETRIES = 3
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
@@ -22,10 +31,38 @@ function outputName(tool: PdfToolKey, files: File[], isZip: boolean): string {
     case 'remove': return `${base}_trimmed.pdf`
     case 'rotate': return `${base}_rotated.pdf`
     case 'watermark': return `${base}_watermarked.pdf`
+    case 'compress': return `${base}_compressed.pdf`
+  }
+}
+
+// Runs entirely in the browser: no upload, so big scans don't hit the edge function's
+// size and CPU limits. Loaded on demand so pdf-lib stays out of the page's main chunk.
+async function runCompress(file: File, options: PdfToolOptions): Promise<PdfToolOutput> {
+  const [{ compressPdf, InvalidPdfError }, { browserJpegEncoder }] = await Promise.all([
+    import('./compressPdf'),
+    import('./jpegEncoder'),
+  ])
+  try {
+    const { bytes } = await compressPdf(
+      new Uint8Array(await file.arrayBuffer()),
+      options.level ?? DEFAULT_COMPRESSION_LEVEL,
+      browserJpegEncoder,
+      options.onProgress,
+    )
+    return {
+      blob: new Blob([bytes as BlobPart], { type: 'application/pdf' }), // not a SharedArrayBuffer: see jpegEncoder.ts
+      filename: outputName('compress', [file], false),
+      originalBytes: file.size,
+    }
+  } catch (err) {
+    if (err instanceof InvalidPdfError) throw new Error(`"${file.name}" is not a valid PDF (or is password-protected)`)
+    throw err
   }
 }
 
 export async function runPdfTool(tool: PdfToolKey, files: File[], options: PdfToolOptions): Promise<PdfToolOutput> {
+  if (tool === 'compress') return runCompress(files[0], options)
+
   const form = new FormData()
   form.append('tool', tool)
   for (const f of files) form.append('files', f, f.name)

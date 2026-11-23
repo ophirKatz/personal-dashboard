@@ -4,7 +4,10 @@ import { Button } from '../components/ui/button'
 import { Input } from '../components/ui/input'
 import { Label } from '../components/ui/label'
 import { cn } from '../utils'
-import { PDF_TOOLS, MAX_FILE_BYTES, MAX_TOTAL_BYTES, type PdfToolDef } from '../features/pdf-tools/tools'
+import {
+  PDF_TOOLS, COMPRESSION_LEVELS, DEFAULT_COMPRESSION_LEVEL, limitsFor,
+  type CompressionLevel, type PdfToolDef,
+} from '../features/pdf-tools/tools'
 import { runPdfTool, type PdfToolOutput } from '../features/pdf-tools/runPdfTool'
 
 const formatSize = (bytes: number) =>
@@ -17,11 +20,14 @@ export default function PdfTools() {
   const [angle, setAngle] = useState(90)
   const [text, setText] = useState('CONFIDENTIAL')
   const [opacity, setOpacity] = useState(0.25)
+  const [level, setLevel] = useState<CompressionLevel>(DEFAULT_COMPRESSION_LEVEL)
+  const [progress, setProgress] = useState<{ done: number; total: number } | null>(null)
   const [running, setRunning] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [result, setResult] = useState<PdfToolOutput | null>(null)
   const [resultUrl, setResultUrl] = useState<string | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
+  const limits = limitsFor(tool)
 
   useEffect(() => {
     if (!result) { setResultUrl(null); return }
@@ -41,8 +47,8 @@ export default function PdfTools() {
   function addFiles(list: FileList | null) {
     if (!list) return
     const incoming = Array.from(list)
-    const tooBig = incoming.find(f => f.size > MAX_FILE_BYTES)
-    if (tooBig) { setError(`"${tooBig.name}" is over ${formatSize(MAX_FILE_BYTES)}`); return }
+    const tooBig = incoming.find(f => f.size > limits.file)
+    if (tooBig) { setError(`"${tooBig.name}" is over ${formatSize(limits.file)}`); return }
     setError(null)
     setResult(null)
     setFiles(prev => (tool.multiple ? [...prev, ...incoming] : incoming.slice(0, 1)))
@@ -62,19 +68,25 @@ export default function PdfTools() {
 
   const totalBytes = files.reduce((sum, f) => sum + f.size, 0)
   const missingPages = !!tool.pagesRequired && !pages.trim()
-  const canRun = files.length >= tool.minFiles && !missingPages && totalBytes <= MAX_TOTAL_BYTES
+  const canRun = files.length >= tool.minFiles && !missingPages && totalBytes <= limits.total
     && (!tool.options.includes('text') || !!text.trim()) && !running
+
+  // For tools that shrink a file: bytes saved (<= 0 means it couldn't be made smaller).
+  const saved = result?.originalBytes !== undefined ? result.originalBytes - result.blob.size : undefined
 
   async function handleRun() {
     setRunning(true)
     setError(null)
     setResult(null)
+    setProgress(null)
     try {
       setResult(await runPdfTool(tool.key, files, {
         pages: tool.options.includes('pages') ? pages.trim() : undefined,
         angle: tool.options.includes('angle') ? angle : undefined,
         text: tool.options.includes('text') ? text.trim() : undefined,
         opacity: tool.options.includes('opacity') ? opacity : undefined,
+        level: tool.options.includes('level') ? level : undefined,
+        onProgress: (done, total) => setProgress({ done, total }),
       }))
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Processing failed')
@@ -87,7 +99,9 @@ export default function PdfTools() {
     <div className="p-4 max-w-2xl mx-auto space-y-5">
       <div>
         <h1 className="text-2xl font-bold">PDF tools</h1>
-        <p className="text-sm text-muted-foreground">Files are processed on the server and not stored.</p>
+        <p className="text-sm text-muted-foreground">
+          {tool.local ? 'Processed in your browser — the file never leaves your device.' : 'Files are processed on the server and not stored.'}
+        </p>
       </div>
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
@@ -141,8 +155,8 @@ export default function PdfTools() {
             ))}
           </ul>
         )}
-        {totalBytes > MAX_TOTAL_BYTES && (
-          <p className="text-sm text-destructive">Total size is over {formatSize(MAX_TOTAL_BYTES)} — remove some files.</p>
+        {totalBytes > limits.total && (
+          <p className="text-sm text-destructive">Total size is over {formatSize(limits.total)} — remove some files.</p>
         )}
 
         {tool.options.includes('pages') && (
@@ -174,22 +188,50 @@ export default function PdfTools() {
           </div>
         )}
 
+        {tool.options.includes('level') && (
+          <div className="space-y-1.5">
+            <Label>Compression level</Label>
+            <div className="flex gap-2">
+              {(Object.keys(COMPRESSION_LEVELS) as CompressionLevel[]).map(l => (
+                <Button key={l} size="sm" variant={level === l ? 'default' : 'outline'} onClick={() => { setLevel(l); setResult(null) }}>
+                  {COMPRESSION_LEVELS[l].label}
+                </Button>
+              ))}
+            </div>
+            <p className="text-xs text-muted-foreground">{COMPRESSION_LEVELS[level].description}</p>
+          </div>
+        )}
+
         <Button className="w-full" disabled={!canRun} onClick={handleRun}>
           {running && <Loader2 className="h-4 w-4 animate-spin" />}
-          {running ? 'Processing…' : tool.label}
+          {running ? (progress && progress.total > 0 ? `Compressing images… ${progress.done}/${progress.total}` : 'Processing…') : tool.label}
         </Button>
 
         {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
 
-        {result && resultUrl && (
-          <a
-            href={resultUrl}
-            download={result.filename}
-            className="flex items-center justify-center gap-2 rounded-lg bg-secondary px-4 py-2.5 text-sm font-medium hover:bg-secondary/80"
-          >
-            <Download className="h-4 w-4" />
-            Download {result.filename} ({formatSize(result.blob.size)})
-          </a>
+        {result && resultUrl && saved !== undefined && saved <= 0 && (
+          <p role="status" className="text-sm text-muted-foreground">
+            Couldn't make this PDF any smaller — it has no sizeable JPEG images to recompress
+            {level === 'maximum' ? '.' : ', or they are already compressed. Try a stronger level.'}
+          </p>
+        )}
+
+        {result && resultUrl && (saved === undefined || saved > 0) && (
+          <div className="space-y-1.5">
+            <a
+              href={resultUrl}
+              download={result.filename}
+              className="flex items-center justify-center gap-2 rounded-lg bg-secondary px-4 py-2.5 text-sm font-medium hover:bg-secondary/80"
+            >
+              <Download className="h-4 w-4" />
+              Download {result.filename} ({formatSize(result.blob.size)})
+            </a>
+            {saved !== undefined && result.originalBytes !== undefined && (
+              <p role="status" className="text-center text-xs text-muted-foreground">
+                Was {formatSize(result.originalBytes)} — {Math.max(1, Math.round((saved / result.originalBytes) * 100))}% smaller
+              </p>
+            )}
+          </div>
         )}
       </div>
     </div>
