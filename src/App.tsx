@@ -19,6 +19,7 @@ const Todos = lazy(() => import('./pages/Todos'))
 const Climbing = lazy(() => import('./pages/Climbing'))
 const Shopping = lazy(() => import('./pages/Shopping'))
 const Calendar = lazy(() => import('./pages/Calendar'))
+const Planner = lazy(() => import('./pages/Planner'))
 const Files = lazy(() => import('./pages/Files'))
 const Converter = lazy(() => import('./pages/Converter'))
 const Stocks = lazy(() => import('./pages/Stocks'))
@@ -122,6 +123,7 @@ function AuthedApp() {
               <Route path="climbing" element={<Climbing />} />
               <Route path="shopping" element={<Shopping />} />
               <Route path="calendar" element={<Calendar />} />
+              <Route path="planner" element={<Planner />} />
               <Route path="files" element={<Files />} />
               <Route path="converter" element={<Converter />} />
               <Route path="stocks" element={<Stocks />} />

@@ -89,9 +89,10 @@ the same Google OAuth client from step 1a, but needs two extra things:
 2. **Add the Calendar scope to the OAuth consent screen** — go to **APIs & Services → OAuth
    consent screen → Data Access → Add or Remove Scopes**, and add:
    ```
-   https://www.googleapis.com/auth/calendar.readonly
+   https://www.googleapis.com/auth/calendar.events
    ```
-   This is a "sensitive" scope. If your OAuth consent screen is in **Testing** mode, make sure
+   (Read/write, since the week planner — step 1p — creates events. Before that it was
+   `calendar.readonly`; the sync only needs to read.) This is a "sensitive" scope. If your OAuth consent screen is in **Testing** mode, make sure
    your own Google account is listed under **Test users** (Audience tab) — otherwise Google will
    block the login with an "access blocked" error. Testing mode is fine for personal use; full
    verification is only required if you want random users to be able to sign in.
@@ -736,6 +737,45 @@ secrets. If the project ref changes, update the URL inside `notify_meal_pick()`.
 
 ---
 
+## 1p. Week planner
+
+The **Week planner** page (`/planner`, also "Plan week" on the Calendar page) creates Google
+Calendar events from reusable **presets** — climbing session, date night, anything you do often.
+A preset has a title, emoji, a default start time and duration, the weekdays it usually happens on
+(pre-selected every week), optional per-weekday time/duration overrides, and invitees. Planning a
+week is then: tap the days you want, tap **Create**. Invitees get a Google Calendar invitation by
+email. One-off time changes for a single event are made in the list under the grid and don't touch
+the preset.
+
+Events are created on your **primary** Google account (the one you log in with — the same account
+Tasks and Drive use) through the `/api/google-calendar-events` Vercel function. No new env vars.
+
+**Action required — grant the write permission once:**
+1. **Google Cloud Console → OAuth consent screen → Data Access → Add or Remove Scopes**: add
+   `https://www.googleapis.com/auth/calendar.events` (you can remove `calendar.readonly`; the
+   `.events` scope covers everything the calendar sync reads).
+2. Open the Week planner, pick a day and press **Create**. The first time, the page says Google
+   Calendar needs permission — tap **Allow access**, accept Google's consent screen, and you land
+   back in the app. (Logging out and back in does the same.) Until then, creating returns
+   `INSUFFICIENT_SCOPE`/403 and nothing is created.
+
+**Database:** `supabase/migrations/20261128_add_week_planner.sql` adds the `week_presets` table
+(RLS: each user sees only their own) and a nullable `friends.email` column. A friend's email is
+what makes them appear in the planner's **@** suggestions — add it on the Friends page. The
+suggestions also include people from your upcoming calendar events, and any full email address
+can be typed in directly.
+
+**Good to know:**
+- Times are wall-clock in `Asia/Jerusalem`, like the rest of the app.
+- A preset is considered already scheduled on a day if an event with the same title is already on
+  that day, so running the planner twice doesn't double-book. Overlaps with existing events (and
+  between planned ones) are flagged, not blocked.
+- Events whose title contains `טיפוס` or `אימון` are recognised as climbing sessions by the
+  calendar sync (the home widget, the "Log a climb" task) — give the climbing preset such a title.
+- Friends are not auto-linked to the created events (the `event_friends` link is manual).
+
+---
+
 ## 2. Vercel — Environment Variables
 
 As part of the import in step 0 (or right after), set these environment variables in the Vercel dashboard:
@@ -813,6 +853,7 @@ The `vercel.json` in this repo configures SPA routing (all paths → `index.html
 | `shopping_items` | Flat shopping list items (single list per user) |
 | `events` | Calendar events (manually created, local to the app, or synced from any connected Google account). `google_account_id` identifies which connected account a synced event came from (null for local events) |
 | `files` | File metadata (actual files in Storage). `source` distinguishes local uploads from recursively-synced Google Drive files; Drive rows also carry `root_folder_id`, `drive_file_id`, `relative_path` (subfolder path within the synced root), and `drive_modified_time` (used to skip re-downloading unchanged files) |
+| `week_presets` | Week-planner presets (step 1p): `title`, `emoji`, `default_time`/`default_duration_minutes`, `days` (usual weekdays, 0 = Sunday … 6 = Saturday), `day_overrides` (jsonb, per-weekday `{time, duration}`), `invitees` (jsonb `[{email, name}]`), `position`. RLS: owner only |
 | `google_accounts` | One row per connected Google account (a user can have several — see step 1k); each row holds that account's OAuth refresh/access token, `email`, and an auto-assigned `color` used for Calendar badges. The oldest row per user (`created_at` ascending) is the "primary" account, used for Google Tasks and Google Drive, which stay single-account |
 | `google_oauth_states` | Short-lived nonce rows for the standalone "connect another account" OAuth flow (step 1k) — bridges the stateless Google redirect callback back to the user who started it. Rows are single-use and expire after a few minutes |
 | `google_drive_folders` | The Drive root folders a user has chosen to sync (Drive folder ID + name), plus `sync_status` / `sync_error` / `last_synced_at` for the recursive sync job. Deleting a row cascades to delete its synced `files` rows |
@@ -820,7 +861,7 @@ The `vercel.json` in this repo configures SPA routing (all paths → `index.html
 | `currency_alerts` | Target exchange rate thresholds per currency pair (`from_currency`/`to_currency`), with `direction` (`above`/`below`) deciding which side of `target_rate` triggers the alert |
 | `notifications` | In-app notification banners (e.g. triggered stock/currency alerts, friend interaction reminders). `type` distinguishes `stock_alert`, `currency_alert`, and `friend_reminder`. Friend-reminder banners navigate to `/friends` when clicked |
 | `push_subscriptions` | One row per subscribed browser/device (Web Push endpoint + keys), used by `/api/send-notifications` to deliver habit/todo/friend pushes |
-| `friends` | People to stay in touch with. `goal_count`/`goal_unit` encode a frequency goal (e.g. 2x per week). `reminder_enabled` gates both in-app banners and push notifications. `last_notified_date` deduplicates push notifications (one per calendar day); `reminder_notified_at` arms/disarms the in-app banner (set when overdue, cleared when back on track) |
+| `friends` | People to stay in touch with. `email` (optional) is used for calendar invitations from the week planner. `goal_count`/`goal_unit` encode a frequency goal (e.g. 2x per week). `reminder_enabled` gates both in-app banners and push notifications. `last_notified_date` deduplicates push notifications (one per calendar day); `reminder_notified_at` arms/disarms the in-app banner (set when overdue, cleared when back on track) |
 | `friend_interactions` | One row per logged interaction with a friend: `interaction_date` + optional `note`. Used to compute days-since-last-interaction and decide overdue status |
 | `focus_summaries` | Cached AI-generated focus briefing per user per `period` (`today`/`week` — covering tomorrow and the week ahead, respectively), written by the `generate-focus-summary` Edge Function; `status`/`error` track the last generation attempt, `generated_at` is shown in the UI as "Updated X ago" |
 | `api_tokens` | Long-lived personal API tokens (hashed, `token_hash` only) used by external callers like an iOS Shortcut that can't hold a short-lived Supabase session JWT — see step 1j |
@@ -895,6 +936,7 @@ Storage objects are scoped to `(storage.foldername(name))[1] = auth.uid()::text`
 | Converter | `/converter` | Calculator-style currency converter (free, no-key [currency-api](https://github.com/fawazahmed0/currency-api)) with optional rate alerts. Always shown — no tabs. `/finance` redirects here |
 | Stocks | `/stocks` | TENB stock quote with a price alert, proxied server-side through `/api/stock-quote` (Finnhub, needs `FINNHUB_API_KEY`) so the key never reaches the browser |
 | Wealth | `/wealth` | Total wealth in NIS (per-item currency, converted with the same currency-api rates) with an Ophir / Yael / Shared owner filter. **Accounts**: built-in types (bank, savings, investment, pension, study fund, provident fund, crypto, real estate, cash) or fully custom names, each with an owner tag and notes. Every balance update is stored as a dated snapshot (backfilling a past date is allowed). **Goals**: target amount, optional date, and either one specific account to track or an owner scope (Ophir / Yael / Shared) whose pooled wealth counts; progress is computed from current balances. **Trend**: net worth over time, shown at today's exchange rates. Needs the `20261015_add_wealth.sql` migration |
+| Week planner | `/planner` | Create Google Calendar events from presets for a Sunday–Saturday week, with invitations by email (see step 1p). Events are created by the `/api/google-calendar-events` Vercel function |
 | Settings | `/settings` | Enable/disable push notifications for habits and todos (see step 1g); manage connected Google accounts for Calendar (see step 1k); independently toggle the Focus section's daily and on-change auto-refresh (see step 1h); **Page lock** — pick pages that ask for a 4-digit code before opening (see below) |
 | Recipes | `/recipes` | Collections rail, search, and a recipe grid. Add a recipe via AI (prompt/paste text/paste a link — see step 1n) or a manual form with an Ingredients/Directions editor. Recipe detail (`/recipes/:id`) has a servings scaler that multiplies ingredient quantities for display only |
 | Reading | `/reading` | Reading wish list. Search books via the free, keyless [Open Library](https://openlibrary.org/dev/docs/api/search) API (proxied through `/api/book-search`; `vite.config.ts` mirrors it in dev), save them as cover cards, mark read, filter by title/author/read status, and organize into nested folders with a Drive-style Move dialog. Mark one book as currently reading to show a widget under Today on the home page, where you can complete it (it stays in a persistent "finished" state) and pick the next one. Needs the `20260929_add_reading_list.sql` and `20260930_add_reading_current.sql` migrations |
@@ -947,7 +989,7 @@ Common causes: unused imports (the tsconfig is set to `noUnusedLocals: false` to
 - You logged in before this feature existed, or denied the calendar permission — click
   **Connect Google Calendar** on the Calendar page (or log out and back in) and accept the consent screen
 - Confirm the Calendar API is enabled in Google Cloud Console (step 1d)
-- Confirm `https://www.googleapis.com/auth/calendar.readonly` is listed under OAuth consent screen scopes
+- Confirm `https://www.googleapis.com/auth/calendar.events` is listed under OAuth consent screen scopes
 - If your OAuth consent screen is in Testing mode, confirm your account is listed as a test user
 - Check that `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` are set in Vercel (no `VITE_` prefix) and redeploy
 

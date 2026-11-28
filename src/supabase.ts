@@ -128,6 +128,26 @@ export type EventAttendee = {
   organizer: boolean
 }
 
+// Someone to invite to the events a week-planner preset creates.
+export type Invitee = { email: string; name?: string | null }
+
+// Per-weekday exception to a preset's default time (HH:MM) and duration (minutes).
+export type DayOverride = { time?: string; duration?: number }
+
+export type WeekPreset = {
+  id: string
+  user_id: string
+  emoji: string
+  title: string
+  default_time: string
+  default_duration_minutes: number
+  days: number[]
+  day_overrides: Record<string, DayOverride>
+  invitees: Invitee[]
+  position: number
+  created_at: string
+}
+
 export type FileRecord = {
   id: string
   user_id: string
@@ -271,6 +291,7 @@ export type Friend = {
   id: string
   user_id: string
   name: string
+  email: string | null
   notes: string | null
   details: string | null
   avatar_url: string | null
