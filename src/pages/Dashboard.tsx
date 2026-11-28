@@ -15,7 +15,8 @@ import FocusSection from '../features/focus/FocusSection'
 import TodaySection from '../features/today/TodaySection'
 import type { TodayEvent } from '../features/today/TodaySection'
 import WorkoutWidget from '../features/workout/WorkoutWidget'
-import { getShowFocusSection } from '../lib/userSettings'
+import { getDisplayName, getShowFocusSection } from '../lib/userSettings'
+import { greetingText } from '../lib/greeting'
 import ShoppingItemDrawer from '../features/shopping/ShoppingItemDrawer'
 import QuickLogSessionDrawer from '../features/climbing/QuickLogSessionDrawer'
 import { fetchNextClimbingSession, nextSessionLabel } from '../features/climbing/nextClimbingSession'
@@ -25,8 +26,6 @@ import QuickLinkCard from '../features/dashboard/QuickLinkCard'
 import TaskDrawer from '../features/todos/TaskDrawer'
 import { Button } from '../components/ui/button'
 import { fetchHabitsV2Enabled, loadHabitStatuses, toggleHabitCompletion } from '../features/habits/habitStatus'
-
-const USER_NAME = 'Ophir'
 
 export default function Dashboard() {
   const [habits, setHabits] = useState<HabitStatus[]>([])
@@ -39,6 +38,8 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true)
   const [showFocusSection, setShowFocusSection] = useState(true)
   const [user, setUser] = useState<User | null>(null)
+  // undefined until the stored name is known, so the greeting never shows a name that is about to change.
+  const [displayName, setName] = useState<string | null | undefined>(undefined)
   const [showAddItem, setShowAddItem] = useState(false)
   const [showLogSession, setShowLogSession] = useState(false)
   // Quick-link subtitles: undefined while loading, '—' if the query failed.
@@ -104,6 +105,7 @@ export default function Dashboard() {
       })
     })
     getShowFocusSection().then(setShowFocusSection)
+    getDisplayName().then(setName, () => setName(null))
     supabase.auth.getUser().then(({ data: { user } }) => setUser(user))
   }, [])
 
@@ -190,7 +192,9 @@ export default function Dashboard() {
     <div className="p-4 max-w-2xl mx-auto space-y-5">
       <div className="pt-2 flex items-start justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold">{greetingTime(USER_NAME)}</h1>
+          <h1 className={cn('text-2xl font-bold transition-opacity', displayName === undefined && 'opacity-0')}>
+            {greetingText(displayName, new Date().getHours())}
+          </h1>
           <p className="text-muted-foreground text-sm">{format(new Date(), 'EEEE, MMMM d')}</p>
         </div>
         <Button
@@ -339,8 +343,3 @@ function Section({ title, badge, badgeClass, children }: {
   )
 }
 
-function greetingTime(name: string) {
-  const h = new Date().getHours()
-  const greeting = h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening'
-  return `${greeting}, ${name} 👋`
-}

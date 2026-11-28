@@ -28,6 +28,7 @@ import TodayLayoutEditor from '../components/TodayLayoutEditor'
 import TomorrowBannerEditor from '../components/TomorrowBannerEditor'
 import VoiceShortcutsSection from '../features/voice/VoiceShortcutsSection'
 import PageLockSettings from '../features/lock/PageLockSettings'
+import DisplayNameCard from '../features/profile/DisplayNameCard'
 
 const GOOGLE_CONNECT_MESSAGES: Record<string, string> = {
   success: 'Google account connected.',
@@ -257,7 +258,10 @@ export default function Settings() {
         <h1 className="text-2xl font-bold">Settings</h1>
       </div>
 
-      <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">Appearance</h2>
+      <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">Profile</h2>
+      <DisplayNameCard />
+
+      <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2 mt-6">Appearance</h2>
       <AppearanceCard />
 
       <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2 mt-6">Notifications</h2>

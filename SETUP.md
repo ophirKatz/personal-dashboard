@@ -895,7 +895,7 @@ The `vercel.json` in this repo configures SPA routing (all paths → `index.html
 | `baby_members` | Who is in a baby's tracker: `role` (`parent`/`viewer`), `display_name` shown next to their entries, and `removed_at` (set when someone leaves or is removed; the row stays so old entries keep a name). Joining only happens through `accept_baby_invite()` |
 | `baby_invites` | Single-use, 7-day invite links: an unguessable `token`, `role`, optional `invited_email` (only that account can accept), `accepted_*` and `revoked_at` |
 | `baby_events` | Every log entry: `type` (feed/diaper/sleep/pump/temperature/medication/growth/note), `started_at`/`ended_at`, `in_progress` (a running timer; at most one per type per baby), `details` JSON validated per type by `private.baby_event_details_ok` (pumping: `ml_left` / `ml_right`, 0 to 1000 each), `logged_by`, and `deleted_at` (entries are only ever marked deleted) |
-| `user_settings` | One row per user of app preferences (Focus section toggles, bottom-nav items, More layout, Today widget order, Tomorrow banner times). Page lock adds `lock_code` (4 digits, default `0000`) and `locked_pages` (`text[]` of page keys from `src/lib/navItems.ts`, default `{wealth}`) — see the `20261016_add_page_lock.sql` migration |
+| `user_settings` | One row per user of app preferences (Focus section toggles, bottom-nav items, More layout, Today widget order, Tomorrow banner times). `display_name` is the name the home page greets you with (empty = no name shown; set in Settings → Profile). Page lock adds `lock_code` (4 digits, default `0000`) and `locked_pages` (`text[]` of page keys from `src/lib/navItems.ts`, default `{wealth}`) — see the `20261016_add_page_lock.sql` migration |
 
 ### Storage
 

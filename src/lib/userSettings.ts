@@ -1,6 +1,7 @@
 import { supabase } from '../supabase'
 import { resolveTodaySectionsOrder, type TodaySectionKey } from './todaySections'
 import { DEFAULT_TOMORROW_BANNER_SETTINGS, normalizeTime, type TomorrowBannerSettings } from './tomorrowBanner'
+import { normalizeDisplayName } from './greeting'
 import { DEFAULT_BOTTOM_NAV_ITEMS, isNavItemKey, type MoreSection, type NavItemKey } from './navItems'
 import { DEFAULT_LOCKED_PAGES, DEFAULT_LOCK_CODE, isValidCode, normalizeLockCode, normalizeLockedPages } from './pageLock'
 
@@ -151,5 +152,20 @@ export async function setLockCode(code: string): Promise<void> {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error('Not signed in')
   const { error } = await supabase.from('user_settings').upsert({ user_id: user.id, lock_code: code })
+  if (error) throw error
+}
+
+/** The name the home page greets you with, or null if none is set (nothing is shown then). */
+export async function getDisplayName(): Promise<string | null> {
+  const { data, error } = await supabase.from('user_settings').select('display_name').maybeSingle()
+  if (error) throw error
+  return normalizeDisplayName(data?.display_name)
+}
+
+/** Saves the greeting name. A blank one clears it. */
+export async function setDisplayName(name: string): Promise<void> {
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error('Not signed in')
+  const { error } = await supabase.from('user_settings').upsert({ user_id: user.id, display_name: normalizeDisplayName(name) })
   if (error) throw error
 }
