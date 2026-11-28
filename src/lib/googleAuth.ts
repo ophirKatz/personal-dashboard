@@ -1,6 +1,8 @@
 import { supabase } from '../supabase'
 
-export const GOOGLE_SCOPES = 'https://www.googleapis.com/auth/calendar.readonly https://www.googleapis.com/auth/tasks https://www.googleapis.com/auth/drive.readonly'
+// calendar.events (not .readonly): the week planner creates events on the primary account.
+// It still covers everything the calendar sync reads.
+export const GOOGLE_SCOPES = 'https://www.googleapis.com/auth/calendar.events https://www.googleapis.com/auth/tasks https://www.googleapis.com/auth/drive.readonly'
 
 export async function connectGoogle() {
   await supabase.auth.signInWithOAuth({

@@ -5,8 +5,9 @@ import { createClient } from '@supabase/supabase-js'
 const SECONDARY_SCOPES = 'https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/calendar.readonly'
 
 // Scopes for primary account (used for dashboard login). Includes calendar,
-// tasks, and drive since only the primary account syncs these.
-const PRIMARY_SCOPES = 'https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/calendar.readonly https://www.googleapis.com/auth/tasks https://www.googleapis.com/auth/drive.readonly'
+// tasks, and drive since only the primary account syncs these. Calendar is
+// read/write (calendar.events) because the week planner creates events there.
+const PRIMARY_SCOPES = 'https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/calendar.events https://www.googleapis.com/auth/tasks https://www.googleapis.com/auth/drive.readonly'
 
 // The callback itself runs as a Supabase Edge Function
 // (supabase/functions/google-connect-callback), not a Vercel function — it

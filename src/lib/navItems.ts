@@ -1,11 +1,12 @@
-import { CheckSquare, Calendar, Folder, TrendingUp, Mountain, ShoppingCart, ArrowLeftRight, ChartCandlestick, Wallet, Users, ChefHat, Dices, BookOpen, Swords, Dumbbell, FileText, UtensilsCrossed } from 'lucide-react'
+import { CheckSquare, Calendar, CalendarRange, Folder, TrendingUp, Mountain, ShoppingCart, ArrowLeftRight, ChartCandlestick, Wallet, Users, ChefHat, Dices, BookOpen, Swords, Dumbbell, FileText, UtensilsCrossed } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 
-export type NavItemKey = 'todos' | 'calendar' | 'files' | 'habits' | 'climbing' | 'shopping' | 'converter' | 'stocks' | 'wealth' | 'friends' | 'recipes' | 'games' | 'reading' | 'runescape' | 'workout' | 'pdf' | 'meals'
+export type NavItemKey = 'todos' | 'calendar' | 'planner' | 'files' | 'habits' | 'climbing' | 'shopping' | 'converter' | 'stocks' | 'wealth' | 'friends' | 'recipes' | 'games' | 'reading' | 'runescape' | 'workout' | 'pdf' | 'meals'
 
 export const NAV_ITEMS: Record<NavItemKey, { to: string; icon: LucideIcon; label: string }> = {
   todos: { to: '/todos', icon: CheckSquare, label: 'Tasks' },
   calendar: { to: '/calendar', icon: Calendar, label: 'Calendar' },
+  planner: { to: '/planner', icon: CalendarRange, label: 'Week planner' },
   files: { to: '/files', icon: Folder, label: 'Files' },
   habits: { to: '/habits', icon: TrendingUp, label: 'Habits' },
   climbing: { to: '/climbing', icon: Mountain, label: 'Climbing' },

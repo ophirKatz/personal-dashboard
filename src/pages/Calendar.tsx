@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Plus, Pencil, Trash2, ExternalLink, Link2, MapPin, Users, ChevronDown, Check, X, HelpCircle, Clock } from 'lucide-react'
+import { Plus, Pencil, Trash2, ExternalLink, Link2, MapPin, Users, ChevronDown, Check, X, HelpCircle, Clock, CalendarRange } from 'lucide-react'
 import { supabase } from '../supabase'
 import type { CalendarEvent, Friend, EventFriend, EventAttendee } from '../supabase'
 import type { User } from '@supabase/supabase-js'
@@ -330,9 +330,17 @@ export default function Calendar() {
     <div className="p-4 max-w-2xl mx-auto">
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold">Calendar</h1>
-        <Button onClick={() => { setEditing(undefined); setShowForm(true) }} size="icon" className="rounded-xl h-11 w-11">
-          <Plus className="h-5 w-5" />
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button asChild variant="outline" className="rounded-xl h-11 px-3.5">
+            <Link to="/planner">
+              <CalendarRange className="h-5 w-5" />
+              Plan week
+            </Link>
+          </Button>
+          <Button onClick={() => { setEditing(undefined); setShowForm(true) }} size="icon" className="rounded-xl h-11 w-11" aria-label="New event">
+            <Plus className="h-5 w-5" />
+          </Button>
+        </div>
       </div>
 
       {!loading && !googleConnected && (

@@ -40,6 +40,7 @@ type Props = {
 
 export default function FriendForm({ open, onClose, onSave, friend, userId }: Props) {
   const [name, setName] = useState(friend?.name ?? '')
+  const [email, setEmail] = useState(friend?.email ?? '')
   const [notes, setNotes] = useState(friend?.notes ?? '')
   const [goalMode, setGoalMode] = useState<GoalMode>(friend?.goal_mode ?? 'interval')
   const [details, setDetails] = useState(friend?.details ?? '')
@@ -113,6 +114,7 @@ export default function FriendForm({ open, onClose, onSave, friend, userId }: Pr
     const payload = {
       id,
       name: name.trim(),
+      email: email.trim().toLowerCase() || null,
       notes: notes.trim() || null,
       details: details.trim() || null,
       avatar_url: avatarUrl,
@@ -169,6 +171,11 @@ export default function FriendForm({ open, onClose, onSave, friend, userId }: Pr
             <div className="space-y-2">
               <Label>Name</Label>
               <Input value={name} onChange={e => setName(e.target.value)} placeholder="e.g. Alex" autoFocus={!friend} />
+            </div>
+
+            <div className="space-y-2">
+              <Label>Email <span className="text-xs font-normal text-muted-foreground">(for calendar invites)</span></Label>
+              <Input type="email" inputMode="email" autoCapitalize="none" value={email} onChange={e => setEmail(e.target.value)} placeholder="alex@example.com" />
             </div>
 
             <div className="space-y-2">
