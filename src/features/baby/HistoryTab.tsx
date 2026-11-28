@@ -18,9 +18,10 @@ function summaryLine(events: BabyEvent[], day: Date, now: number): string {
   const s = daySummary(events, day, now)
   const parts = [
     s.feeds ? `${s.feeds} feed${s.feeds === 1 ? '' : 's'}` : null,
-    s.bottleMl ? `${s.bottleMl} ml` : null,
+    s.bottleMl ? `${s.bottleMl} ml fed` : null,
     s.wet ? `${s.wet} wet` : null,
     s.dirty ? `${s.dirty} dirty` : null,
+    s.pumpedMl ? `${s.pumpedMl} ml pumped` : null,
     s.sleepMs >= 60_000 ? `${formatDuration(s.sleepMs)} sleep` : null,
   ]
   return parts.filter(Boolean).join(' · ')

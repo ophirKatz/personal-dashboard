@@ -9,6 +9,7 @@ import { cn } from '../../utils'
 import {
   MAX_BOTTLE_ML,
   MAX_NOTE_LENGTH,
+  MAX_PUMP_ML,
   STOOL_COLORS,
   minutesAgo,
   toLocalInput,
@@ -19,9 +20,11 @@ import {
 } from './babyEvents'
 import {
   BOTTLE_STEP_ML,
+  PUMP_STEP_ML,
   buildDraft,
   canHaveStool,
   clampMl,
+  clampPumpMl,
   formType,
   initialForm,
   type FeedDefaults,
@@ -46,6 +49,7 @@ const TITLES = {
   feed: 'Log a feed',
   diaper: 'Log a diaper',
   sleep: 'Log a past sleep',
+  pump: 'Log pumping',
   note: 'Add a note',
 } as const
 
@@ -88,13 +92,56 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
   )
 }
 
+type MlStepperProps = {
+  /** Used in the button labels: "Less milk, 10 ml". */
+  name: string
+  inputLabel: string
+  value: number
+  step: number
+  max: number
+  onChange: (ml: number) => void
+  clamp: (ml: number) => number
+}
+
+/** A − / amount / + row for millilitres, big enough to hit one-handed. */
+function MlStepper({ name, inputLabel, value, step, max, onChange, clamp }: MlStepperProps) {
+  return (
+    <div className="flex items-center gap-2">
+      <Button type="button" variant="outline" size="icon" aria-label={`Less ${name}, ${step} ml`} className="h-12 w-12 shrink-0 rounded-xl" onClick={() => onChange(clamp(value - step))}>
+        <Minus className="h-4 w-4" />
+      </Button>
+      <div className="relative flex-1">
+        <Input
+          type="number"
+          inputMode="numeric"
+          min={0}
+          max={max}
+          aria-label={inputLabel}
+          value={value || ''}
+          placeholder="0"
+          onChange={e => onChange(clamp(Number(e.target.value)))}
+          className="h-12 pr-10 text-center text-xl font-semibold"
+        />
+        <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">ml</span>
+      </div>
+      <Button type="button" variant="outline" size="icon" aria-label={`More ${name}, ${step} ml`} className="h-12 w-12 shrink-0 rounded-xl" onClick={() => onChange(clamp(value + step))}>
+        <Plus className="h-4 w-4" />
+      </Button>
+    </div>
+  )
+}
+
 function EventForm({ target, defaults, onClose, onSave, onDelete }: Omit<Props, 'target'> & { target: DrawerTarget }) {
   const type = formType(target)
   const editing = target.mode === 'edit' ? target.event : null
   const [form, setForm] = useState<FormState>(() => initialForm(target, defaults, Date.now()))
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const patch = (p: Partial<FormState>) => setForm(f => ({ ...f, ...p }))
+  // Changing anything clears the last complaint: it was about what the form said before.
+  const patch = (p: Partial<FormState>) => {
+    setError(null)
+    setForm(f => ({ ...f, ...p }))
+  }
 
   async function submit(startTimer = false) {
     if (busy) return
@@ -119,6 +166,7 @@ function EventForm({ target, defaults, onClose, onSave, onDelete }: Omit<Props, 
 
   const title = editing ? `Edit ${EVENT_LABEL[type]}` : TITLES[target.mode === 'create' ? target.type : 'note']
   const isBreastCreate = !editing && type === 'feed' && form.method === 'breast'
+  const showDuration = isBreastCreate || (!editing && type === 'pump')
   const showEnd = type === 'sleep' ? !editing?.in_progress : !!editing?.ended_at && !editing.in_progress
   const maxLocal = toLocalInput(new Date(Date.now() + 2 * 60_000))
 
@@ -157,27 +205,15 @@ function EventForm({ target, defaults, onClose, onSave, onDelete }: Omit<Props, 
             {form.method === 'bottle' && (
               <>
                 <Field label="Amount">
-                  <div className="flex items-center gap-2">
-                    <Button type="button" variant="outline" size="icon" aria-label={`Less milk, ${BOTTLE_STEP_ML} ml`} className="h-12 w-12 shrink-0 rounded-xl" onClick={() => patch({ ml: clampMl(form.ml - BOTTLE_STEP_ML) })}>
-                      <Minus className="h-4 w-4" />
-                    </Button>
-                    <div className="relative flex-1">
-                      <Input
-                        type="number"
-                        inputMode="numeric"
-                        min={0}
-                        max={MAX_BOTTLE_ML}
-                        aria-label="Amount in ml"
-                        value={form.ml || ''}
-                        onChange={e => patch({ ml: clampMl(Number(e.target.value)) })}
-                        className="h-12 pr-10 text-center text-xl font-semibold"
-                      />
-                      <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">ml</span>
-                    </div>
-                    <Button type="button" variant="outline" size="icon" aria-label={`More milk, ${BOTTLE_STEP_ML} ml`} className="h-12 w-12 shrink-0 rounded-xl" onClick={() => patch({ ml: clampMl(form.ml + BOTTLE_STEP_ML) })}>
-                      <Plus className="h-4 w-4" />
-                    </Button>
-                  </div>
+                  <MlStepper
+                    name="milk"
+                    inputLabel="Amount in ml"
+                    value={form.ml}
+                    step={BOTTLE_STEP_ML}
+                    max={MAX_BOTTLE_ML}
+                    onChange={ml => patch({ ml })}
+                    clamp={clampMl}
+                  />
                 </Field>
                 <Segmented
                   label="What was in the bottle"
@@ -201,6 +237,20 @@ function EventForm({ target, defaults, onClose, onSave, onDelete }: Omit<Props, 
                 <p className="px-1 text-center text-xs text-muted-foreground">or log a feed that's already over</p>
               </>
             )}
+          </>
+        )}
+
+        {type === 'pump' && (
+          <>
+            <Field label="Left">
+              <MlStepper name="left" inputLabel="Left amount in ml" value={form.mlLeft} step={PUMP_STEP_ML} max={MAX_PUMP_ML} onChange={mlLeft => patch({ mlLeft })} clamp={clampPumpMl} />
+            </Field>
+            <Field label="Right">
+              <MlStepper name="right" inputLabel="Right amount in ml" value={form.mlRight} step={PUMP_STEP_ML} max={MAX_PUMP_ML} onChange={mlRight => patch({ mlRight })} clamp={clampPumpMl} />
+            </Field>
+            <p className="px-1 text-sm text-muted-foreground" aria-live="polite">
+              Total <span className="font-semibold text-foreground tabular-nums">{form.mlLeft + form.mlRight} ml</span>
+            </p>
           </>
         )}
 
@@ -287,7 +337,7 @@ function EventForm({ target, defaults, onClose, onSave, onDelete }: Omit<Props, 
           </Field>
         )}
 
-        {isBreastCreate && (
+        {showDuration && (
           <Field label="How long (minutes, optional)">
             <Input type="number" inputMode="numeric" min={0} max={180} aria-label="Minutes" placeholder="e.g. 12" value={form.durationMin} onChange={e => patch({ durationMin: e.target.value })} className="h-11" />
           </Field>

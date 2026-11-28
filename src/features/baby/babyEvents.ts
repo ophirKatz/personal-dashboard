@@ -73,6 +73,8 @@ export type EventDraft = {
 }
 
 export const MAX_BOTTLE_ML = 600
+/** The most one side can give in one session; the database accepts the same. */
+export const MAX_PUMP_ML = 1000
 export const MAX_NOTE_LENGTH = 500
 
 export const STOOL_COLORS: { value: StoolColor; label: string; swatch: string }[] = [
@@ -110,6 +112,11 @@ export function diaperKind(e: BabyEvent): DiaperKind | null {
 function detailNumber(e: BabyEvent, key: string): number | null {
   const v = e.details[key]
   return typeof v === 'number' && Number.isFinite(v) ? v : null
+}
+
+/** What a pumping session gave from each side, in ml; null for a side that wasn't recorded. */
+export function pumpAmounts(e: BabyEvent): { left: number | null; right: number | null } {
+  return { left: detailNumber(e, 'ml_left'), right: detailNumber(e, 'ml_right') }
 }
 
 /** How long an entry lasted. A running timer counts up to `now`; a point-in-time entry is 0. */
@@ -177,13 +184,18 @@ export type DaySummary = {
   wet: number
   dirty: number
   sleepMs: number
+  /** Pumping sessions, and what they gave in total and from each side. */
+  pumps: number
+  pumpedMl: number
+  pumpedLeftMl: number
+  pumpedRightMl: number
 }
 
 /** Totals for the local day starting at `dayStart`. A sleep that crosses midnight counts in both days. */
 export function daySummary(events: BabyEvent[], dayStart: Date, now: number): DaySummary {
   const from = dayStart.getTime()
   const to = addDays(dayStart, 1).getTime()
-  const summary: DaySummary = { feeds: 0, bottleMl: 0, wet: 0, dirty: 0, sleepMs: 0 }
+  const summary: DaySummary = { feeds: 0, bottleMl: 0, wet: 0, dirty: 0, sleepMs: 0, pumps: 0, pumpedMl: 0, pumpedLeftMl: 0, pumpedRightMl: 0 }
 
   for (const e of events) {
     if (e.deleted_at) continue
@@ -200,6 +212,12 @@ export function daySummary(events: BabyEvent[], dayStart: Date, now: number): Da
       const kind = diaperKind(e)
       if (kind === 'wet' || kind === 'both') summary.wet++
       if (kind === 'dirty' || kind === 'both') summary.dirty++
+    } else if (e.type === 'pump' && inDay) {
+      const { left, right } = pumpAmounts(e)
+      summary.pumps++
+      summary.pumpedLeftMl += left ?? 0
+      summary.pumpedRightMl += right ?? 0
+      summary.pumpedMl += (left ?? 0) + (right ?? 0)
     }
   }
   return summary
@@ -288,9 +306,16 @@ export function describeEvent(e: BabyEvent, now: number): EventDescription {
       if (e.in_progress) parts.push(`sleeping ${formatDuration(durationMs(e, now))}`)
       else if (e.ended_at) parts.push(formatDuration(durationMs(e, now)))
       break
-    case 'pump':
+    case 'pump': {
       title = 'Pumping'
+      const { left, right } = pumpAmounts(e)
+      if (left !== null) parts.push(`Left ${left} ml`)
+      if (right !== null) parts.push(`Right ${right} ml`)
+      if (left !== null && right !== null) parts.push(`${left + right} ml total`)
+      if (e.in_progress) parts.push(`pumping ${formatDuration(durationMs(e, now))}`)
+      else if (e.ended_at) parts.push(formatDuration(durationMs(e, now)))
       break
+    }
     case 'temperature': {
       title = 'Temperature'
       const c = detailNumber(e, 'c')
@@ -348,6 +373,14 @@ export function validateDraft(draft: EventDraft, now: number): string | null {
     if (method === 'bottle' && ml !== undefined && (typeof ml !== 'number' || ml < 1 || ml > MAX_BOTTLE_ML)) {
       return `Enter an amount from 1 to ${MAX_BOTTLE_ML} ml.`
     }
+  }
+  if (draft.type === 'pump') {
+    const sides = [draft.details.ml_left, draft.details.ml_right]
+    if (sides.some(v => v !== undefined && (typeof v !== 'number' || !(v >= 0 && v <= MAX_PUMP_ML)))) {
+      return `Enter amounts from 0 to ${MAX_PUMP_ML} ml.`
+    }
+    const total = sides.reduce<number>((sum, v) => sum + (typeof v === 'number' ? v : 0), 0)
+    if (!draft.in_progress && total <= 0) return 'Enter how much you pumped.'
   }
   if (draft.type === 'diaper') {
     const kind = draft.details.kind

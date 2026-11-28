@@ -2,6 +2,7 @@
 // saved. Pure (no React), so the rules are tested rather than hoped for.
 import {
   MAX_BOTTLE_ML,
+  MAX_PUMP_ML,
   feedMethod,
   fromLocalInput,
   latestOf,
@@ -18,7 +19,7 @@ import {
 } from './babyEvents'
 
 export type FormTarget =
-  | { mode: 'create'; type: 'feed' | 'diaper' | 'sleep' | 'note' }
+  | { mode: 'create'; type: 'feed' | 'diaper' | 'sleep' | 'pump' | 'note' }
   | { mode: 'edit'; event: BabyEvent }
 
 export type FormState = {
@@ -30,7 +31,10 @@ export type FormState = {
   ml: number
   content: MilkContent
   food: string
-  /** Minutes, as typed, for a breast feed that is already over. */
+  /** What a pumping session gave from each side, in ml (0 = nothing from that side). */
+  mlLeft: number
+  mlRight: number
+  /** Minutes, as typed, for a breast feed or pumping session that is already over. */
   durationMin: string
   kind: DiaperKind
   stoolColor: StoolColor | null
@@ -45,8 +49,13 @@ export type FeedDefaults = {
   content: MilkContent | null
 }
 
+/** A start this close to now means "it just happened". */
+const JUST_NOW_MS = 2 * 60_000
+
 export const DEFAULT_BOTTLE_ML = 60
 export const BOTTLE_STEP_ML = 10
+/** Early milk comes in small amounts, so pumping steps finer than a bottle. */
+export const PUMP_STEP_ML = 5
 
 export function formType(target: FormTarget): BabyEventType {
   return target.mode === 'create' ? target.type : target.event.type
@@ -82,6 +91,8 @@ export function initialForm(target: FormTarget, defaults: FeedDefaults, now: num
     ml: defaults.ml ?? DEFAULT_BOTTLE_ML,
     content: defaults.content ?? 'formula',
     food: '',
+    mlLeft: 0,
+    mlRight: 0,
     durationMin: '',
     kind: 'wet',
     stoolColor: null,
@@ -107,6 +118,8 @@ export function initialForm(target: FormTarget, defaults: FeedDefaults, now: num
     ml: typeof d.ml === 'number' ? d.ml : base.ml,
     content: d.content === 'breast_milk' || d.content === 'formula' ? d.content : base.content,
     food: typeof d.food === 'string' ? d.food : '',
+    mlLeft: typeof d.ml_left === 'number' ? d.ml_left : 0,
+    mlRight: typeof d.ml_right === 'number' ? d.ml_right : 0,
     kind: d.kind === 'wet' || d.kind === 'dirty' || d.kind === 'both' || d.kind === 'dry' ? d.kind : 'wet',
     stoolColor: color,
     note: e.note ?? '',
@@ -135,6 +148,11 @@ export function buildDraft(form: FormState, target: FormTarget, now: number, sta
       details.content = form.content
     }
     if (form.method === 'solids' && form.food.trim()) details.food = form.food.trim()
+  } else if (type === 'pump') {
+    delete details.ml_left
+    delete details.ml_right
+    if (form.mlLeft > 0) details.ml_left = Math.round(form.mlLeft)
+    if (form.mlRight > 0) details.ml_right = Math.round(form.mlRight)
   } else if (type === 'diaper') {
     delete details.kind
     delete details.stool_color
@@ -149,7 +167,7 @@ export function buildDraft(form: FormState, target: FormTarget, now: number, sta
     return { type, started_at: nowIso, ended_at: null, in_progress: true, details, note }
   }
 
-  const started = fromLocalInput(form.startedAt) ?? ''
+  let started = fromLocalInput(form.startedAt) ?? ''
   if (editing?.in_progress) {
     return { type, started_at: started, ended_at: null, in_progress: true, details, note }
   }
@@ -157,16 +175,31 @@ export function buildDraft(form: FormState, target: FormTarget, now: number, sta
   let ended: string | null = null
   if (type === 'sleep' || editing?.ended_at) {
     ended = fromLocalInput(form.endedAt)
-  } else if (type === 'feed' && form.method === 'breast') {
+  } else if ((type === 'feed' && form.method === 'breast') || type === 'pump') {
     const minutes = Number(form.durationMin)
     const startMs = new Date(started).getTime()
-    if (minutes > 0 && Number.isFinite(minutes) && !Number.isNaN(startMs)) ended = new Date(startMs + minutes * 60_000).toISOString()
+    if (minutes > 0 && Number.isFinite(minutes) && !Number.isNaN(startMs)) {
+      let endMs = startMs + minutes * 60_000
+      // "Now" plus a length means the session has just finished, so it started that long ago
+      // (rather than ending in the future, which can't be saved).
+      if (endMs > now + JUST_NOW_MS && Math.abs(startMs - now) <= JUST_NOW_MS) {
+        started = new Date(now - minutes * 60_000).toISOString()
+        endMs = now
+      }
+      ended = new Date(endMs).toISOString()
+    }
   }
 
   return { type, started_at: started, ended_at: ended, in_progress: false, details, note }
 }
 
-export function clampMl(ml: number): number {
+/** Keeps an amount inside what the database accepts (a bottle by default). */
+export function clampMl(ml: number, max = MAX_BOTTLE_ML): number {
   if (!Number.isFinite(ml)) return DEFAULT_BOTTLE_ML
-  return Math.min(MAX_BOTTLE_ML, Math.max(0, Math.round(ml)))
+  return Math.min(max, Math.max(0, Math.round(ml)))
+}
+
+/** A pumped amount: any non-number is nothing, never the bottle default. */
+export function clampPumpMl(ml: number): number {
+  return Number.isFinite(ml) ? clampMl(ml, MAX_PUMP_ML) : 0
 }

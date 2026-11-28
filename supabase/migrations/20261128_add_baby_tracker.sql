@@ -37,6 +37,7 @@ set search_path = ''
 as $$
 declare
   v_method text;
+  v_key text;
 begin
   if p_details is null or jsonb_typeof(p_details) <> 'object' or length(p_details::text) > 2000 then
     return false;
@@ -73,6 +74,18 @@ begin
        and (p_details ->> 'stool_color') not in ('black', 'green', 'yellow', 'brown', 'orange', 'red', 'grey_white') then
       return false;
     end if;
+  elsif p_type = 'pump' then
+    -- Millilitres from each side. Either may be left out; a running pump timer has neither yet.
+    foreach v_key in array array['ml_left', 'ml_right'] loop
+      if (p_details -> v_key) is not null and jsonb_typeof(p_details -> v_key) <> 'null' then
+        if jsonb_typeof(p_details -> v_key) <> 'number' then
+          return false;
+        end if;
+        if (p_details ->> v_key)::numeric not between 0 and 1000 then
+          return false;
+        end if;
+      end if;
+    end loop;
   elsif p_type = 'temperature' then
     if (p_details -> 'c') is not null and jsonb_typeof(p_details -> 'c') <> 'null' then
       if jsonb_typeof(p_details -> 'c') <> 'number' then

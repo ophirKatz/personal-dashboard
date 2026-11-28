@@ -739,7 +739,9 @@ secrets. If the project ref changes, update the URL inside `notify_meal_pick()`.
 ## 1p. Baby tracker (shared with a partner)
 
 The **Baby** page (`/baby`) logs feeds (breast with a timer, bottle with an amount, solids), diapers
-(wet/dirty/both/dry, stool color), and sleep (a timer, or a past sleep), plus notes. The Log tab
+(wet/dirty/both/dry, stool color), sleep (a timer, or a past sleep), pumping (ml from the left and
+right side, optionally how long), and notes. Once pumping has been used, the Log tab shows today's
+pumped total, session count and left/right totals, and History adds "N ml pumped" to each day. The Log tab
 shows time since the last feed and diaper change, how long the baby has been asleep or awake, today's
 totals and the last 24 hours; History groups every day; Family manages who can see it. A running
 sleep or breast-feed timer is shared: either parent sees it and can stop it.
@@ -892,7 +894,7 @@ The `vercel.json` in this repo configures SPA routing (all paths → `index.html
 | `babies` | A baby: `name`, optional `birth_date` (empty until the birth) and `sex` (only for growth charts later). Created through `create_baby()`, which also makes the caller its first parent. See step 1p |
 | `baby_members` | Who is in a baby's tracker: `role` (`parent`/`viewer`), `display_name` shown next to their entries, and `removed_at` (set when someone leaves or is removed; the row stays so old entries keep a name). Joining only happens through `accept_baby_invite()` |
 | `baby_invites` | Single-use, 7-day invite links: an unguessable `token`, `role`, optional `invited_email` (only that account can accept), `accepted_*` and `revoked_at` |
-| `baby_events` | Every log entry: `type` (feed/diaper/sleep/pump/temperature/medication/growth/note), `started_at`/`ended_at`, `in_progress` (a running timer; at most one per type per baby), `details` JSON validated per type by `private.baby_event_details_ok`, `logged_by`, and `deleted_at` (entries are only ever marked deleted) |
+| `baby_events` | Every log entry: `type` (feed/diaper/sleep/pump/temperature/medication/growth/note), `started_at`/`ended_at`, `in_progress` (a running timer; at most one per type per baby), `details` JSON validated per type by `private.baby_event_details_ok` (pumping: `ml_left` / `ml_right`, 0 to 1000 each), `logged_by`, and `deleted_at` (entries are only ever marked deleted) |
 | `user_settings` | One row per user of app preferences (Focus section toggles, bottom-nav items, More layout, Today widget order, Tomorrow banner times). Page lock adds `lock_code` (4 digits, default `0000`) and `locked_pages` (`text[]` of page keys from `src/lib/navItems.ts`, default `{wealth}`) — see the `20261016_add_page_lock.sql` migration |
 
 ### Storage

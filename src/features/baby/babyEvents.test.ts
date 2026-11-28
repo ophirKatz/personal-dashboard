@@ -14,6 +14,7 @@ import {
   minutesAgo,
   newEventId,
   newestFirst,
+  pumpAmounts,
   runningTimer,
   toLocalInput,
   upsertEvent,
@@ -51,6 +52,13 @@ const bottle = (ml: number, h = 10, extra: Partial<BabyEvent> = {}) =>
   ev({ type: 'feed', started_at: at(28, h), details: { method: 'bottle', ml, content: 'formula' }, ...extra })
 const diaper = (kind: string, h = 10, extra: Partial<BabyEvent> = {}) =>
   ev({ type: 'diaper', started_at: at(28, h), details: { kind }, ...extra })
+const pump = (left: number | null, right: number | null, h = 10, extra: Partial<BabyEvent> = {}) =>
+  ev({
+    type: 'pump',
+    started_at: at(28, h),
+    details: { ...(left !== null ? { ml_left: left } : {}), ...(right !== null ? { ml_right: right } : {}) },
+    ...extra,
+  })
 const sleep = (from: string, to: string | null, extra: Partial<BabyEvent> = {}) =>
   ev({ type: 'sleep', started_at: from, ended_at: to, ...extra })
 
@@ -169,8 +177,20 @@ describe('daySummary', () => {
     expect(s.sleepMs).toBe((2 + 1.5 + 1 + 1) * 3600_000)
   })
 
+  it('counts pumping sessions and adds up what came from each side', () => {
+    const s = daySummary([pump(80, 60, 6), pump(50, null, 9), pump(null, 40, 12), pump(100, 100, 13, { deleted_at: at(28, 13, 5) })], day, NOW)
+    expect(s).toMatchObject({ pumps: 3, pumpedLeftMl: 130, pumpedRightMl: 100, pumpedMl: 230 })
+  })
+
+  it('keeps pumping out of the feed totals, and other days out of the pumping totals', () => {
+    const s = daySummary([pump(80, 60), pump(90, 90, 9, { started_at: at(27, 22) }), pump(90, 90, 9, { started_at: at(29, 0) })], day, NOW)
+    expect(s).toMatchObject({ feeds: 0, bottleMl: 0, pumps: 1, pumpedMl: 140 })
+  })
+
   it('is all zeros for an empty day', () => {
-    expect(daySummary([], day, NOW)).toEqual({ feeds: 0, bottleMl: 0, wet: 0, dirty: 0, sleepMs: 0 })
+    expect(daySummary([], day, NOW)).toEqual({
+      feeds: 0, bottleMl: 0, wet: 0, dirty: 0, sleepMs: 0, pumps: 0, pumpedMl: 0, pumpedLeftMl: 0, pumpedRightMl: 0,
+    })
   })
 })
 
@@ -227,6 +247,21 @@ describe('describeEvent', () => {
     expect(d(ev({ type: 'diaper', details: { kind: 'dirty', stool_color: 'grey_white' } }))).toMatchObject({ detail: 'Grey / white', flag: 'pale_stool' })
   })
 
+  it('describes pumping, per side and in total', () => {
+    expect(d(pump(80, 60))).toEqual({ title: 'Pumping', detail: 'Left 80 ml · Right 60 ml · 140 ml total', flag: null })
+    expect(d(pump(45, null)).detail).toBe('Left 45 ml')
+    expect(d(pump(null, 30)).detail).toBe('Right 30 ml')
+    expect(d(pump(0, 25)).detail).toBe('Left 0 ml · Right 25 ml · 25 ml total')
+    expect(d(pump(70, 50, 10, { ended_at: at(28, 10, 20) })).detail).toBe('Left 70 ml · Right 50 ml · 120 ml total · 20m')
+    expect(d(ev({ type: 'pump', started_at: at(28, 13, 40), in_progress: true })).detail).toBe('pumping 20m')
+  })
+
+  it('reads pumping amounts, ignoring anything that is not a number', () => {
+    expect(pumpAmounts(pump(80, 60))).toEqual({ left: 80, right: 60 })
+    expect(pumpAmounts(pump(null, null))).toEqual({ left: null, right: null })
+    expect(pumpAmounts(ev({ type: 'pump', details: { ml_left: '80', ml_right: null } }))).toEqual({ left: null, right: null })
+  })
+
   it('describes sleep, finished or running', () => {
     expect(d(sleep(at(28, 9), at(28, 10, 30))).detail).toBe('1h 30m')
     expect(d(sleep(at(28, 13), null, { in_progress: true })).detail).toBe('sleeping 1h')
@@ -272,6 +307,18 @@ describe('validateDraft', () => {
     expect(check({ ended_at: at(28, 18) })).toMatch(/hasn't happened/)
     expect(check({ ended_at: 'x' })).toMatch(/end time/)
     expect(check({ in_progress: true, ended_at: at(28, 13, 30) })).toMatch(/running timer/)
+  })
+
+  it('needs a pumping session to say how much came out, within range', () => {
+    const pumping = (details: Record<string, unknown>, patch: Partial<EventDraft> = {}) => check({ type: 'pump', details, ...patch })
+    expect(pumping({ ml_left: 80, ml_right: 60 })).toBeNull()
+    expect(pumping({ ml_right: 40 })).toBeNull()
+    expect(pumping({})).toMatch(/how much you pumped/)
+    expect(pumping({ ml_left: 0 })).toMatch(/how much you pumped/)
+    expect(pumping({ ml_left: -5 })).toMatch(/0 to 1000/)
+    expect(pumping({ ml_right: 1001 })).toMatch(/0 to 1000/)
+    expect(pumping({ ml_left: '80' })).toMatch(/0 to 1000/)
+    expect(pumping({}, { in_progress: true })).toBeNull()
   })
 
   it('rejects incomplete or out-of-range details', () => {

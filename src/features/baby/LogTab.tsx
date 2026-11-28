@@ -12,7 +12,7 @@ import {
   type Baby,
   type BabyEvent,
 } from './babyEvents'
-import { EVENT_TINT } from './eventStyle'
+import { EVENT_ICON, EVENT_TINT } from './eventStyle'
 import SinceLast from './SinceLast'
 import Timeline from './Timeline'
 
@@ -23,7 +23,7 @@ type Props = {
   canWrite: boolean
   names: Map<string, string>
   showAuthor: boolean
-  onNew: (type: 'feed' | 'diaper' | 'sleep' | 'note') => void
+  onNew: (type: 'feed' | 'diaper' | 'sleep' | 'pump' | 'note') => void
   onStartSleep: () => void
   onSelect: (event: BabyEvent) => void
   onStop: (event: BabyEvent) => void
@@ -46,6 +46,9 @@ export default function LogTab({ baby, events, now, canWrite, names, showAuthor,
   const today = daySummary(events, startOfDay(new Date(now)), now)
   const guide = wetDiaperGuide(baby.birth_date, new Date(now))
   const age = ageLabel(baby.birth_date, new Date(now))
+  // Pumping counters appear once someone has used pumping, so they don't clutter the screen for those who don't.
+  const showPumping = events.some(e => e.type === 'pump')
+  const PumpIcon = EVENT_ICON.pump
   const recent = events.filter(e => e.in_progress || startMs(e) >= now - DAY_MS)
 
   return (
@@ -86,6 +89,9 @@ export default function LogTab({ baby, events, now, canWrite, names, showAuthor,
             <Button variant="outline" size="sm" className="flex-1 rounded-lg" onClick={() => onNew('sleep')}>
               <Plus className="h-3.5 w-3.5" /> Past sleep
             </Button>
+            <Button variant="outline" size="sm" className="flex-1 rounded-lg" onClick={() => onNew('pump')}>
+              <PumpIcon className="h-3.5 w-3.5" /> Pump
+            </Button>
             <Button variant="outline" size="sm" className="flex-1 rounded-lg" onClick={() => onNew('note')}>
               <StickyNote className="h-3.5 w-3.5" /> Note
             </Button>
@@ -101,6 +107,13 @@ export default function LogTab({ baby, events, now, canWrite, names, showAuthor,
           <Stat label="Dirty" value={String(today.dirty)} />
           <Stat label="Sleep" value={formatDuration(today.sleepMs)} />
         </div>
+        {showPumping && (
+          <div className="grid grid-cols-3 gap-2" aria-label="Pumped today">
+            <Stat label="Pumped" value={`${today.pumpedMl} ml`} sub={`${today.pumps} session${today.pumps === 1 ? '' : 's'}`} />
+            <Stat label="Left" value={`${today.pumpedLeftMl} ml`} />
+            <Stat label="Right" value={`${today.pumpedRightMl} ml`} />
+          </div>
+        )}
         {guide && (
           <p className="px-1 text-xs text-muted-foreground">
             Day {guide.dayOfLife}: a rough guide is {guide.expectedWet} or more wet diapers a day. Not medical advice; if you're worried, call your pediatrician.

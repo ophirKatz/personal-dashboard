@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { validateDraft, type BabyEvent } from './babyEvents'
-import { buildDraft, clampMl, feedDefaults, initialForm, nextSide, type FeedDefaults, type FormTarget } from './eventForm'
+import { buildDraft, clampMl, clampPumpMl, feedDefaults, initialForm, nextSide, type FeedDefaults, type FormTarget } from './eventForm'
 
 const local = (d: number, h: number, m = 0) => new Date(2026, 10, d, h, m)
 const NOW = local(28, 14).getTime()
@@ -26,7 +26,7 @@ function ev(partial: Partial<BabyEvent> & Pick<BabyEvent, 'type'>): BabyEvent {
 }
 
 const NO_DEFAULTS: FeedDefaults = { method: null, side: null, ml: null, content: null }
-const create = (type: 'feed' | 'diaper' | 'sleep' | 'note'): FormTarget => ({ mode: 'create', type })
+const create = (type: 'feed' | 'diaper' | 'sleep' | 'pump' | 'note'): FormTarget => ({ mode: 'create', type })
 const form = (target: FormTarget, defaults = NO_DEFAULTS) => initialForm(target, defaults, NOW)
 
 describe('feedDefaults', () => {
@@ -162,6 +162,63 @@ describe('buildDraft: new entries', () => {
   })
 })
 
+describe('buildDraft: pumping', () => {
+  const save = (target: FormTarget, change: Partial<ReturnType<typeof form>> = {}) => {
+    const draft = buildDraft({ ...form(target), ...change }, target, NOW)
+    return { draft, error: validateDraft(draft, NOW) }
+  }
+
+  it('starts at nothing from either side, not at the bottle amount', () => {
+    expect(form(create('pump'), { method: 'bottle', side: null, ml: 110, content: 'formula' })).toMatchObject({ mlLeft: 0, mlRight: 0 })
+  })
+
+  it('saves what came from each side', () => {
+    const { draft, error } = save(create('pump'), { mlLeft: 80, mlRight: 60 })
+    expect(error).toBeNull()
+    expect(draft).toMatchObject({ type: 'pump', in_progress: false, ended_at: null, details: { ml_left: 80, ml_right: 60 } })
+    expect(draft.started_at).toBe(local(28, 14).toISOString())
+  })
+
+  it('leaves out a side that gave nothing', () => {
+    expect(save(create('pump'), { mlLeft: 45, mlRight: 0 }).draft.details).toEqual({ ml_left: 45 })
+    expect(save(create('pump'), { mlLeft: 0, mlRight: 30 }).draft.details).toEqual({ ml_right: 30 })
+  })
+
+  it('reads "now" plus a length as a session that has just finished', () => {
+    const { draft, error } = save(create('pump'), { mlLeft: 70, mlRight: 50, durationMin: '18' })
+    expect(error).toBeNull()
+    expect(draft.started_at).toBe(local(28, 13, 42).toISOString())
+    expect(draft.ended_at).toBe(local(28, 14).toISOString())
+  })
+
+  it('does the same for a breast feed, but not when the start was set to some other time', () => {
+    const f = save(create('feed'), { method: 'breast', durationMin: '12' })
+    expect(f.error).toBeNull()
+    expect(f.draft.started_at).toBe(local(28, 13, 48).toISOString())
+    // Started 5 minutes ago and lasted 20 would end in the future: that stays an error.
+    const bad = save(create('pump'), { mlLeft: 70, startedAt: '2026-11-28T13:55', durationMin: '20' })
+    expect(bad.error).toMatch(/hasn't happened/)
+  })
+
+  it('refuses a session with nothing in it', () => {
+    expect(save(create('pump')).error).toMatch(/how much you pumped/)
+  })
+
+  it('records how long it took, when told', () => {
+    const { draft, error } = save(create('pump'), { mlLeft: 70, mlRight: 50, startedAt: '2026-11-28T13:30', durationMin: '20' })
+    expect(error).toBeNull()
+    expect(draft.ended_at).toBe(local(28, 13, 50).toISOString())
+    expect(save(create('pump'), { mlLeft: 70, durationMin: '' }).draft.ended_at).toBeNull()
+  })
+
+  it('fills the form from a saved session, and keeps what it does not know about', () => {
+    const e = ev({ type: 'pump', details: { ml_left: 80, ml_right: 60, bag: 'A' } })
+    const target: FormTarget = { mode: 'edit', event: e }
+    expect(form(target)).toMatchObject({ mlLeft: 80, mlRight: 60 })
+    expect(buildDraft({ ...form(target), mlRight: 0 }, target, NOW).details).toEqual({ ml_left: 80, bag: 'A' })
+  })
+})
+
 describe('buildDraft: editing', () => {
   it('keeps details the form does not know about', () => {
     const e = ev({ type: 'feed', details: { method: 'bottle', ml: 60, content: 'formula', brand: 'X' } })
@@ -202,6 +259,15 @@ describe('buildDraft: editing', () => {
     const e = ev({ type: 'diaper', details: { kind: 'wet' } })
     const target: FormTarget = { mode: 'edit', event: e }
     expect(buildDraft(form(target), target, NOW)).toMatchObject({ ended_at: null, in_progress: false })
+  })
+})
+
+describe('clampPumpMl', () => {
+  it('allows the larger range of a pumping session, and treats junk as nothing', () => {
+    expect(clampPumpMl(250.6)).toBe(251)
+    expect(clampPumpMl(-3)).toBe(0)
+    expect(clampPumpMl(5000)).toBe(1000)
+    expect(clampPumpMl(NaN)).toBe(0)
   })
 })
 

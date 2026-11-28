@@ -311,6 +311,27 @@ describe('baby_events: what an entry may contain', () => {
     await good('temperature', { c: 38.2 })
   })
 
+  it('takes pumping amounts per side in a sane range, either side optional', async () => {
+    await good('pump', { ml_left: 80, ml_right: 60 })
+    await good('pump', { ml_left: 45 })
+    await good('pump', { ml_right: 0 })
+    await good('pump', {})
+    await good('pump', { ml_left: 1000 })
+    await bad('pump', { ml_left: -1 })
+    await bad('pump', { ml_right: 1001 })
+    await bad('pump', { ml_left: '80' })
+    await bad('pump', { ml_left: true })
+  })
+
+  it('lets a pumping timer run, and only one at a time per baby', async () => {
+    await expect(logEvent(MOM, { type: 'pump', details: {}, in_progress: true })).resolves.toBeTruthy()
+    await expect(logEvent(DAD, { type: 'pump', details: {}, in_progress: true })).rejects.toThrow(/baby_events_one_running/)
+    // Stopping it with the amounts is an ordinary edit.
+    await asUser(DAD)
+    await q(`update public.baby_events set in_progress = false, ended_at = now() + interval '1 minute', details = '{"ml_left":70,"ml_right":50}' where in_progress`)
+    expect((await q(`select details from public.baby_events where type = 'pump'`))[0].details).toEqual({ ml_left: 70, ml_right: 50 })
+  })
+
   it('needs details to be a JSON object of sane size', async () => {
     await bad('sleep', [])
     await bad('sleep', 'text')
