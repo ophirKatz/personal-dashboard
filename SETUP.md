@@ -736,6 +736,58 @@ secrets. If the project ref changes, update the URL inside `notify_meal_pick()`.
 
 ---
 
+## 1p. Baby tracker (shared with a partner)
+
+The **Baby** page (`/baby`) logs feeds (breast with a timer, bottle with an amount, solids), diapers
+(wet/dirty/both/dry, stool color), and sleep (a timer, or a past sleep), plus notes. The Log tab
+shows time since the last feed and diaper change, how long the baby has been asleep or awake, today's
+totals and the last 24 hours; History groups every day; Family manages who can see it. A running
+sleep or breast-feed timer is shared: either parent sees it and can stop it.
+
+**It's the first feature that is shared between two accounts**, so it uses a different model from
+everything else (which is `auth.uid() = user_id`): the unit of sharing is the **baby**.
+
+- `babies` -> `baby_members` (role `parent` or `viewer`) -> `baby_events` (one table for every
+  entry type, with a validated `details` JSON). A parent reads and writes everything, a viewer only
+  reads, and anyone else sees nothing. `anon` has no access to any of it and there are no public links.
+- Entries are never removed by the app: they are marked `deleted_at` (that is what Undo uses, and it
+  is what lets the other phone receive the change through Realtime, which doesn't filter removals by
+  RLS). Members aren't removed either: leaving sets `removed_at`, so old entries keep their author's
+  name. A trigger keeps at least one parent.
+- Membership checks live in a `private` schema that the Data API doesn't expose
+  (`private.is_baby_member`, `private.is_baby_parent`). The only public functions are
+  `create_baby()` and `accept_baby_invite()`, both closed to `anon`.
+- Live sync: `baby_events` is added to the `supabase_realtime` publication, and the app also reloads
+  when it comes back to the foreground, when the network returns, and every 45 s, so a missed live
+  update heals itself.
+- Edge functions use the service-role key and bypass RLS: any function that reads baby data in
+  future (a Siri shortcut, a push to the other parent) has to check `baby_members` itself.
+
+**Adding your partner**
+
+1. Family tab -> enter her Google email -> **Create link** -> send it. The link works for one
+   person for 7 days; with an email set, only that Google account can accept it. A leaked link is
+   useless to anyone else, and you can revoke it from the same list.
+2. She opens the link, signs in with Google (the link is remembered across the sign-in), enters
+   the name to show on her entries, and taps Join.
+
+**Manual steps**
+
+- Her Google account needs to be able to sign in at all. If the Google Cloud OAuth consent screen is
+  in *Testing* mode, add her email under **Test users**; the Supabase project must also allow new
+  sign-ups (Authentication -> Sign In / Providers).
+- She gets her own, empty dashboard: nothing of yours is visible to her. The only data shared
+  between accounts is the baby tracker, plus three reference tables that were already readable and
+  writable by any signed-in user (`app_settings`, `rs_quests`, `rs_diary_tasks`).
+- There is no "delete all baby data" button. To erase everything, run
+  `delete from public.babies where id = '<baby id>'` in the SQL editor (it cascades).
+
+Apply `supabase/migrations/20261128_add_baby_tracker.sql`. It has no statements that remove objects,
+so the Supabase MCP applies it without the confirmation timeout described in `CLAUDE.md`.
+`src/features/baby/babyTrackerDb.test.ts` runs it against an in-process Postgres and checks the rules.
+
+---
+
 ## 2. Vercel — Environment Variables
 
 As part of the import in step 0 (or right after), set these environment variables in the Vercel dashboard:
@@ -837,6 +889,10 @@ The `vercel.json` in this repo configures SPA routing (all paths → `index.html
 | `wealth_goals` | Financial goals: `target_amount` (NIS), optional `target_date`, `notes`, and either an optional `item_id` (the goal tracks just that account; deleting the account deletes the goal) or a `scope` (`text[]` of owners whose pooled wealth counts toward it). Progress is computed from current balances, not stored |
 | `rs_archaeology_progress` | RuneScape Archaeology progress: one row per character and item (`character_id`, `artefact_key`, `found`; unique `(character_id, artefact_key)`). Artefacts are saved under their slug with the count found; solved mysteries share the table under a `mystery:` prefix (e.g. `mystery:fallen-angels`) with `found` 1. The artefact, collection and mystery lists are static data in `src/features/runescape/archaeology-data.ts` and `archaeology-mysteries-data.ts` (regenerated from the wiki with `node scripts/generate-archaeology-data.mjs`), not stored. Deleting a character cascades to its progress |
 | `rs_pvm_progress` | RuneScape PvM path progress: one row per completed goal and character (`character_id`, `goal_key`, `completed_at`; unique `(character_id, goal_key)`). A row means the goal is done; un-ticking deletes it. Goal keys are stable ids like `arch-glacor:intro-1`. The bosses, what each teaches and their goals are static data in `src/features/runescape/pvm-data.ts` (from the PVME bossing path guide), not stored. Deleting a character cascades to its progress |
+| `babies` | A baby: `name`, optional `birth_date` (empty until the birth) and `sex` (only for growth charts later). Created through `create_baby()`, which also makes the caller its first parent. See step 1p |
+| `baby_members` | Who is in a baby's tracker: `role` (`parent`/`viewer`), `display_name` shown next to their entries, and `removed_at` (set when someone leaves or is removed; the row stays so old entries keep a name). Joining only happens through `accept_baby_invite()` |
+| `baby_invites` | Single-use, 7-day invite links: an unguessable `token`, `role`, optional `invited_email` (only that account can accept), `accepted_*` and `revoked_at` |
+| `baby_events` | Every log entry: `type` (feed/diaper/sleep/pump/temperature/medication/growth/note), `started_at`/`ended_at`, `in_progress` (a running timer; at most one per type per baby), `details` JSON validated per type by `private.baby_event_details_ok`, `logged_by`, and `deleted_at` (entries are only ever marked deleted) |
 | `user_settings` | One row per user of app preferences (Focus section toggles, bottom-nav items, More layout, Today widget order, Tomorrow banner times). Page lock adds `lock_code` (4 digits, default `0000`) and `locked_pages` (`text[]` of page keys from `src/lib/navItems.ts`, default `{wealth}`) — see the `20261016_add_page_lock.sql` migration |
 
 ### Storage
@@ -876,6 +932,9 @@ WITH CHECK (auth.uid() = user_id)
 nonce row. (The callback Edge Function uses the auto-injected service-role key since it has no
 user session to act as, but the policy still applies to the `/api/google-connect-start` insert,
 which runs as the user.)
+
+The four `baby_*` tables are the exception: they are shared between the members of a baby, not owned by
+one user. Their policies call `private.is_baby_member()` / `private.is_baby_parent()` (see step 1p).
 
 Storage objects are scoped to `(storage.foldername(name))[1] = auth.uid()::text`.
 

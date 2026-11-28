@@ -1,4 +1,4 @@
-import { Routes, Route, Navigate } from 'react-router-dom'
+import { Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { useEffect, useState, lazy, Suspense } from 'react'
 import type { User } from '@supabase/supabase-js'
 import { supabase } from './supabase'
@@ -11,6 +11,7 @@ import LockGate from './features/lock/LockGate'
 import { checkStockAlerts, checkCurrencyAlerts, checkFriendReminders } from './features/notifications/notifications'
 import { syncPushSubscription } from './lib/push'
 import { upsertPrimaryGoogleAccount } from './lib/googleAccounts'
+import { inviteTokenFromPath, rememberPendingInvite, takePendingInvite } from './features/baby/babyInvites'
 
 // Lazy-loaded so their dependencies (recharts, pdfjs/react-pdf, etc.) stay out
 // of the bundle needed for the initial Home Screen load.
@@ -42,6 +43,8 @@ const Workout = lazy(() => import('./pages/Workout'))
 const DiceRoller = lazy(() => import('./pages/DiceRoller'))
 const PdfTools = lazy(() => import('./pages/PdfTools'))
 const SharedMealPicker = lazy(() => import('./pages/SharedMealPicker'))
+const Baby = lazy(() => import('./pages/Baby'))
+const BabyJoin = lazy(() => import('./pages/BabyJoin'))
 
 function PageFallback() {
   return (
@@ -68,6 +71,8 @@ export default function App() {
 
 function AuthedApp() {
   const [user, setUser] = useState<User | null | undefined>(undefined)
+  const location = useLocation()
+  const navigate = useNavigate()
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -88,6 +93,20 @@ function AuthedApp() {
     })
     return () => subscription.unsubscribe()
   }, [])
+
+  // An invite link opened while signed out: remember it across the Google sign-in (which returns
+  // to the home page), then carry on to it once signed in.
+  useEffect(() => {
+    if (user !== null) return
+    const token = inviteTokenFromPath(location.pathname)
+    if (token) rememberPendingInvite(token)
+  }, [user, location.pathname])
+
+  useEffect(() => {
+    if (!user) return
+    const token = takePendingInvite()
+    if (token) navigate(`/baby/join/${token}`, { replace: true })
+  }, [user, navigate])
 
   useEffect(() => {
     if (user) {
@@ -144,6 +163,8 @@ function AuthedApp() {
               <Route path="meals" element={<MealIdeas />} />
               <Route path="meals/:id" element={<MealDetail />} />
               <Route path="workout" element={<Workout />} />
+              <Route path="baby" element={<Baby />} />
+              <Route path="baby/join/:token" element={<BabyJoin />} />
               <Route path="games" element={<Games />} />
               <Route path="pdf-tools" element={<PdfTools />} />
               <Route path="games/dice" element={<DiceRoller />} />
